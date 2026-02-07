@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智慧雲端記帳本 (Drive版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .loader {
+            border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #3b82f6;
+            width: 20px; height: 20px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-slate-800 text-white flex flex-col shadow-xl z-20 hidden md:flex">
+        <div class="p-6 border-b border-slate-700">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i class="fa-solid fa-wallet text-emerald-400"></i> AI 雲端記帳
+            </h1>
+        </div>
+        
+        <div class="p-4 flex-1 overflow-y-auto">
+            <div class="flex justify-between items-center mb-4 text-slate-400 text-sm font-bold uppercase">
+                <span>我的帳本</span>
+                <button onclick="ui.openModal('ledgerModal')" class="hover:text-white transition"><i class="fa-solid fa-plus"></i></button>
+            </div>
+            <ul id="ledgerList" class="space-y-2"></ul>
+        </div>
+
+        <div class="p-4 border-t border-slate-700">
+            <button onclick="ui.openModal('settingsModal')" class="flex items-center gap-3 w-full p-2 rounded hover:bg-slate-700 transition text-slate-300 hover:text-white">
+                <i class="fa-solid fa-gear"></i> 設定與連結
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-full relative">
+        <header class="bg-white p-4 shadow-sm flex justify-between items-center md:hidden">
+            <h1 class="font-bold text-lg"><i class="fa-solid fa-wallet text-emerald-500"></i> 記帳本</h1>
+            <button onclick="ui.toggleMobileMenu()" class="text-gray-600"><i class="fa-solid fa-bars text-xl"></i></button>
+        </header>
+
+        <div class="bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+            <div>
+                <h2 id="currentLedgerTitle" class="text-2xl font-bold text-gray-800">載入中...</h2>
+                <p class="text-gray-500 text-sm mt-1">管理您的收入與支出</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="ui.openModal('transactionModal')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg shadow transition flex items-center gap-2 font-medium">
+                    <i class="fa-solid fa-plus"></i> 新增紀錄
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                <div><p class="text-gray-500 text-sm font-medium">總收入</p><p id="totalIncome" class="text-2xl font-bold text-emerald-600 mt-1">$0</p></div>
+                <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><i class="fa-solid fa-arrow-trend-up"></i></div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                <div><p class="text-gray-500 text-sm font-medium">總支出</p><p id="totalExpense" class="text-2xl font-bold text-rose-600 mt-1">$0</p></div>
+                <div class="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-600"><i class="fa-solid fa-arrow-trend-down"></i></div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                <div><p class="text-gray-500 text-sm font-medium">目前結餘</p><p id="totalBalance" class="text-2xl font-bold text-blue-600 mt-1">$0</p></div>
+                <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><i class="fa-solid fa-wallet"></i></div>
+            </div>
+        </div>
+
+        <!-- List -->
+        <div class="flex-1 overflow-auto p-6 pt-0">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h3 class="font-bold text-gray-700">近期交易紀錄</h3>
+                    <div id="loadingIndicator" class="hidden flex items-center gap-2 text-sm text-gray-500">
+                        <div class="loader"></div> 同步中...
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="text-gray-500 text-sm border-b border-gray-100">
+                                <th class="p-4 font-medium">日期</th>
+                                <th class="p-4 font-medium">類別</th>
+                                <th class="p-4 font-medium">項目名稱</th>
+                                <th class="p-4 font-medium text-right">金額</th>
+                                <th class="p-4 font-medium text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionTableBody">
+                            <tr><td colspan="5" class="p-8 text-center text-gray-400">尚未選擇帳本或無資料</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Settings -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800">⚙️ 系統設定</h3>
+                <button onclick="ui.closeModal('settingsModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <label class="block text-sm font-bold text-blue-800 mb-1">
+                        <i class="fa-brands fa-google-drive"></i> Google Drive 上傳網址 (Apps Script)
+                    </label>
+                    <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs font-mono">
+                    <p class="text-xs text-blue-600 mt-2">
+                        <i class="fa-solid fa-circle-info"></i> 設定此網址後，照片將自動上傳至您的 Google Drive「記帳本照片」資料夾。
+                        <button onclick="alert('1. 前往 script.google.com 建立新專案\n2. 貼上我們提供的程式碼\n3. 部署為網頁應用程式 (權限: 任何人)\n4. 複製網址貼回此處')" class="underline font-bold">查看如何取得</button>
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Google Gemini API Key (AI 辨識)</label>
+                    <input type="password" id="geminiKeyInput" placeholder="貼上您的 API Key" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Firebase Config (JSON 資料庫備份)</label>
+                    <textarea id="firebaseConfigInput" rows="4" placeholder='{"apiKey": "...", ...}' class="w-full p-3 border border-gray-300 rounded-lg font-mono text-xs"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">
+                        請至 Firebase 控制台 > 專案設定 > 應用程式 > 複製 SDK 設定物件。<br>
+                        <span class="text-red-500 font-bold">*注意：您提供的 Rules 必須貼到 Firebase 網站的 Firestore Rules 分頁，而非此處。</span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end gap-3">
+                <button onclick="ui.closeModal('settingsModal')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
+                <button onclick="app.saveSettings()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">儲存設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add Transaction -->
+    <div id="transactionModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 m-4 overflow-y-auto max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">📝 新增紀錄</h3>
+                <button onclick="ui.closeModal('transactionModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+
+            <div class="mb-6 bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-center relative group">
+                <input type="file" id="receiptUpload" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="ai.handleImageUpload(this)">
+                <div id="aiUploadLabel">
+                    <i class="fa-solid fa-camera text-indigo-500 text-2xl mb-2"></i>
+                    <p class="text-sm font-medium text-indigo-700">點擊上傳收據/發票</p>
+                    <p id="driveStatusText" class="text-xs text-indigo-400 mt-1">AI 辨識 + 自動存入雲端</p>
+                </div>
+                <div id="aiLoading" class="hidden">
+                    <div class="loader mx-auto mb-2 border-indigo-500 border-t-transparent"></div>
+                    <p class="text-sm text-indigo-600 animate-pulse">正在處理圖片...</p>
+                </div>
+                <!-- Preview Area -->
+                <div id="imagePreviewContainer" class="hidden mt-2 relative">
+                    <img id="imagePreview" class="h-32 mx-auto rounded border border-gray-200 object-cover">
+                    <button type="button" onclick="ai.clearImage()" class="absolute top-0 right-10 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"><i class="fa-solid fa-times"></i></button>
+                    <p class="text-xs text-green-600 mt-1 font-bold"><i class="fa-solid fa-check"></i> 圖片已準備上傳</p>
+                </div>
+            </div>
+
+            <form id="transactionForm" onsubmit="app.addTransaction(event)" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">類型</label>
+                        <select id="tType" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg" onchange="ui.updateCategories()">
+                            <option value="expense">支出</option>
+                            <option value="income">收入</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">日期</label>
+                        <input type="date" id="tDate" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">金額</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2.5 text-gray-400">$</span>
+                        <input type="number" id="tAmount" required min="0" step="1" class="w-full pl-7 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-lg font-bold">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">項目名稱</label>
+                    <input type="text" id="tName" required placeholder="例如：午餐" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">分類</label>
+                    <select id="tCategory" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg"></select>
+                </div>
+
+                <!-- Hidden inputs for upload -->
+                <input type="hidden" id="hiddenImageUrl">
+
+                <div class="pt-2">
+                    <button type="submit" id="submitBtn" class="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
+                        <span>確認儲存</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Add Ledger -->
+    <div id="ledgerModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 m-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">📚 建立新帳本</h3>
+            <input type="text" id="newLedgerName" placeholder="例如：日本旅遊" class="w-full p-3 border border-gray-300 rounded-lg mb-4">
+            <div class="flex justify-end gap-2">
+                <button onclick="ui.closeModal('ledgerModal')" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded">取消</button>
+                <button onclick="app.createLedger()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">建立</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="fixed inset-0 bg-slate-900/95 z-40 hidden flex flex-col p-6 md:hidden">
+        <div class="flex justify-end mb-6">
+            <button onclick="ui.toggleMobileMenu()" class="text-white text-2xl"><i class="fa-solid fa-times"></i></button>
+        </div>
+        <div id="mobileLedgerList" class="space-y-4 text-white text-lg font-medium text-center"></div>
+        <button onclick="ui.openModal('settingsModal'); ui.toggleMobileMenu()" class="mt-8 w-full py-3 bg-slate-700 text-slate-200 rounded-lg">設定</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, deleteDoc, doc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const state = {
+            db: null,
+            // Updated defaults with user provided keys
+            geminiKey: localStorage.getItem('acc_gemini_key') || 'AIzaSyAG3cHURNSWoPWcXK7Z5fYZVSQL6uzSW8o',
+            scriptUrl: localStorage.getItem('acc_script_url') || 'https://script.google.com/macros/s/AKfycbxY6Rsu-YbelHECVROC6xQK3vh-8qTzRDKAj29iDPOwbPmNKawSB42tF7UE1tbSQJy6cw/exec',
+            ledgers: JSON.parse(localStorage.getItem('acc_ledgers')) || [{id: 'personal', name: '個人帳本'}],
+            currentLedgerId: localStorage.getItem('acc_current_ledger') || 'personal',
+            transactions: [],
+            unsubscribe: null,
+            isOnline: false,
+            currentImage: null // Stores {base64, mimeType, filename}
+        };
+
+        const CATEGORIES = {
+            expense: ['飲食', '交通', '購物', '娛樂', '居住', '醫療', '教育', '其他'],
+            income: ['薪水', '獎金', '投資', '兼職', '其他']
+        };
+
+        const app = {
+            init: async () => {
+                document.getElementById('geminiKeyInput').value = state.geminiKey;
+                document.getElementById('scriptUrlInput').value = state.scriptUrl;
+                
+                // Update Drive status text
+                const driveText = document.getElementById('driveStatusText');
+                if(!state.scriptUrl) driveText.innerText = "設定 Drive 連結後可自動備份照片";
+                else driveText.innerText = "已連結 Google Drive：照片將自動上傳";
+
+                const savedConfig = localStorage.getItem('acc_firebase_config');
+                if (savedConfig) {
+                    document.getElementById('firebaseConfigInput').value = savedConfig;
+                    await app.connectFirebase(savedConfig);
+                } else {
+                    app.loadLocalData();
+                }
+
+                ui.renderLedgerList();
+                ui.switchLedger(state.currentLedgerId);
+                document.getElementById('tDate').valueAsDate = new Date();
+                ui.updateCategories();
+            },
+
+            connectFirebase: async (configStr) => {
+                try {
+                    const config = JSON.parse(configStr);
+                    const firebaseApp = initializeApp(config);
+                    state.db = getFirestore(firebaseApp);
+                    try { await enableIndexedDbPersistence(state.db); } catch (e) {}
+                    state.isOnline = true;
+                    app.loadFirestoreData();
+                } catch (e) {
+                    console.error("Firebase Init Error:", e);
+                    state.isOnline = false;
+                    app.loadLocalData();
+                }
+            },
+
+            saveSettings: () => {
+                const key = document.getElementById('geminiKeyInput').value.trim();
+                const scriptUrl = document.getElementById('scriptUrlInput').value.trim();
+                const config = document.getElementById('firebaseConfigInput').value.trim();
+                
+                localStorage.setItem('acc_gemini_key', key);
+                localStorage.setItem('acc_script_url', scriptUrl);
+                state.geminiKey = key;
+                state.scriptUrl = scriptUrl;
+
+                if (config) {
+                    try {
+                        JSON.parse(config);
+                        localStorage.setItem('acc_firebase_config', config);
+                        location.reload();
+                    } catch (e) { alert("Firebase Config JSON 格式錯誤"); return; }
+                } else {
+                    localStorage.removeItem('acc_firebase_config');
+                    location.reload();
+                }
+            },
+
+            createLedger: () => {
+                const name = document.getElementById('newLedgerName').value.trim();
+                if (!name) return;
+                const id = 'ledger_' + Date.now();
+                state.ledgers.push({ id, name });
+                localStorage.setItem('acc_ledgers', JSON.stringify(state.ledgers));
+                ui.renderLedgerList();
+                ui.switchLedger(id);
+                ui.closeModal('ledgerModal');
+                document.getElementById('newLedgerName').value = '';
+            },
+
+            loadFirestoreData: () => {
+                if (state.unsubscribe) state.unsubscribe();
+                const q = query(collection(state.db, "transactions"), where("ledgerId", "==", state.currentLedgerId), orderBy("date", "desc"));
+                document.getElementById('loadingIndicator').classList.remove('hidden');
+                state.unsubscribe = onSnapshot(q, (snapshot) => {
+                    state.transactions = [];
+                    snapshot.forEach((doc) => state.transactions.push({ id: doc.id, ...doc.data() }));
+                    ui.renderTransactions();
+                    document.getElementById('loadingIndicator').classList.add('hidden');
+                });
+            },
+
+            loadLocalData: () => {
+                const allData = JSON.parse(localStorage.getItem('acc_transactions_local')) || [];
+                state.transactions = allData.filter(t => t.ledgerId === state.currentLedgerId).sort((a, b) => new Date(b.date) - new Date(a.date));
+                ui.renderTransactions();
+            },
+
+            addTransaction: async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('submitBtn');
+                const originalText = btn.innerHTML;
+                
+                // Disable button
+                btn.disabled = true;
+                
+                // 1. Upload to Drive if image exists and Script URL is set
+                let driveUrl = '';
+                if (state.currentImage && state.scriptUrl) {
+                    btn.innerHTML = '<div class="loader w-4 h-4 border-white border-t-transparent mr-2"></div> 上傳照片至 Drive...';
+                    try {
+                        const response = await fetch(state.scriptUrl, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                image: state.currentImage.base64,
+                                mimeType: state.currentImage.mimeType,
+                                filename: `receipt_${Date.now()}.jpg`
+                            })
+                        });
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            driveUrl = result.url;
+                        } else {
+                            alert('照片上傳失敗，但仍會儲存記帳資料。\n原因: ' + result.message);
+                        }
+                    } catch (err) {
+                        console.error("Drive Upload Error", err);
+                        alert('照片上傳連線失敗 (CORS/Network)，請檢查 Script URL。');
+                    }
+                }
+
+                btn.innerHTML = '儲存中...';
+
+                const type = document.getElementById('tType').value;
+                const date = document.getElementById('tDate').value;
+                const amount = parseFloat(document.getElementById('tAmount').value);
+                const name = document.getElementById('tName').value;
+                const category = document.getElementById('tCategory').value;
+
+                const newTx = {
+                    ledgerId: state.currentLedgerId,
+                    type, date, amount, name, category,
+                    imageUrl: driveUrl, // Save the drive link
+                    createdAt: new Date().toISOString()
+                };
+
+                try {
+                    if (state.isOnline && state.db) {
+                        await addDoc(collection(state.db, "transactions"), newTx);
+                    } else {
+                        const localData = JSON.parse(localStorage.getItem('acc_transactions_local')) || [];
+                        localData.push({ id: 'local_' + Date.now(), ...newTx });
+                        localStorage.setItem('acc_transactions_local', JSON.stringify(localData));
+                        app.loadLocalData();
+                    }
+                    
+                    ui.closeModal('transactionModal');
+                    e.target.reset();
+                    ai.clearImage();
+                    document.getElementById('tDate').valueAsDate = new Date();
+                } catch (err) {
+                    alert("儲存失敗：" + err.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            },
+
+            deleteTransaction: async (id) => {
+                if (!confirm("確定要刪除這筆紀錄嗎？")) return;
+                if (state.isOnline && state.db && !id.startsWith('local_')) {
+                    await deleteDoc(doc(state.db, "transactions", id));
+                } else {
+                    const localData = JSON.parse(localStorage.getItem('acc_transactions_local')) || [];
+                    const newData = localData.filter(t => t.id !== id);
+                    localStorage.setItem('acc_transactions_local', JSON.stringify(newData));
+                    app.loadLocalData();
+                }
+            }
+        };
+
+        const ai = {
+            handleImageUpload: (input) => {
+                const file = input.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async () => {
+                    const base64Data = reader.result.split(',')[1];
+                    // Store image for later upload
+                    state.currentImage = {
+                        base64: base64Data,
+                        mimeType: file.type,
+                        filename: file.name
+                    };
+                    
+                    // Show Preview
+                    document.getElementById('imagePreview').src = reader.result;
+                    document.getElementById('imagePreviewContainer').classList.remove('hidden');
+                    document.getElementById('aiUploadLabel').classList.add('hidden');
+
+                    if (state.geminiKey) {
+                        await ai.processImageWithGemini(base64Data, file.type);
+                    } else {
+                        // Just allow upload without AI
+                    }
+                };
+                reader.readAsDataURL(file);
+            },
+
+            clearImage: () => {
+                state.currentImage = null;
+                document.getElementById('receiptUpload').value = '';
+                document.getElementById('imagePreviewContainer').classList.add('hidden');
+                document.getElementById('aiUploadLabel').classList.remove('hidden');
+                document.getElementById('aiLoading').classList.add('hidden');
+            },
+
+            processImageWithGemini: async (base64, mimeType) => {
+                const loader = document.getElementById('aiLoading');
+                loader.classList.remove('hidden');
+
+                try {
+                    const prompt = `Analyze this receipt. Extract in JSON: { "amount": number, "date": "YYYY-MM-DD", "name": string, "category": string (suggest from: 飲食, 交通, 購物, 娛樂, 居住, 醫療, 教育, 其他) }. Use today for date if missing.`;
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.geminiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }] })
+                    });
+
+                    const data = await response.json();
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    const jsonMatch = text?.match(/\{[\s\S]*\}/);
+                    
+                    if (jsonMatch) {
+                        const result = JSON.parse(jsonMatch[0]);
+                        document.getElementById('tAmount').value = result.amount || '';
+                        document.getElementById('tName').value = result.name || '';
+                        if (result.date) document.getElementById('tDate').value = result.date;
+                        
+                        const catSelect = document.getElementById('tCategory');
+                        document.getElementById('tType').value = 'expense';
+                        ui.updateCategories();
+                        for(let i=0; i<catSelect.options.length; i++) {
+                            if (catSelect.options[i].value === result.category) { catSelect.selectedIndex = i; break; }
+                        }
+                    }
+                } catch (e) { console.error(e); } finally { loader.classList.add('hidden'); }
+            }
+        };
+
+        const ui = {
+            renderLedgerList: () => {
+                document.getElementById('ledgerList').innerHTML = state.ledgers.map(l => `
+                    <li><button onclick="ui.switchLedger('${l.id}')" class="w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition ${l.id === state.currentLedgerId ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}"><i class="fa-solid fa-book"></i> ${l.name}</button></li>`).join('');
+            },
+            switchLedger: (id) => {
+                state.currentLedgerId = id;
+                localStorage.setItem('acc_current_ledger', id);
+                document.getElementById('currentLedgerTitle').innerText = state.ledgers.find(l => l.id === id)?.name || '未知帳本';
+                ui.renderLedgerList();
+                state.isOnline ? app.loadFirestoreData() : app.loadLocalData();
+            },
+            renderTransactions: () => {
+                const tbody = document.getElementById('transactionTableBody');
+                let income = 0, expense = 0;
+                
+                if (state.transactions.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-gray-400"><i class="fa-solid fa-file-invoice text-4xl mb-2 block"></i>暫無資料</td></tr>`;
+                } else {
+                    tbody.innerHTML = state.transactions.map(t => {
+                        const isExp = t.type === 'expense';
+                        if (isExp) expense += t.amount; else income += t.amount;
+                        
+                        // Image Link Button
+                        const imgBtn = t.imageUrl ? `<a href="${t.imageUrl}" target="_blank" class="text-blue-500 hover:text-blue-700 mr-2" title="查看照片"><i class="fa-solid fa-image"></i></a>` : '';
+
+                        return `<tr class="border-b border-gray-50 hover:bg-gray-50 transition group">
+                            <td class="p-4 text-gray-600">${t.date}</td>
+                            <td class="p-4"><span class="px-2 py-1 rounded text-xs font-bold ${isExp ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">${t.category}</span></td>
+                            <td class="p-4 font-medium text-gray-800">${t.name}</td>
+                            <td class="p-4 text-right font-bold ${isExp ? 'text-rose-600' : 'text-emerald-600'}">${isExp ? '-' : '+'}$${t.amount.toLocaleString()}</td>
+                            <td class="p-4 text-center">
+                                ${imgBtn}
+                                <button onclick="app.deleteTransaction('${t.id}')" class="text-gray-300 hover:text-rose-500 transition opacity-0 group-hover:opacity-100"><i class="fa-solid fa-trash"></i></button>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+                document.getElementById('totalIncome').innerText = `$${income.toLocaleString()}`;
+                document.getElementById('totalExpense').innerText = `$${expense.toLocaleString()}`;
+                document.getElementById('totalBalance').innerText = `$${(income - expense).toLocaleString()}`;
+            },
+            updateCategories: () => {
+                const type = document.getElementById('tType').value;
+                document.getElementById('tCategory').innerHTML = CATEGORIES[type].map(c => `<option value="${c}">${c}</option>`).join('');
+            },
+            openModal: (id) => document.getElementById(id).classList.remove('hidden'),
+            closeModal: (id) => document.getElementById(id).classList.add('hidden'),
+            toggleMobileMenu: () => document.getElementById('mobileMenu').classList.toggle('hidden')
+        };
+
+        window.app = app; window.ui = ui; window.ai = ai;
+        app.init();
+    </script>
+</body>
+</html>
