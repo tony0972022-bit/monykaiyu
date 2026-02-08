@@ -7,6 +7,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- QR Code Scanner Library -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <!-- Excel Export Library (SheetJS) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Markdown Parser for AI Chat -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
@@ -16,6 +22,11 @@
             width: 20px; height: 20px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Modal Animation */
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -27,6 +38,31 @@
         
         .archived-ledger { filter: grayscale(1); opacity: 0.7; }
         .archived-ledger:hover { filter: grayscale(0); opacity: 1; }
+
+        /* Item Row Animation */
+        .item-row { transition: all 0.2s; }
+        .item-row:hover { background-color: #f8fafc; }
+        
+        /* Category Chips */
+        .cat-chip { transition: all 0.2s; }
+        .cat-chip:hover { transform: scale(1.05); }
+
+        /* Tab Styles */
+        .tab-btn { border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-bottom-color: #3b82f6; color: #3b82f6; font-weight: bold; }
+        
+        /* Custom Details Marker */
+        details > summary { list-style: none; cursor: pointer; }
+        details > summary::-webkit-details-marker { display: none; }
+
+        /* Grouped Transaction Styles */
+        .tx-group-header { cursor: pointer; transition: background-color 0.2s; }
+        .tx-group-header:hover { background-color: #f0f9ff; }
+        .tx-detail-row { background-color: #f8fafc; animation: fadeIn 0.2s ease-out; }
+
+        /* Chart Mode Buttons */
+        .chart-mode-btn { transition: all 0.2s; }
+        .chart-mode-btn.active { background-color: #4f46e5; color: white; }
     </style>
 </head>
 <body class="text-gray-800 h-screen flex overflow-hidden">
@@ -64,76 +100,164 @@
             </div>
         </div>
 
-        <div class="p-4 border-t border-slate-700">
-            <button onclick="ui.openModal('settingsModal')" class="flex items-center gap-3 w-full p-2 rounded hover:bg-slate-700 transition text-slate-300 hover:text-white">
+        <div class="p-4 border-t border-slate-700 space-y-2">
+            <!-- Import Excel Button (New) -->
+            <button onclick="ui.openModal('importModal')" class="flex items-center gap-3 w-full p-2 rounded hover:bg-slate-700 transition text-slate-300 hover:text-white">
+                <i class="fa-solid fa-file-import text-emerald-400"></i> 匯入 Excel
+            </button>
+            <button onclick="ui.openSettings()" class="flex items-center gap-3 w-full p-2 rounded hover:bg-slate-700 transition text-slate-300 hover:text-white">
                 <i class="fa-solid fa-gear"></i> 系統設定
+            </button>
+            <button onclick="ui.logout()" class="flex items-center gap-3 w-full p-2 rounded hover:bg-slate-700 transition text-slate-300 hover:text-white">
+                <i class="fa-solid fa-right-from-bracket"></i> 登出
             </button>
         </div>
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 flex flex-col h-full relative">
-        <header class="bg-white p-4 shadow-sm flex justify-between items-center md:hidden">
+    <main class="flex-1 flex flex-col h-full relative overflow-y-auto">
+        <header class="bg-white p-4 shadow-sm flex justify-between items-center md:hidden sticky top-0 z-30">
             <h1 class="font-bold text-lg"><i class="fa-solid fa-wallet text-emerald-500"></i> 記帳本</h1>
             <button onclick="ui.toggleMobileMenu()" class="text-gray-600"><i class="fa-solid fa-bars text-xl"></i></button>
         </header>
 
-        <div class="bg-white border-b border-gray-200 p-6 flex justify-between items-center flex-wrap gap-4">
+        <div class="bg-white border-b border-gray-200 p-6 flex justify-between items-center flex-wrap gap-4 sticky top-0 z-20 shadow-sm md:static">
             <div>
                 <h2 id="currentLedgerTitle" class="text-2xl font-bold text-gray-800">載入中...</h2>
-                <div class="flex flex-wrap items-center gap-2 mt-1">
+                <div class="flex items-center gap-2 mt-1">
                     <span id="ledgerTypeBadge" class="hidden px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-700">個人</span>
                     <span id="ledgerStatusBadge" class="hidden px-2 py-0.5 rounded text-xs font-bold bg-gray-200 text-gray-600">已歸檔</span>
                     <p id="ledgerMembers" class="text-gray-500 text-sm hidden"></p>
-                    <button id="addMemberBtn" onclick="app.addMemberToLedger()" class="hidden text-emerald-600 hover:text-emerald-700 text-xs px-2 py-0.5 bg-emerald-50 rounded border border-emerald-200 transition" title="新增成員">
-                        <i class="fa-solid fa-user-plus"></i> 新增成員
-                    </button>
                 </div>
             </div>
-            <div class="flex gap-3">
+            <div class="flex gap-2 items-center">
+                <!-- Date Filters (Only for List/Weekly view essentially, but always visible) -->
+                <div class="flex bg-gray-100 rounded-lg p-1 mr-2" id="globalDateFilter">
+                    <select id="ledgerYear" class="bg-transparent text-sm font-bold text-gray-700 p-1 outline-none" onchange="app.updateLedgerView()"></select>
+                    <div class="w-[1px] bg-gray-300 my-1"></div>
+                    <select id="ledgerMonth" class="bg-transparent text-sm font-bold text-gray-700 p-1 outline-none" onchange="app.updateLedgerView()">
+                        <option value="all">全年</option>
+                        <option value="01">1月</option><option value="02">2月</option><option value="03">3月</option>
+                        <option value="04">4月</option><option value="05">5月</option><option value="06">6月</option>
+                        <option value="07">7月</option><option value="08">8月</option><option value="09">9月</option>
+                        <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+                    </select>
+                </div>
+
                 <button id="settleBtn" onclick="app.calculateDebt()" class="hidden bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg shadow transition flex items-center gap-2 font-medium text-sm">
-                    <i class="fa-solid fa-calculator"></i> 結算分帳
+                    <i class="fa-solid fa-calculator"></i> 分帳
                 </button>
                 <button id="addTxBtn" onclick="ui.openTransactionModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg shadow transition flex items-center gap-2 font-medium">
-                    <i class="fa-solid fa-plus"></i> 新增紀錄
+                    <i class="fa-solid fa-plus"></i> 記一筆
                 </button>
             </div>
         </div>
 
-        <!-- Dashboard -->
-        <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                <div><p class="text-gray-500 text-sm font-medium">總支出 (TWD)</p><p id="totalExpense" class="text-2xl font-bold text-rose-600 mt-1">$0</p></div>
-                <div class="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-600"><i class="fa-solid fa-arrow-trend-down"></i></div>
+        <!-- Dashboard Cards (Updated Layout) -->
+        <div class="p-4 grid grid-cols-3 gap-3 md:gap-6">
+            <div class="bg-white p-3 md:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
+                <p class="text-gray-500 text-xs font-bold uppercase mb-1">總支出</p>
+                <p id="totalExpense" class="text-lg md:text-3xl font-bold text-rose-600">$0</p>
             </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                <div><p class="text-gray-500 text-sm font-medium">總收入 (TWD)</p><p id="totalIncome" class="text-2xl font-bold text-emerald-600 mt-1">$0</p></div>
-                <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><i class="fa-solid fa-arrow-trend-up"></i></div>
+            <div class="bg-white p-3 md:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
+                <p class="text-gray-500 text-xs font-bold uppercase mb-1">總收入</p>
+                <p id="totalIncome" class="text-lg md:text-3xl font-bold text-emerald-600">$0</p>
             </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                <div><p class="text-gray-500 text-sm font-medium">結餘</p><p id="totalBalance" class="text-2xl font-bold text-blue-600 mt-1">$0</p></div>
-                <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><i class="fa-solid fa-wallet"></i></div>
+            <div class="bg-white p-3 md:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
+                <p class="text-gray-500 text-xs font-bold uppercase mb-1">結餘</p>
+                <p id="totalBalance" class="text-lg md:text-3xl font-bold text-blue-600">$0</p>
+            </div>
+        </div>
+
+        <!-- NEW: In-Ledger Analysis Section -->
+        <div class="px-6 py-4">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div class="flex gap-4 overflow-x-auto pb-2">
+                    <!-- Top 5 Expense -->
+                    <div class="flex-1 min-w-[300px]">
+                        <h4 class="text-xs font-bold text-rose-500 uppercase mb-2 border-b border-rose-100 pb-1">Top 5 消費項目</h4>
+                        <div id="topExpenseList" class="space-y-2"></div>
+                    </div>
+                    <!-- Top 5 Income -->
+                    <div class="flex-1 min-w-[300px]">
+                        <h4 class="text-xs font-bold text-emerald-500 uppercase mb-2 border-b border-emerald-100 pb-1">Top 5 收入來源</h4>
+                        <div id="topIncomeList" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <!-- Trend Chart Expansion -->
+                <details class="group mt-4 bg-slate-50 rounded-lg border border-slate-200" open>
+                    <summary class="p-3 text-sm font-bold text-slate-600 flex justify-between items-center cursor-pointer hover:bg-slate-100 rounded-lg transition">
+                        <span class="flex items-center gap-2"><i class="fa-solid fa-chart-simple text-slate-400"></i> 消費趨勢分析</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-normal text-slate-400" id="dailyChartHint">滑過長條查看 Top 3 類別</span>
+                            <i class="fa-solid fa-chevron-down group-open:rotate-180 transition"></i>
+                        </div>
+                    </summary>
+                    <div class="p-4 pt-0 border-t border-slate-200 mt-2">
+                        <!-- Chart Mode Switcher -->
+                        <div class="flex flex-wrap items-center gap-2 mb-3 mt-3">
+                            <button onclick="app.setChartMode('weekly')" id="mode-weekly" class="chart-mode-btn active px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600 hover:bg-gray-300">週</button>
+                            <button onclick="app.setChartMode('monthly')" id="mode-monthly" class="chart-mode-btn px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600 hover:bg-gray-300">月 (比較)</button>
+                            <button onclick="app.setChartMode('quarterly')" id="mode-quarterly" class="chart-mode-btn px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600 hover:bg-gray-300">季</button>
+                            <button onclick="app.setChartMode('yearly')" id="mode-yearly" class="chart-mode-btn px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600 hover:bg-gray-300">年</button>
+                            
+                            <!-- Dynamic Chart Controls -->
+                            <div id="chartControls" class="flex items-center gap-2 ml-auto text-xs"></div>
+                            
+                            <!-- Trend Export Button (New) -->
+                            <button onclick="app.exportTrendReport()" class="ml-2 text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1 rounded-full font-bold transition flex items-center gap-1" title="匯出Excel">
+                                <i class="fa-solid fa-file-excel"></i> 匯出報表
+                            </button>
+                        </div>
+
+                        <!-- Summary Container -->
+                        <div id="dailyStatsSummary" class="mb-4 min-h-[80px] transition-all duration-300">
+                            <!-- Placeholder when no hover -->
+                            <div class="text-center text-gray-400 text-sm py-6 bg-slate-50 rounded-xl border border-dashed border-gray-200">
+                                滑過或點擊下方圖表以查看該時段消費詳情
+                            </div>
+                        </div>
+
+                        <!-- Chart Container -->
+                        <div id="dailyChartContainer" class="flex items-end justify-between h-48 mt-2 px-2 gap-2 overflow-x-auto pb-6">
+                            <!-- Bars will be injected here -->
+                        </div>
+                    </div>
+                </details>
             </div>
         </div>
 
         <!-- List -->
-        <div class="flex-1 overflow-auto p-6 pt-0">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="flex-1 p-6 pt-0">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[600px]">
                 <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                    <h3 class="font-bold text-gray-700">交易紀錄</h3>
-                    <div id="loadingIndicator" class="hidden flex items-center gap-2 text-sm text-gray-500">
-                        <div class="loader"></div> 同步中...
+                    <h3 class="font-bold text-gray-700" id="listHeaderTitle">交易紀錄</h3>
+                    <div class="flex items-center gap-2">
+                         <button id="bulkDeleteBtn" onclick="app.deleteSelected()" class="hidden text-xs bg-red-100 hover:bg-red-200 text-red-600 px-3 py-1 rounded font-bold transition flex items-center gap-1">
+                            <i class="fa-solid fa-trash-can"></i> 刪除選取 (<span id="selectedCount">0</span>)
+                         </button>
+                         
+                         <!-- List Export Button (New) -->
+                         <button onclick="app.exportCurrentList()" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1 rounded font-bold transition flex items-center gap-1">
+                            <i class="fa-solid fa-file-export"></i> 匯出清單
+                         </button>
+
+                         <button id="clearFilterBtn" onclick="app.clearDateFilter()" class="hidden text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-gray-600"><i class="fa-solid fa-filter-circle-xmark"></i> 清除篩選</button>
+                        <div id="loadingIndicator" class="hidden flex items-center gap-2 text-sm text-gray-500">
+                            <div class="loader"></div> 同步中...
+                        </div>
                     </div>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="overflow-y-auto flex-1 relative">
                     <table class="w-full text-left border-collapse">
-                        <thead>
+                        <thead class="sticky top-0 bg-gray-50 z-10 shadow-sm">
                             <tr class="text-gray-500 text-sm border-b border-gray-100">
-                                <th class="p-4 font-medium">日期</th>
-                                <th class="p-4 font-medium">付款人/項目/分攤</th>
-                                <th class="p-4 font-medium">原幣金額</th>
-                                <th class="p-4 font-medium text-right">台幣金額</th>
-                                <th class="p-4 font-medium text-center">操作</th>
+                                <th class="p-4 w-10 text-center"><input type="checkbox" id="selectAllTx" onchange="ui.toggleSelectAll(this)" class="w-4 h-4 cursor-pointer"></th>
+                                <th class="p-4 font-medium w-32">日期</th>
+                                <th class="p-4 font-medium">商店 / 項目類別</th>
+                                <th class="p-4 font-medium text-right w-32">總金額</th>
+                                <th class="p-4 font-medium text-center w-16"></th>
                             </tr>
                         </thead>
                         <tbody id="transactionTableBody">
@@ -144,6 +268,52 @@
             </div>
         </div>
     </main>
+
+    <!-- Modal: Create Ledger (Fixed) -->
+    <div id="ledgerModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 m-4 animate-fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800">📘 建立新帳本</h3>
+                <button onclick="ui.closeModal('ledgerModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">帳本名稱</label>
+                    <input type="text" id="newLedgerName" placeholder="例如：2024日本遊、公司報帳..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">類型</label>
+                        <select id="newLedgerType" class="w-full p-3 border border-gray-300 rounded-lg bg-white text-sm" onchange="ui.toggleMemberInput()">
+                            <option value="personal">個人帳本</option>
+                            <option value="group">多人共用</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">預設幣別</label>
+                        <select id="newLedgerCurrency" class="w-full p-3 border border-gray-300 rounded-lg bg-white text-sm">
+                            <option value="TWD">TWD (台幣)</option>
+                            <option value="JPY">JPY (日幣)</option>
+                            <option value="USD">USD (美金)</option>
+                            <option value="EUR">EUR (歐元)</option>
+                            <option value="KRW">KRW (韓元)</option>
+                            <option value="CNY">CNY (人民幣)</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="memberInputDiv" class="hidden">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">成員 (用逗號分隔)</label>
+                    <input type="text" id="newLedgerMembers" placeholder="例如：小明, 小華, 小美" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                    <p class="text-[10px] text-gray-400 mt-1">*您自己會自動加入，無需輸入</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">密碼保護 (選填)</label>
+                    <input type="password" id="newLedgerPassword" placeholder="設定密碼 (空白則不設防)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
+                <button onclick="app.createLedger()" class="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-lg mt-2">立即建立</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal: Image Viewer -->
     <div id="imageViewerModal" class="fixed inset-0 bg-black/90 z-[100] hidden flex items-center justify-center" onclick="ui.closeImageModal()">
@@ -163,6 +333,7 @@
                 <p class="text-gray-500 text-sm">多人帳本將依據此身分進行分帳</p>
             </div>
 
+            <!-- Existing User Select -->
             <div id="existingUserSection" class="mb-6">
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-2">選擇現有角色</label>
                 <select id="loginUserSelect" class="w-full p-3 border border-gray-300 rounded-lg mb-3 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
@@ -177,6 +348,7 @@
                 <div class="flex-grow border-t border-gray-200"></div>
             </div>
 
+            <!-- Create New User -->
             <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-2">建立新角色</label>
                 <div class="flex gap-2">
@@ -189,43 +361,107 @@
 
     <!-- Modal: User Profile & Rename -->
     <div id="userProfileModal" class="fixed inset-0 bg-slate-900/90 z-[60] hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 m-4 flex flex-col max-h-[90vh]">
-            <div class="flex justify-between items-center mb-6">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl p-6 m-4 flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4">
                 <h3 class="text-2xl font-bold text-gray-800 flex items-center gap-2"><i class="fa-solid fa-id-card text-indigo-500"></i> 個人中心</h3>
                 <button onclick="ui.closeModal('userProfileModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
 
+            <!-- Tabs -->
+            <div class="flex gap-4 border-b border-gray-200 mb-4 overflow-x-auto">
+                <button onclick="ui.switchProfileTab('overview')" id="tab-overview" class="tab-btn active px-2 py-2 text-sm text-gray-600 hover:text-blue-600 transition whitespace-nowrap">帳本概況</button>
+                <button onclick="ui.switchProfileTab('assets')" id="tab-assets" class="tab-btn px-2 py-2 text-sm text-gray-600 hover:text-blue-600 transition whitespace-nowrap">我的資產</button>
+                <button onclick="ui.switchProfileTab('ai-assistant')" id="tab-ai-assistant" class="tab-btn px-2 py-2 text-sm text-gray-600 hover:text-blue-600 transition whitespace-nowrap">AI 帳務助理</button>
+                <button onclick="ui.switchProfileTab('settings')" id="tab-settings" class="tab-btn px-2 py-2 text-sm text-gray-600 hover:text-blue-600 transition whitespace-nowrap">個人設定</button>
+            </div>
+
             <div class="overflow-y-auto flex-1 pr-2">
-                <div class="bg-indigo-50 p-5 rounded-xl mb-6 border border-indigo-100">
-                    <label class="block text-xs font-bold text-indigo-800 uppercase mb-2">修改名稱 (更名)</label>
-                    <div class="flex gap-2">
-                        <input type="text" id="renameInput" placeholder="輸入新名稱" class="flex-1 p-3 border border-indigo-200 rounded-lg font-bold text-gray-700">
-                        <button onclick="app.renameUser()" id="renameBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 rounded-lg font-bold transition whitespace-nowrap">確認更名</button>
+                <!-- TAB 1: Overview -->
+                <div id="content-overview">
+                    <div class="flex flex-wrap items-center gap-3 mb-4 bg-gray-50 p-3 rounded-xl sticky top-0 z-10 shadow-sm">
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs font-bold text-gray-500">年份</label>
+                            <select id="statYear" class="p-1.5 border border-gray-300 rounded text-sm" onchange="app.loadUserStats()"></select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs font-bold text-gray-500">月份</label>
+                            <select id="statMonth" class="p-1.5 border border-gray-300 rounded text-sm" onchange="app.loadUserStats()">
+                                <option value="all">全年</option>
+                                <option value="01">1月</option><option value="02">2月</option><option value="03">3月</option>
+                                <option value="04">4月</option><option value="05">5月</option><option value="06">6月</option>
+                                <option value="07">7月</option><option value="08">8月</option><option value="09">9月</option>
+                                <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2 ml-auto">
+                            <input type="checkbox" id="showDetailsCheck" class="w-4 h-4 text-blue-600 rounded" onchange="app.loadUserStats()">
+                            <label for="showDetailsCheck" class="text-sm text-gray-600 select-none cursor-pointer">顯示詳細統計</label>
+                        </div>
+                        <button onclick="app.exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1 shadow-sm">
+                            <i class="fa-solid fa-file-excel"></i> 匯出Excel
+                        </button>
                     </div>
-                    <p class="text-xs text-indigo-400 mt-2"><i class="fa-solid fa-circle-exclamation"></i> 這會將所有帳本中的舊名字全面更新為新名字，請謹慎操作。</p>
+                    <div id="statsLoader" class="hidden text-center py-10 text-gray-500"><div class="loader mx-auto mb-2"></div>數據分析中...</div>
+                    <div id="ledgerStatsContainer" class="space-y-4"></div>
                 </div>
 
-                <div class="flex justify-between items-center mb-4">
-                    <h4 class="font-bold text-gray-700"><i class="fa-solid fa-chart-pie"></i> 帳本概況</h4>
-                    <button onclick="ui.logout()" class="text-xs text-red-500 hover:underline"><i class="fa-solid fa-right-from-bracket"></i> 登出/切換帳號</button>
+                <!-- TAB 2: Assets (New) -->
+                <div id="content-assets" class="hidden">
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-5 text-white mb-6 shadow-lg">
+                        <p class="text-blue-100 text-sm mb-1">個人資產總計</p>
+                        <h2 class="text-3xl font-bold" id="totalAssetDisplay">$0</h2>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
+                        <h4 class="font-bold text-gray-700 mb-3 text-sm" id="assetActionTitle">新增 / 更新資產</h4>
+                        <div class="flex gap-2 mb-2">
+                            <!-- Updated: Input with Datalist for Dropdown -->
+                            <input type="text" id="assetNameInput" list="assetNamesList" placeholder="帳戶名稱 (如: 玉山銀行)" class="flex-1 p-2 border border-gray-300 rounded text-sm">
+                            <datalist id="assetNamesList"></datalist>
+                            <input type="number" id="assetBalanceInput" placeholder="目前金額" class="w-1/3 p-2 border border-gray-300 rounded text-sm">
+                        </div>
+                        <button onclick="app.saveAsset()" class="w-full bg-slate-800 text-white py-2 rounded text-sm font-bold hover:bg-slate-900 transition">更新餘額</button>
+                        <p class="text-xs text-gray-400 mt-2">* 若名稱相同則會更新餘額並記錄歷史。</p>
+                    </div>
+
+                    <h4 class="font-bold text-gray-700 mb-3 text-sm border-b border-gray-200 pb-2">資產列表</h4>
+                    <div id="assetsList" class="space-y-3">
+                        <div class="text-center text-gray-400 py-4 text-sm">暫無資產紀錄</div>
+                    </div>
                 </div>
-                
-                <div class="grid grid-cols-3 gap-4 mb-6">
-                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100 text-center">
-                        <p class="text-xs text-emerald-600 font-bold uppercase mb-1">總收入</p>
-                        <p id="statTotalIncome" class="text-lg font-bold text-emerald-700">$0</p>
-                    </div>
-                    <div class="bg-rose-50 p-4 rounded-xl border border-rose-100 text-center">
-                        <p class="text-xs text-rose-600 font-bold uppercase mb-1">總支出</p>
-                        <p id="statTotalExpense" class="text-lg font-bold text-rose-700">$0</p>
-                    </div>
-                    <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
-                        <p class="text-xs text-blue-600 font-bold uppercase mb-1">總餘額</p>
-                        <p id="statTotalBalance" class="text-lg font-bold text-blue-700">$0</p>
+
+                <!-- TAB 3: AI Assistant -->
+                <div id="content-ai-assistant" class="hidden h-full flex flex-col">
+                    <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-4 flex-1 flex flex-col min-h-[300px]">
+                        <div class="text-center mb-4">
+                            <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-2 text-indigo-600 text-xl"><i class="fa-solid fa-robot"></i></div>
+                            <h4 class="font-bold text-indigo-900">AI 帳務助理</h4>
+                            <p class="text-xs text-indigo-500">我可以根據您的帳本資料回答問題，例如：「上個月餐費多少？」、「哪個帳本花最兇？」</p>
+                        </div>
+                        <div id="aiChatHistory" class="flex-1 overflow-y-auto space-y-3 mb-3 p-2 bg-white/50 rounded-lg max-h-[300px]">
+                            <div class="text-xs text-gray-400 text-center italic">-- 對話紀錄 --</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="aiChatInput" placeholder="輸入您的問題..." class="flex-1 p-3 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" onkeypress="if(event.key==='Enter') app.askAI()">
+                            <button onclick="app.askAI()" id="btnAiSend" class="bg-indigo-600 text-white px-4 rounded-lg hover:bg-indigo-700 transition"><i class="fa-solid fa-paper-plane"></i></button>
+                        </div>
                     </div>
                 </div>
-                <div id="statsLoader" class="hidden text-center py-4 text-gray-500"><div class="loader mx-auto mb-2"></div>分析中...</div>
-                <div id="ledgerStatsList" class="space-y-3"></div>
+
+                <!-- TAB 4: Settings -->
+                <div id="content-settings" class="hidden">
+                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                        <label class="block text-xs font-bold text-gray-800 uppercase mb-2">修改顯示名稱</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="renameInput" placeholder="輸入新名稱" class="flex-1 p-3 border border-gray-300 rounded-lg font-bold text-gray-700">
+                            <button onclick="app.renameUser()" id="renameBtn" class="bg-gray-600 hover:bg-gray-700 text-white px-6 rounded-lg font-bold transition whitespace-nowrap">確認</button>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-2"><i class="fa-solid fa-circle-exclamation"></i> 這會更新所有帳本中的顯示名稱。</p>
+                    </div>
+                    <div class="mt-4 text-center">
+                         <button onclick="ui.logout()" class="text-sm text-red-500 hover:underline"><i class="fa-solid fa-right-from-bracket"></i> 登出/切換帳號</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -237,21 +473,62 @@
                 <h3 class="text-xl font-bold text-gray-800">💰 結算分帳</h3>
                 <button onclick="ui.closeModal('settleModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
-            
             <div id="settleContent" class="space-y-4 mb-6"></div>
-            
             <div class="border-t border-gray-100 pt-4 bg-yellow-50 p-4 rounded-lg">
                 <h4 class="font-bold text-gray-700 mb-2 flex items-center gap-2"><i class="fa-solid fa-box-archive text-yellow-600"></i> 結算並歸檔</h4>
                 <p class="text-xs text-gray-500 mb-3">將此帳本封存，並將您的應付金額 ($<span id="settleShareAmount">0</span>) 記錄到個人帳本。</p>
-                
                 <div class="mb-3">
                     <label class="block text-xs font-bold text-gray-500 mb-1">選擇要記入的個人帳本</label>
                     <select id="targetPersonalLedger" class="w-full p-2 border border-gray-300 rounded text-sm bg-white"></select>
                 </div>
-                
-                <button onclick="app.archiveLedger()" class="w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm font-bold shadow">
-                    確認歸檔並記帳
-                </button>
+                <button onclick="app.archiveLedger()" class="w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm font-bold shadow">確認歸檔並記帳</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Import Excel -->
+    <div id="importModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 m-4 animate-fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-file-import text-emerald-500"></i> 匯入 Excel 紀錄
+                </h3>
+                <button onclick="ui.closeModal('importModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="space-y-6">
+                <!-- Step 1: Download Template -->
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <h4 class="font-bold text-blue-800 mb-2 text-sm">步驟 1：下載標準範本</h4>
+                    <p class="text-xs text-blue-600 mb-3">請先下載 Excel 範本，並依照格式填入您的舊帳本資料。</p>
+                    <button onclick="app.downloadTemplate()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow transition flex items-center gap-2">
+                        <i class="fa-solid fa-download"></i> 下載 Excel 範本 (.xlsx)
+                    </button>
+                </div>
+
+                <!-- Step 2: Upload File -->
+                <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-emerald-400 transition relative bg-gray-50 group">
+                    <input type="file" id="importFile" accept=".xlsx, .xls, .csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="app.handleFileSelect(this)">
+                    <div id="importPlaceholder">
+                        <div class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-500 text-2xl group-hover:bg-emerald-100 group-hover:text-emerald-500 transition">
+                            <i class="fa-solid fa-upload"></i>
+                        </div>
+                        <p class="font-bold text-gray-600">點擊或拖曳檔案至此</p>
+                        <p class="text-xs text-gray-400 mt-1">支援格式: .xlsx, .csv</p>
+                    </div>
+                    <div id="importFileDisplay" class="hidden">
+                        <p class="font-bold text-emerald-600 mb-1" id="importFileName"></p>
+                        <p class="text-xs text-gray-500">已準備好匯入</p>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex gap-3 justify-end">
+                    <button onclick="ui.closeModal('importModal')" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">取消</button>
+                    <button onclick="app.processImport()" id="btnStartImport" class="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold shadow disabled:opacity-50 disabled:cursor-not-allowed">
+                        開始匯入
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -263,19 +540,44 @@
                 <h3 class="text-xl font-bold text-gray-800">⚙️ 系統設定</h3>
                 <button onclick="ui.closeModal('settingsModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
-            
             <div class="space-y-4">
                 <div class="p-4 bg-blue-50 rounded-lg border border-blue-100">
                     <label class="block text-sm font-bold text-blue-800 mb-1">Google Drive 上傳網址</label>
                     <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs font-mono">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Google Gemini API Key</label>
+                    <label id="apiKeyLabel" class="block text-sm font-medium text-gray-700 mb-1">Google Gemini API Key</label>
                     <input type="password" id="geminiKeyInput" placeholder="貼上您的 API Key" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">自訂 AI 辨識提示詞 (選填)</label>
+                    <textarea id="aiPromptInput" rows="2" placeholder="例如：請將『拿鐵』分類為『娛樂』。遇到全家便利商店請自動帶入商店名稱。" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"></textarea>
+                    <p class="text-xs text-gray-400 mt-1">您可以輸入特定規則來引導 AI 辨識收據內容。</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Firebase Config (已鎖定)</label>
                     <textarea id="firebaseConfigInput" rows="4" readonly class="w-full p-3 border border-gray-300 bg-gray-100 rounded-lg font-mono text-xs text-gray-600 cursor-not-allowed"></textarea>
+                </div>
+                <div class="border-t border-gray-200 pt-4 mt-4">
+                    <h4 class="font-bold text-gray-700 mb-2">當前帳本設定 (<span id="settingLedgerName"></span>)</h4>
+                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                        <span class="text-sm text-gray-600">密碼保護</span>
+                        <button onclick="app.removeLedgerPassword()" class="text-sm text-red-500 hover:text-red-700 font-bold border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition"><i class="fa-solid fa-unlock"></i> 解除密碼</button>
+                    </div>
+                </div>
+                <div class="border-t border-gray-200 pt-4 mt-4">
+                    <h4 class="font-bold text-gray-700 mb-2">自訂分類管理</h4>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="flex gap-2 mb-2">
+                            <select id="newCatType" class="p-2 border border-gray-300 rounded text-sm"><option value="expense">支出</option><option value="income">收入</option></select>
+                            <input type="text" id="newCatName" placeholder="新分類名稱" class="flex-1 p-2 border border-gray-300 rounded text-sm">
+                            <button onclick="app.addCategory()" class="bg-emerald-600 text-white px-3 rounded hover:bg-emerald-700"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                        <div class="grid grid-cols-1 gap-4">
+                            <div><p class="text-xs font-bold text-rose-500 mb-1">支出類別</p><div id="expenseCatList" class="flex flex-wrap gap-2"></div></div>
+                            <div><p class="text-xs font-bold text-emerald-500 mb-1">收入類別</p><div id="incomeCatList" class="flex flex-wrap gap-2"></div></div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="mt-8 flex justify-end gap-3">
@@ -285,7 +587,7 @@
         </div>
     </div>
 
-    <!-- Modal: Password Unlock -->
+    <!-- Modal: Password & Add Tx & Add Ledger -->
     <div id="passwordModal" class="fixed inset-0 bg-slate-900/90 z-[70] hidden flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 m-4 text-center animate-fade-in">
             <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 text-xl"><i class="fa-solid fa-lock"></i></div>
@@ -298,9 +600,9 @@
         </div>
     </div>
 
-    <!-- Transaction Modal -->
+    <!-- TRANSACTION MODAL -->
     <div id="transactionModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 m-4 overflow-y-auto max-h-[90vh]">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 m-4 overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800" id="txModalTitle">📝 新增紀錄</h3>
                 <button onclick="ui.closeModal('transactionModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
@@ -308,55 +610,33 @@
             <div id="uploadContainer" class="mb-4 bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-center relative group">
                 <div id="uploadZone">
                     <input type="file" id="receiptUpload" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="ai.handleImageUpload(this)">
-                    <div id="aiUploadLabel"><i class="fa-solid fa-camera text-indigo-500 text-xl mb-1"></i><p class="text-xs font-medium text-indigo-700">AI 智慧辨識</p></div>
+                    <div id="aiUploadLabel">
+                        <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-2 text-indigo-500 text-2xl group-hover:scale-110 transition"><i class="fa-solid fa-camera"></i></div>
+                        <p class="text-sm font-bold text-indigo-800">拍照或上傳收據</p>
+                        <p class="text-xs text-indigo-500 mt-1">AI 自動掃描品項 (支援電子發票)</p>
+                    </div>
                 </div>
-                <div id="aiLoading" class="hidden relative z-20"><div class="loader mx-auto mb-1 border-indigo-500 border-t-transparent"></div><p class="text-xs text-indigo-600">辨識中...</p></div>
-                <div id="imagePreviewContainer" class="hidden mt-1 relative z-20"><img id="imagePreview" class="h-20 mx-auto rounded object-cover mb-2"><button type="button" onclick="ai.clearImage()" class="px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">清除照片</button></div>
+                <div id="aiLoading" class="hidden relative z-20 mt-2 py-4"><div class="loader mx-auto mb-2 border-indigo-500 border-t-transparent"></div><p class="text-sm font-bold text-indigo-600 animate-pulse" id="aiStatusText">AI 正在辨識收據內容...</p></div>
+                <div id="imagePreviewContainer" class="hidden mt-2 relative z-10"><img id="imagePreview" class="h-32 mx-auto rounded object-contain mb-2 border border-gray-200 shadow"><button type="button" onclick="ai.clearImage()" class="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-600 text-xs rounded-full font-bold transition">清除重選</button></div>
             </div>
             <div id="editHistoryBox" class="hidden mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500"><p class="font-bold mb-1">修訂紀錄：</p><ul id="editHistoryList" class="list-disc pl-4 space-y-1"></ul></div>
-            <form id="transactionForm" onsubmit="app.addTransaction(event)" class="space-y-3">
-                <div class="space-y-3 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
-                    <div id="groupPayerField" class="hidden">
-                        <label class="block text-xs font-bold text-yellow-700 uppercase mb-1">付款人</label>
-                        <select id="tPaidBy" class="w-full p-2 bg-white border border-yellow-200 rounded-lg text-sm mb-2"></select>
-                        <label class="block text-xs font-bold text-yellow-700 uppercase mb-1">分攤對象 (取消勾選則不分攤)</label>
-                        <div id="tSplitMembers" class="flex flex-wrap gap-2 text-sm"></div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-yellow-700 uppercase mb-1">幣別與匯率</label>
-                        <div class="flex gap-2">
-                            <select id="tCurrency" class="w-1/3 p-2 bg-white border border-yellow-200 rounded-lg text-sm" onchange="app.updateRate()">
-                                <option value="TWD">TWD</option><option value="JPY">JPY</option><option value="USD">USD</option><option value="KRW">KRW</option><option value="EUR">EUR</option><option value="CNY">CNY</option>
-                            </select>
-                            <input type="number" id="tRate" step="0.001" placeholder="匯率" class="w-2/3 p-2 bg-white border border-yellow-200 rounded-lg text-sm" oninput="app.calcTwd()">
-                        </div>
-                    </div>
+            <form id="transactionForm" onsubmit="app.addTransaction(event)" class="space-y-4">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">類型</label><select id="tType" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm" onchange="ui.updateCategoriesForRows()"><option value="expense">支出</option><option value="income">收入</option></select></div>
+                    <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">日期</label><input type="date" id="tDate" required class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm"></div>
+                    <div class="col-span-2"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">商店/對象 (選填)</label><input type="text" id="tMerchant" placeholder="例如: 7-11, 全聯" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm"></div>
+                    <div id="groupPayerField" class="hidden col-span-2 md:col-span-2"><label class="block text-xs font-bold text-yellow-700 uppercase mb-1">先墊錢的人</label><select id="tPaidBy" class="w-full p-2 bg-white border border-yellow-200 rounded-lg text-sm"></select></div>
+                    <div class="col-span-2 md:col-span-4 flex gap-2 items-center bg-yellow-50 p-2 rounded-lg border border-yellow-100"><label class="whitespace-nowrap text-xs font-bold text-yellow-700">幣別</label><select id="tCurrency" class="w-24 p-1.5 bg-white border border-yellow-200 rounded text-sm" onchange="app.updateRate()"><option value="TWD">TWD</option><option value="JPY">JPY</option><option value="USD">USD</option><option value="KRW">KRW</option><option value="EUR">EUR</option><option value="CNY">CNY</option></select><input type="number" id="tRate" step="0.001" placeholder="匯率" class="w-20 p-1.5 bg-white border border-yellow-200 rounded text-sm" oninput="app.calcTwd()"><span id="rateHint" class="text-xs text-yellow-600"></span></div>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">類型</label><select id="tType" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm"><option value="expense">支出</option><option value="income">收入</option></select></div>
-                    <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">日期</label><input type="date" id="tDate" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm"></div>
+                <div class="border rounded-xl overflow-hidden border-gray-200">
+                    <div class="bg-gray-100 p-2 grid grid-cols-12 gap-2 text-xs font-bold text-gray-500 text-center"><div class="col-span-5 text-left pl-2">項目名稱</div><div class="col-span-3">分類</div><div class="col-span-3">金額</div><div class="col-span-1"></div></div>
+                    <div id="transactionItemsList" class="max-h-60 overflow-y-auto"></div>
+                    <div class="p-2 bg-gray-50 border-t border-gray-200"><button type="button" id="btnAddItem" onclick="ui.addItemRow()" class="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-emerald-400 hover:text-emerald-500 transition text-sm font-bold"><i class="fa-solid fa-plus"></i> 新增品項</button></div>
                 </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">金額 <span id="amountLabel" class="font-normal text-gray-400"></span></label>
-                    <div class="relative"><input type="number" id="tAmount" required min="0" step="0.01" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-lg font-bold" oninput="app.calcTwd()"><p id="twdPreview" class="text-right text-xs text-emerald-600 mt-1 font-bold hidden">= NT$ <span>0</span></p></div>
-                </div>
-                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">項目名稱</label><input type="text" id="tName" required placeholder="例如：午餐" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm"></div>
-                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">分類</label><select id="tCategory" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm"></select></div>
+                <div class="flex justify-between items-center px-2"><div class="text-sm text-gray-500">共 <span id="itemCount">1</span> 筆項目</div><div class="text-right"><p class="text-xs text-gray-400 mb-1" id="totalLabel">總金額 (TWD)</p><p class="text-3xl font-bold text-emerald-600" id="displayTotal">$0</p><p id="twdPreview" class="text-xs text-emerald-600 font-bold hidden">= NT$ <span>0</span></p></div></div>
                 <input type="hidden" id="hiddenImageUrl"><input type="hidden" id="editingTxId">
                 <div class="pt-2"><button type="submit" id="submitBtn" class="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold shadow-md hover:shadow-lg transition">確認儲存</button></div>
             </form>
-        </div>
-    </div>
-
-    <div id="ledgerModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 m-4">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">📚 建立新帳本</h3>
-            <div class="mb-4"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">帳本名稱</label><input type="text" id="newLedgerName" placeholder="例如：日本旅遊" class="w-full p-3 border border-gray-300 rounded-lg"></div>
-            <div class="mb-4"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">預設幣別</label><select id="newLedgerCurrency" class="w-full p-3 border border-gray-300 rounded-lg"><option value="TWD">TWD 台幣</option><option value="JPY">JPY 日幣</option><option value="USD">USD 美金</option><option value="KRW">KRW</option><option value="EUR">EUR</option><option value="CNY">CNY</option></select></div>
-            <div class="mb-4"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">密碼保護 (選填)</label><input type="password" id="newLedgerPassword" placeholder="留空則不設密碼" class="w-full p-3 border border-gray-300 rounded-lg"></div>
-            <div class="mb-4"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">帳本類型</label><select id="newLedgerType" class="w-full p-3 border border-gray-300 rounded-lg" onchange="ui.toggleMemberInput()"><option value="personal">個人帳本</option><option value="group">多人共用</option></select><p id="privacyHint" class="text-xs text-green-600 mt-1"><i class="fa-solid fa-lock"></i> 僅自己可見</p></div>
-            <div id="memberInputDiv" class="mb-4 hidden"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">成員名單 (逗號分隔)</label><input type="text" id="newLedgerMembers" placeholder="我, 小明, 小美" class="w-full p-3 border border-gray-300 rounded-lg"><p class="text-xs text-orange-500 mt-1">請輸入成員暱稱</p></div>
-            <div class="flex justify-end gap-2 mt-6"><button onclick="ui.closeModal('ledgerModal')" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded">取消</button><button onclick="app.createLedger()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">建立</button></div>
         </div>
     </div>
 
@@ -364,693 +644,784 @@
     <div id="mobileMenu" class="fixed inset-0 bg-slate-900/95 z-40 hidden flex flex-col p-6 md:hidden">
         <div class="flex justify-end mb-6"><button onclick="ui.toggleMobileMenu()" class="text-white text-2xl"><i class="fa-solid fa-times"></i></button></div>
         <div id="mobileLedgerList" class="space-y-4 text-white text-lg font-medium text-center"></div>
-        <button onclick="ui.openModal('settingsModal'); ui.toggleMobileMenu()" class="mt-8 w-full py-3 bg-slate-700 text-slate-200 rounded-lg">設定</button>
+        <button onclick="ui.openSettings(); ui.toggleMobileMenu()" class="mt-8 w-full py-3 bg-slate-700 text-slate-200 rounded-lg">設定</button>
+        <button onclick="ui.logout()" class="mt-4 w-full py-3 bg-red-900/30 text-red-200 rounded-lg hover:bg-red-900/50 transition">登出</button>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, deleteDoc, doc, updateDoc, setDoc, getDoc, getDocs, writeBatch, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        const FIREBASE_CONFIG = {
-            apiKey: "AIzaSyDqFr0ZkTb9ZdYFaf8S95pjJLEezTF4QwQ",
-            authDomain: "mony-a292c.firebaseapp.com",
-            projectId: "mony-a292c",
-            storageBucket: "mony-a292c.firebasestorage.app",
-            messagingSenderId: "1012872104399",
-            appId: "1:1012872104399:web:8289e7b26d846246fdaaba",
-            measurementId: "G-N5RQB4GCZD"
-        };
+        const FIREBASE_CONFIG = { apiKey: "AIzaSyDqFr0ZkTb9ZdYFaf8S95pjJLEezTF4QwQ", authDomain: "mony-a292c.firebaseapp.com", projectId: "mony-a292c", storageBucket: "mony-a292c.firebasestorage.app", messagingSenderId: "1012872104399", appId: "1:1012872104399:web:8289e7b26d846246fdaaba", measurementId: "G-N5RQB4GCZD" };
+        const DEFAULT_CATEGORIES = { expense: ['飲食', '交通', '購物', '娛樂', '居住', '醫療', '教育', '其他'], income: ['薪水', '獎金', '投資', '兼職', '其他'] };
+        const DEFAULT_BANKS = [
+            "中華郵政", "台北富邦商業銀行", "中國信託商業銀行", "玉山商業銀行", 
+            "永豐商業銀行", "台新國際商業銀行", "凱基商業銀行", "國泰世華商業銀行", 
+            "第一商業銀行", "合作金庫", "華南商業銀行", "彰化商業銀行", 
+            "遠東國際商業銀行", "星展(台灣)商業銀行"
+        ];
 
         const state = {
-            db: null,
-            geminiKey: localStorage.getItem('acc_gemini_key') || '',
-            scriptUrl: localStorage.getItem('acc_script_url') || 'https://script.google.com/macros/s/AKfycbxY6Rsu-YbelHECVROC6xQK3vh-8qTzRDKAj29iDPOwbPmNKawSB42tF7UE1tbSQJy6cw/exec',
-            userName: localStorage.getItem('acc_username') || '',
-            ledgers: [], 
-            currentLedger: null,
-            transactions: [],
-            usersList: [],
-            unsubscribeTrans: null,
-            unsubscribeLedgers: null,
-            isOnline: false,
-            currentImage: null,
-            rates: { TWD: 1, JPY: 0.22, USD: 31.5, KRW: 0.024, EUR: 34.5, CNY: 4.4 },
-            unlockedLedgers: [],
-            pendingLedgerId: null
-        };
-
-        const CATEGORIES = {
-            expense: ['飲食', '交通', '購物', '娛樂', '居住', '醫療', '教育', '其他'],
-            income: ['薪水', '獎金', '投資', '兼職', '其他']
+            db: null, geminiKey: localStorage.getItem('acc_gemini_key') || 'AIzaSyA2WZwhP-dG_37EEW9MDrlUQ_TG-d1TAdY', scriptUrl: localStorage.getItem('acc_script_url') || 'https://script.google.com/macros/s/AKfycbxY6Rsu-YbelHECVROC6xQK3vh-8qTzRDKAj29iDPOwbPmNKawSB42tF7UE1tbSQJy6cw/exec',
+            userName: localStorage.getItem('acc_username') || '', ledgers: [], currentLedger: null, transactions: [], allTransactionsCache: [], usersList: [], unsubscribeTrans: null, unsubscribeLedgers: null, isOnline: false, currentImage: null, lastQrData: null, rates: { TWD: 1, JPY: 0.22, USD: 31.5, KRW: 0.024, EUR: 34.5, CNY: 4.4 }, unlockedLedgers: [], pendingLedgerId: null, categories: JSON.parse(localStorage.getItem('acc_custom_categories')) || DEFAULT_CATEGORIES,
+            filterDay: null,
+            customAiPrompt: localStorage.getItem('acc_ai_prompt') || '',
+            assets: [], 
+            unsubscribeAssets: null,
+            chartMode: 'weekly', // weekly, monthly, quarterly, yearly
+            chartFilters: {
+                selectedYear: new Date().getFullYear(),
+                compareYear: new Date().getFullYear() - 1, // For YoY
+                selectedYears: [new Date().getFullYear()] // For Yearly mode
+            },
+            currentChartStats: {},
+            currentListData: [], // New: stores currently filtered transactions for export
+            importFile: null // For Excel Import
         };
 
         const app = {
             init: async () => {
-                document.getElementById('geminiKeyInput').value = state.geminiKey;
-                document.getElementById('scriptUrlInput').value = state.scriptUrl;
-                document.getElementById('firebaseConfigInput').value = JSON.stringify(FIREBASE_CONFIG, null, 2);
-                
-                app.fetchRates();
-                await app.connectFirebase(FIREBASE_CONFIG);
+                const k = localStorage.getItem('acc_gemini_key');
+                if (k && k.endsWith('SW8o')) { localStorage.setItem('acc_gemini_key', 'AIzaSyA2WZwhP-dG_37EEW9MDrlUQ_TG-d1TAdY'); state.geminiKey = 'AIzaSyA2WZwhP-dG_37EEW9MDrlUQ_TG-d1TAdY'; }
+                document.getElementById('geminiKeyInput').value = state.geminiKey; document.getElementById('scriptUrlInput').value = state.scriptUrl; document.getElementById('firebaseConfigInput').value = JSON.stringify(FIREBASE_CONFIG, null, 2);
+                document.getElementById('aiPromptInput').value = state.customAiPrompt; 
+                app.fetchRates(); await app.connectFirebase(FIREBASE_CONFIG); await app.loadGlobalSettings();
                 document.getElementById('tDate').valueAsDate = new Date();
-                ui.updateCategories();
+                
+                const yr = new Date().getFullYear(); const ySel = document.getElementById('ledgerYear');
+                for (let i = yr; i >= yr - 5; i--) ySel.innerHTML += `<option value="${i}">${i}年</option>`;
+                document.getElementById('ledgerMonth').value = (new Date().getMonth() + 1).toString().padStart(2, '0');
+                
+                document.getElementById('statYear').innerHTML = ySel.innerHTML;
+                document.getElementById('statMonth').value = document.getElementById('ledgerMonth').value;
 
-                if (!state.userName) {
-                    await app.loadUsersList();
-                    document.getElementById('loginModal').classList.remove('hidden');
-                } else {
-                    document.getElementById('sidebarUserName').innerText = state.userName;
-                    document.getElementById('renameInput').value = state.userName;
-                    app.listenLedgers();
+                if (!state.userName) { await app.loadUsersList(); document.getElementById('loginModal').classList.remove('hidden'); } else { document.getElementById('sidebarUserName').innerText = state.userName; document.getElementById('renameInput').value = state.userName; app.listenLedgers(); app.listenAssets(); }
+            },
+            loadUsersList: async () => { try { const q = query(collection(state.db, "users")); const s = await getDocs(q); state.usersList = []; const sl = document.getElementById('loginUserSelect'); sl.innerHTML = '<option value="">請選擇角色...</option>'; s.forEach(d => { state.usersList.push(d.id); sl.innerHTML += `<option value="${d.id}">${d.id}</option>`; }); if (state.usersList.length === 0) document.getElementById('existingUserSection').classList.add('hidden'); } catch (e) { console.error("Login List Error", e); } },
+            loginExistingUser: () => { const n = document.getElementById('loginUserSelect').value; if (!n) return alert("請選擇一個角色"); app.performLogin(n); },
+            registerNewUser: async () => { const n = document.getElementById('newUserNameInput').value.trim(); if (!n) return alert("請輸入名稱"); try { const d = doc(state.db, "users", n); if ((await getDoc(d)).exists()) return alert("此名稱已存在"); await setDoc(d, { createdAt: new Date().toISOString() }); app.performLogin(n); } catch(e) { alert("註冊失敗: " + e.message); } },
+            performLogin: (n) => { state.userName = n; localStorage.setItem('acc_username', n); document.getElementById('sidebarUserName').innerText = n; document.getElementById('renameInput').value = n; document.getElementById('loginModal').classList.add('hidden'); app.listenLedgers(); app.listenAssets(); },
+            renameUser: async () => { const n = document.getElementById('renameInput').value.trim(), o = state.userName, b = document.getElementById('renameBtn'); if (!n || n === o) return; if (!confirm(`確定要改名為 "${n}"？`)) return; b.disabled = true; b.innerText = '更新中...'; try { const bat = writeBatch(state.db); bat.set(doc(state.db, "users", n), { createdAt: new Date().toISOString() }); (await getDocs(query(collection(state.db, "ledgers"), where("members", "array-contains", o)))).forEach(d => { const m = d.data().members.map(x => x === o ? n : x); bat.update(d.ref, { members: m, ...(d.data().createdBy === o && { createdBy: n }) }); }); (await getDocs(query(collection(state.db, "transactions"), where("paidBy", "==", o)))).forEach(d => bat.update(d.ref, { paidBy: n })); (await getDocs(query(collection(state.db, "transactions"), where("lastEditedBy", "==", o)))).forEach(d => bat.update(d.ref, { lastEditedBy: n })); bat.delete(doc(state.db, "users", o)); await bat.commit(); alert("更名成功"); app.performLogin(n); location.reload(); } catch (e) { alert("更名失敗:" + e.message); b.disabled = false; b.innerText = '確認'; } },
+            
+            // --- EXCEL IMPORT LOGIC (NEW) ---
+            downloadTemplate: () => {
+                const headers = [['日期 (YYYY-MM-DD)', '收支類型 (支出/收入)', '類別', '項目名稱', '金額', '商店/對象 (選填)', '幣別 (選填)', '備註 (選填)']];
+                const example = [['2024-02-01', '支出', '飲食', '午餐便當', 120, '7-11', 'TWD', '公司聚餐']];
+                
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet([...headers, ...example]);
+                
+                // Set column widths
+                ws['!cols'] = [{wch:15}, {wch:15}, {wch:10}, {wch:20}, {wch:10}, {wch:15}, {wch:10}, {wch:20}];
+                
+                XLSX.utils.book_append_sheet(wb, ws, "匯入範本");
+                XLSX.writeFile(wb, "記帳本匯入範本.xlsx");
+            },
+
+            handleFileSelect: (input) => {
+                const file = input.files[0];
+                if (!file) return;
+                
+                document.getElementById('importFileName').innerText = file.name;
+                document.getElementById('importFileDisplay').classList.remove('hidden');
+                document.getElementById('importPlaceholder').classList.add('hidden');
+                
+                state.importFile = file;
+            },
+
+            processImport: async () => {
+                if (!state.importFile) return alert("請先選擇檔案");
+                if (!state.currentLedger) return alert("請先選擇要匯入的帳本");
+
+                const btn = document.getElementById('btnStartImport');
+                btn.disabled = true;
+                btn.innerText = "處理中...";
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array', cellDates: true }); // Parse dates
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }); // Array of arrays
+
+                        if (jsonData.length < 2) throw new Error("檔案內容為空或格式錯誤");
+
+                        // Extract rows (skip header)
+                        const rows = jsonData.slice(1);
+                        const batch = writeBatch(state.db);
+                        let count = 0;
+                        const groupIdBase = Date.now().toString();
+
+                        rows.forEach((row, index) => {
+                            if (!row[0] || !row[4]) return; // Date and Amount are required
+
+                            // Helper to safely get value by index
+                            const getVal = (idx) => row[idx] ? String(row[idx]).trim() : '';
+                            
+                            // Parse Date
+                            let dateStr = '';
+                            if (row[0] instanceof Date) {
+                                dateStr = row[0].toISOString().split('T')[0];
+                            } else {
+                                // Try parsing string YYYY-MM-DD
+                                const d = new Date(row[0]);
+                                if (!isNaN(d.getTime())) {
+                                    dateStr = d.toISOString().split('T')[0];
+                                } else {
+                                    dateStr = new Date().toISOString().split('T')[0]; // Fallback
+                                }
+                            }
+
+                            const type = getVal(1).includes('收') ? 'income' : 'expense';
+                            const category = getVal(2) || '其他';
+                            const name = getVal(3) || '未命名項目';
+                            const amount = parseFloat(row[4]);
+                            const merchant = getVal(5);
+                            const currency = getVal(6) || state.currentLedger.defaultCurrency || 'TWD';
+                            const note = getVal(7); // Currently we don't display note in list but good to store? Maybe reuse merchant field or name?
+                            // Let's append note to name if present
+                            const finalName = note ? `${name} (${note})` : name;
+
+                            const docRef = doc(collection(state.db, "transactions"));
+                            const txData = {
+                                ledgerId: state.currentLedger.id,
+                                type: type,
+                                date: dateStr,
+                                amount: amount,
+                                originalAmount: amount, // Assuming 1:1 for now if imported
+                                currency: currency,
+                                exchangeRate: 1, // Default
+                                paidBy: state.userName,
+                                name: finalName,
+                                category: category,
+                                merchant: merchant,
+                                groupId: groupIdBase + index, // Unique group ID for each row
+                                createdAt: new Date().toISOString(),
+                                lastEditedBy: state.userName,
+                                lastEditedAt: new Date().toISOString()
+                            };
+
+                            batch.set(docRef, txData);
+                            count++;
+                        });
+
+                        if (count > 0) {
+                            await batch.commit();
+                            alert(`成功匯入 ${count} 筆資料！`);
+                            ui.closeModal('importModal');
+                            // Reset input
+                            document.getElementById('importFile').value = '';
+                            document.getElementById('importFileName').innerText = '';
+                            document.getElementById('importFileDisplay').classList.add('hidden');
+                            document.getElementById('importPlaceholder').classList.remove('hidden');
+                            state.importFile = null;
+                        } else {
+                            alert("沒有讀取到有效資料，請檢查格式");
+                        }
+
+                    } catch (err) {
+                        console.error(err);
+                        alert("匯入失敗: " + err.message);
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerText = "開始匯入";
+                    }
+                };
+                reader.readAsArrayBuffer(state.importFile);
+            },
+            
+            // --- CHART LOGIC ---
+            setChartMode: (mode) => {
+                state.chartMode = mode;
+                document.querySelectorAll('.chart-mode-btn').forEach(b => {
+                    b.classList.toggle('active', b.id === `mode-${mode}`);
+                    b.classList.toggle('bg-gray-200', b.id !== `mode-${mode}`);
+                    b.classList.toggle('text-gray-600', b.id !== `mode-${mode}`);
+                });
+                app.renderChartControls();
+                app.updateLedgerView(); // Re-render chart and list
+            },
+
+            renderChartControls: () => {
+                const container = document.getElementById('chartControls');
+                container.innerHTML = '';
+                const currentYear = new Date().getFullYear();
+
+                if (state.chartMode === 'monthly') {
+                    // Compare 2 Years
+                    container.innerHTML = `
+                        <select onchange="state.chartFilters.selectedYear=parseInt(this.value); app.updateLedgerView()" class="p-1 rounded border text-xs">
+                            ${Array.from({length: 6}, (_, i) => currentYear - i).map(y => `<option value="${y}" ${y===state.chartFilters.selectedYear?'selected':''}>${y}</option>`).join('')}
+                        </select>
+                        <span class="text-gray-400">vs</span>
+                        <select onchange="state.chartFilters.compareYear=parseInt(this.value); app.updateLedgerView()" class="p-1 rounded border text-xs">
+                            <option value="">無</option>
+                            ${Array.from({length: 6}, (_, i) => currentYear - i).map(y => `<option value="${y}" ${y===state.chartFilters.compareYear?'selected':''}>${y}</option>`).join('')}
+                        </select>
+                    `;
+                } else if (state.chartMode === 'quarterly') {
+                    container.innerHTML = `
+                        <select onchange="state.chartFilters.selectedYear=parseInt(this.value); app.updateLedgerView()" class="p-1 rounded border text-xs">
+                            ${Array.from({length: 6}, (_, i) => currentYear - i).map(y => `<option value="${y}" ${y===state.chartFilters.selectedYear?'selected':''}>${y}</option>`).join('')}
+                        </select>
+                    `;
+                } else if (state.chartMode === 'yearly') {
+                    container.innerHTML = `<span class="text-gray-400">近 5 年</span>`;
                 }
             },
 
-            loadUsersList: async () => {
-                const q = query(collection(state.db, "users"));
-                const snapshot = await getDocs(q);
-                state.usersList = [];
-                const select = document.getElementById('loginUserSelect');
-                select.innerHTML = '<option value="">請選擇角色...</option>';
-                snapshot.forEach(doc => {
-                    state.usersList.push(doc.id);
-                    select.innerHTML += `<option value="${doc.id}">${doc.id}</option>`;
+            updateLedgerView: () => {
+                if (!state.currentLedger) return;
+                
+                const y = document.getElementById('ledgerYear').value;
+                const m = document.getElementById('ledgerMonth').value;
+                
+                // Base filter for the transaction list (default view)
+                let listData = state.transactions.filter(t => { 
+                    const d = new Date(t.date); 
+                    return d.getFullYear().toString() === y && (m === 'all' || (d.getMonth() + 1).toString().padStart(2, '0') === m); 
                 });
-                if(state.usersList.length === 0) document.getElementById('existingUserSection').classList.add('hidden');
-            },
 
-            loginExistingUser: () => {
-                const name = document.getElementById('loginUserSelect').value;
-                if(!name) return alert("請選擇一個角色");
-                app.performLogin(name);
-            },
-
-            registerNewUser: async () => {
-                const name = document.getElementById('newUserNameInput').value.trim();
-                if(!name) return alert("請輸入名稱");
-                const docRef = doc(state.db, "users", name);
-                const docSnap = await getDoc(docRef);
-                if(docSnap.exists()) return alert("此名稱已存在，請使用上方選單登入");
-                await setDoc(docRef, { createdAt: new Date().toISOString() });
-                app.performLogin(name);
-            },
-
-            performLogin: (name) => {
-                state.userName = name;
-                localStorage.setItem('acc_username', name);
-                document.getElementById('sidebarUserName').innerText = name;
-                document.getElementById('renameInput').value = name;
-                document.getElementById('loginModal').classList.add('hidden');
-                app.listenLedgers();
-            },
-
-            renameUser: async () => {
-                const newName = document.getElementById('renameInput').value.trim();
-                const oldName = state.userName;
-                const btn = document.getElementById('renameBtn');
-                if(!newName || newName === oldName) return;
-                if(!confirm(`確定將 "${oldName}" 改名為 "${newName}"？這會更新所有資料。`)) return;
-
-                btn.disabled = true; btn.innerHTML = '更新中...';
-                try {
-                    const newUserRef = doc(state.db, "users", newName);
-                    const newSnap = await getDoc(newUserRef);
-                    if(newSnap.exists()) throw new Error("該名稱已被使用");
-
-                    const batch = writeBatch(state.db);
-                    batch.set(newUserRef, { createdAt: new Date().toISOString() });
-
-                    const qLedgers = query(collection(state.db, "ledgers"), where("members", "array-contains", oldName));
-                    const ledgersSnap = await getDocs(qLedgers);
-                    ledgersSnap.forEach(doc => {
-                        const data = doc.data();
-                        const newMembers = data.members.map(m => m === oldName ? newName : m);
-                        const updates = { members: newMembers };
-                        if(data.createdBy === oldName) updates.createdBy = newName;
-                        batch.update(doc.ref, updates);
+                // --- Chart Data Preparation ---
+                const chartContainer = document.getElementById('dailyChartContainer');
+                chartContainer.innerHTML = '';
+                state.currentChartStats = {}; // Reset stats cache
+                
+                // Helper to calculate top 3 categories + % for a set of transactions
+                const calcStats = (txList, totalAmt) => {
+                    const catMap = {};
+                    txList.forEach(t => {
+                        if(t.type === 'expense') catMap[t.category] = (catMap[t.category] || 0) + t.amount;
                     });
+                    const top3 = Object.entries(catMap)
+                        .sort((a,b) => b[1] - a[1])
+                        .slice(0, 3)
+                        .map(([name, val]) => ({ name, val, pct: totalAmt > 0 ? Math.round((val/totalAmt)*100) : 0 }));
+                    return top3;
+                };
 
-                    const qTxPaid = query(collection(state.db, "transactions"), where("paidBy", "==", oldName));
-                    const txPaidSnap = await getDocs(qTxPaid);
-                    txPaidSnap.forEach(doc => batch.update(doc.ref, { paidBy: newName }));
+                if (state.chartMode === 'weekly') {
+                    const dayStats = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 0:0 };
+                    const dayTx = { 1:[], 2:[], 3:[], 4:[], 5:[], 6:[], 0:[] };
+                    
+                    // Use listData because Weekly follows the global month filter
+                    listData.forEach(t => { 
+                        if(t.type === 'expense') {
+                            const day = new Date(t.date).getDay();
+                            dayStats[day] += t.amount;
+                            dayTx[day].push(t);
+                        }
+                    });
+                    const maxVal = Math.max(...Object.values(dayStats), 1);
+                    const order = [1, 2, 3, 4, 5, 6, 0];
+                    const dayNames = ['日','一','二','三','四','五','六'];
+                    
+                    chartContainer.innerHTML = order.map(d => {
+                        // Store Stats
+                        state.currentChartStats[d] = {
+                            label: `星期${dayNames[d]}`,
+                            total: dayStats[d],
+                            cats: calcStats(dayTx[d], dayStats[d])
+                        };
 
-                    // Update splitWith array
-                    const qTxSplit = query(collection(state.db, "transactions"), where("splitWith", "array-contains", oldName));
-                    const txSplitSnap = await getDocs(qTxSplit);
-                    txSplitSnap.forEach(doc => {
-                        const data = doc.data();
-                        if (data.splitWith) {
-                            const newSplit = data.splitWith.map(m => m === oldName ? newName : m);
-                            batch.update(doc.ref, { splitWith: newSplit });
+                        const isSelected = state.filterDay === d;
+                        const h = Math.max((dayStats[d] / maxVal) * 100, 5);
+                        const displayAmt = dayStats[d] > 1000 ? (dayStats[d]/1000).toFixed(1)+'k' : dayStats[d];
+                        
+                        return `
+                        <div onmouseenter="ui.showHoverStats('${d}')" onclick="app.filterByDay(${d})" class="flex-1 flex flex-col justify-end items-center group cursor-pointer h-full relative">
+                            <span class="text-xs font-bold text-gray-600 mb-1 ${dayStats[d]>0 ? 'opacity-100' : 'opacity-0'} group-hover:opacity-100 transition">$${displayAmt}</span>
+                            <div class="w-full mx-1 ${isSelected ? 'bg-indigo-600 shadow-lg scale-105' : 'bg-indigo-300 hover:bg-indigo-400'} rounded-t-lg transition-all duration-300" style="height: ${h}%"></div>
+                            <span class="text-[10px] text-gray-500 mt-1">${dayNames[d]}</span>
+                        </div>`;
+                    }).join('');
+
+                    if(state.filterDay !== null) {
+                        listData = listData.filter(t => new Date(t.date).getDay() === state.filterDay);
+                        document.getElementById('clearFilterBtn').classList.remove('hidden');
+                        ui.showHoverStats(state.filterDay); // Keep selected stats visible
+                    } else {
+                        document.getElementById('clearFilterBtn').classList.add('hidden');
+                        ui.resetStatsSummary();
+                    }
+
+                } else if (state.chartMode === 'monthly') {
+                    const y1 = state.chartFilters.selectedYear;
+                    const y2 = state.chartFilters.compareYear;
+                    const monthlyStats = {}; 
+                    const monthlyTx = {};
+                    
+                    for(let i=1; i<=12; i++) { 
+                        monthlyStats[i] = { [y1]: 0, [y2]: 0 }; 
+                        monthlyTx[i] = { [y1]: [], [y2]: [] };
+                    }
+
+                    state.transactions.forEach(t => {
+                        if (t.type !== 'expense') return;
+                        const d = new Date(t.date);
+                        const yr = d.getFullYear();
+                        const mo = d.getMonth() + 1;
+                        if ((yr === y1 || yr === y2) && monthlyStats[mo]) {
+                            monthlyStats[mo][yr] += t.amount;
+                            monthlyTx[mo][yr].push(t);
                         }
                     });
 
-                    const qTxEdit = query(collection(state.db, "transactions"), where("lastEditedBy", "==", oldName));
-                    const txEditSnap = await getDocs(qTxEdit);
-                    txEditSnap.forEach(doc => batch.update(doc.ref, { lastEditedBy: newName }));
+                    const allValues = Object.values(monthlyStats).flatMap(o => Object.values(o));
+                    const maxVal = Math.max(...allValues, 1);
 
-                    batch.delete(doc(state.db, "users", oldName));
-                    await batch.commit();
+                    chartContainer.innerHTML = Object.keys(monthlyStats).map(mo => {
+                        const v1 = monthlyStats[mo][y1];
+                        const v2 = y2 ? monthlyStats[mo][y2] : 0;
+                        const h1 = Math.max((v1/maxVal)*100, 5);
+                        const h2 = Math.max((v2/maxVal)*100, 5);
+                        
+                        // Key for stats: "m_1_2024" etc.
+                        const k1 = `m_${mo}_${y1}`;
+                        state.currentChartStats[k1] = { label: `${y1}年 ${mo}月`, total: v1, cats: calcStats(monthlyTx[mo][y1], v1) };
+                        if(y2) {
+                            const k2 = `m_${mo}_${y2}`;
+                            state.currentChartStats[k2] = { label: `${y2}年 ${mo}月`, total: v2, cats: calcStats(monthlyTx[mo][y2], v2) };
+                        }
 
-                    alert("更名成功！");
-                    app.performLogin(newName);
-                    location.reload();
-                } catch(e) { alert("更名失敗：" + e.message); btn.disabled = false; btn.innerHTML = '確認更名'; }
-            },
+                        return `
+                        <div class="flex-1 flex flex-col justify-end items-center h-full gap-1 min-w-[30px]">
+                            <div class="flex items-end justify-center w-full gap-0.5 h-full">
+                                <div onmouseenter="ui.showHoverStats('m_${mo}_${y1}')" onclick="app.filterByMonth(${mo}, ${y1})" class="w-1/2 bg-indigo-500 rounded-t-sm transition-all relative hover:bg-indigo-600 cursor-pointer" style="height: ${h1}%"></div>
+                                ${y2 ? `<div onmouseenter="ui.showHoverStats('m_${mo}_${y2}')" onclick="app.filterByMonth(${mo}, ${y2})" class="w-1/2 bg-gray-300 rounded-t-sm transition-all relative hover:bg-gray-400 cursor-pointer" style="height: ${h2}%"></div>` : ''}
+                            </div>
+                            <span class="text-[10px] text-gray-500">${mo}月</span>
+                        </div>`;
+                    }).join('');
+                    ui.resetStatsSummary();
 
-            addMemberToLedger: async () => {
-                const name = prompt("請輸入新成員的暱稱：");
-                if(!name) return;
-                if(state.currentLedger.members.includes(name)) return alert("該成員已在名單中");
-                
-                try {
-                    const newMembers = [...state.currentLedger.members, name];
-                    await updateDoc(doc(state.db, "ledgers", state.currentLedger.id), { members: newMembers });
-                } catch(e) { alert("新增失敗:" + e.message); }
-            },
-
-            archiveLedger: async () => {
-                if(!state.currentLedger) return;
-                const personalLedgerId = document.getElementById('targetPersonalLedger').value;
-                if(!personalLedgerId) return alert("請選擇一個個人帳本");
-                const shareAmount = parseInt(document.getElementById('settleShareAmount').innerText.replace(/,/g, '')) || 0;
-                
-                try {
-                    const batch = writeBatch(state.db);
-                    batch.update(doc(state.db, "ledgers", state.currentLedger.id), { status: 'archived' });
-                    if (shareAmount > 0) {
-                        const newTxRef = doc(collection(state.db, "transactions"));
-                        batch.set(newTxRef, {
-                            ledgerId: personalLedgerId,
-                            type: 'expense',
-                            date: new Date().toISOString().split('T')[0],
-                            amount: shareAmount,
-                            originalAmount: shareAmount,
-                            currency: 'TWD',
-                            exchangeRate: 1,
-                            name: `${state.currentLedger.name} (分帳)`,
-                            category: '娛樂',
-                            createdAt: new Date().toISOString(),
-                            lastEditedBy: state.userName
-                        });
-                    }
-                    await batch.commit();
-                    alert("歸檔成功！");
-                    ui.closeModal('settleModal');
-                } catch(e) { alert("歸檔失敗：" + e.message); }
-            },
-
-            fetchRates: async () => {
-                try {
-                    const res = await fetch('https://api.exchangerate-api.com/v4/latest/TWD');
-                    const data = await res.json();
-                    if(data && data.rates) {
-                        state.rates = {
-                            TWD: 1, JPY: 1 / data.rates.JPY, USD: 1 / data.rates.USD, KRW: 1 / data.rates.KRW, EUR: 1 / data.rates.EUR, CNY: 1 / data.rates.CNY
-                        };
-                    }
-                } catch(e) {}
-            },
-
-            connectFirebase: async (config) => {
-                try {
-                    const firebaseApp = initializeApp(config);
-                    state.db = getFirestore(firebaseApp);
-                    try { await enableIndexedDbPersistence(state.db); } catch (e) {}
-                    state.isOnline = true;
-                } catch (e) { console.error("Firebase Error:", e); alert("連線失敗"); }
-            },
-
-            saveSettings: () => {
-                localStorage.setItem('acc_gemini_key', document.getElementById('geminiKeyInput').value.trim());
-                localStorage.setItem('acc_script_url', document.getElementById('scriptUrlInput').value.trim());
-                location.reload();
-            },
-
-            listenLedgers: () => {
-                if (state.unsubscribeLedgers) state.unsubscribeLedgers();
-                const q = query(collection(state.db, "ledgers"));
-                state.unsubscribeLedgers = onSnapshot(q, (snapshot) => {
-                    const allLedgers = [];
-                    snapshot.forEach(doc => allLedgers.push({ id: doc.id, ...doc.data() }));
-                    state.ledgers = allLedgers.filter(l => {
-                        if (l.type === 'personal') return l.createdBy === state.userName;
-                        else return l.members && l.members.includes(state.userName);
+                } else if (state.chartMode === 'quarterly') {
+                    const y = state.chartFilters.selectedYear;
+                    const qStats = { 1:0, 2:0, 3:0, 4:0 };
+                    const qTx = { 1:[], 2:[], 3:[], 4:[] };
+                    
+                    state.transactions.forEach(t => {
+                        if (t.type !== 'expense') return;
+                        const d = new Date(t.date);
+                        if (d.getFullYear() === y) {
+                            const q = Math.floor(d.getMonth() / 3) + 1;
+                            qStats[q] += t.amount;
+                            qTx[q].push(t);
+                        }
                     });
-                    state.ledgers.sort((a, b) => (a.status === 'archived' ? 1 : 0) - (b.status === 'archived' ? 1 : 0));
-                    const lastId = localStorage.getItem('acc_current_ledger');
-                    const activeLedgers = state.ledgers.filter(l => l.status !== 'archived');
-                    if (lastId && state.ledgers.find(l => l.id === lastId)) ui.switchLedger(lastId);
-                    else if (activeLedgers.length > 0) ui.switchLedger(activeLedgers[0].id);
-                    else {
-                        state.currentLedger = null;
-                        document.getElementById('currentLedgerTitle').innerText = "無可用帳本";
-                        document.getElementById('ledgerList').innerHTML = '<li class="text-center text-sm text-gray-400 mt-4">請建立新帳本</li>';
-                        state.transactions = []; ui.renderTransactions();
-                    }
-                    ui.renderLedgerList();
-                });
-            },
+                    
+                    const maxVal = Math.max(...Object.values(qStats), 1);
+                    
+                    chartContainer.innerHTML = [1,2,3,4].map(q => {
+                        const val = qStats[q];
+                        const h = Math.max((val/maxVal)*100, 5);
+                        
+                        state.currentChartStats[`q_${q}`] = { label: `${y} Q${q}`, total: val, cats: calcStats(qTx[q], val) };
 
-            createLedger: async () => {
-                const name = document.getElementById('newLedgerName').value.trim();
-                const type = document.getElementById('newLedgerType').value;
-                const currency = document.getElementById('newLedgerCurrency').value;
-                const password = document.getElementById('newLedgerPassword').value.trim();
-                const membersStr = document.getElementById('newLedgerMembers').value.trim();
-                if (!name) return alert("請輸入名稱");
-                if (type === 'group' && !membersStr) return alert("多人帳本請輸入成員");
-                let members = [];
-                if (type === 'group') {
-                    members = membersStr.split(/[,，]/).map(m => m.trim()).filter(m => m);
-                    if (!members.includes(state.userName)) members.push(state.userName);
+                        return `
+                        <div onmouseenter="ui.showHoverStats('q_${q}')" onclick="app.filterByQuarter(${q})" class="flex-1 flex flex-col justify-end items-center group cursor-pointer h-full">
+                            <span class="text-xs font-bold text-gray-600 mb-1 opacity-0 group-hover:opacity-100 transition">$${val > 1000 ? (val/1000).toFixed(0)+'k' : val}</span>
+                            <div class="w-2/3 bg-teal-500 rounded-t-lg transition-all group-hover:bg-teal-600" style="height: ${h}%"></div>
+                            <span class="text-xs text-gray-500 mt-2 font-bold">Q${q}</span>
+                        </div>`;
+                    }).join('');
+                    ui.resetStatsSummary();
+
+                } else if (state.chartMode === 'yearly') {
+                    const currentYear = new Date().getFullYear();
+                    const years = Array.from({length: 5}, (_, i) => currentYear - 4 + i);
+                    const yStats = {};
+                    const yTx = {};
+                    years.forEach(y => { yStats[y] = 0; yTx[y] = []; });
+
+                    state.transactions.forEach(t => {
+                        if (t.type !== 'expense') return;
+                        const yr = new Date(t.date).getFullYear();
+                        if (yStats[yr] !== undefined) {
+                            yStats[yr] += t.amount;
+                            yTx[yr].push(t);
+                        }
+                    });
+
+                    const maxVal = Math.max(...Object.values(yStats), 1);
+
+                    chartContainer.innerHTML = years.map(yr => {
+                        const val = yStats[yr];
+                        const h = Math.max((val/maxVal)*100, 5);
+                        
+                        state.currentChartStats[`y_${yr}`] = { label: `${yr}年`, total: val, cats: calcStats(yTx[yr], val) };
+
+                        return `
+                        <div onmouseenter="ui.showHoverStats('y_${yr}')" onclick="app.filterByYear(${yr})" class="flex-1 flex flex-col justify-end items-center group cursor-pointer h-full">
+                            <span class="text-xs font-bold text-gray-600 mb-1 opacity-0 group-hover:opacity-100 transition">$${val > 1000 ? (val/1000).toFixed(0)+'k' : val}</span>
+                            <div class="w-1/2 bg-blue-600 rounded-t-lg transition-all group-hover:bg-blue-700" style="height: ${h}%"></div>
+                            <span class="text-xs text-gray-500 mt-2 font-bold">${yr}</span>
+                        </div>`;
+                    }).join('');
+                    ui.resetStatsSummary();
                 }
-                try {
-                    const newLedger = { name, type, members, defaultCurrency: currency, password, createdBy: state.userName, status: 'active', createdAt: new Date().toISOString() };
-                    const docRef = await addDoc(collection(state.db, "ledgers"), newLedger);
-                    if (password) state.unlockedLedgers.push(docRef.id);
-                    ui.closeModal('ledgerModal');
-                    ui.switchLedger(docRef.id);
-                    document.getElementById('newLedgerName').value = '';
-                    document.getElementById('newLedgerMembers').value = '';
-                } catch (e) { alert("建立失敗：" + e.message); }
+
+                // Save list data for Export
+                state.currentListData = listData;
+
+                // Render List
+                let inc = 0, exp = 0;
+                listData.forEach(t => { if (t.type === 'expense') exp += t.amount; else inc += t.amount; });
+                
+                document.getElementById('totalIncome').innerText = '$' + Math.round(inc).toLocaleString(); 
+                document.getElementById('totalExpense').innerText = '$' + Math.round(exp).toLocaleString(); 
+                document.getElementById('totalBalance').innerText = '$' + Math.round(inc - exp).toLocaleString();
+                ui.renderTransactionListHTML(listData);
             },
             
-            verifyPassword: () => {
-                const input = document.getElementById('unlockPasswordInput').value;
-                const targetId = state.pendingLedgerId;
-                const ledger = state.ledgers.find(l => l.id === targetId);
-                if (ledger && input === ledger.password) {
-                    state.unlockedLedgers.push(targetId);
-                    ui.closeModal('passwordModal');
-                    ui.switchLedger(targetId);
-                } else { alert('密碼錯誤'); document.getElementById('unlockPasswordInput').value = ''; }
+            filterByDay: (day) => { state.filterDay = state.filterDay === day ? null : day; app.updateLedgerView(); },
+            filterByMonth: (m, y) => { 
+                document.getElementById('ledgerYear').value = y;
+                document.getElementById('ledgerMonth').value = m.toString().padStart(2, '0');
+                app.setChartMode('weekly'); 
+            },
+            filterByQuarter: (q) => {
+                document.getElementById('ledgerYear').value = state.chartFilters.selectedYear;
+                document.getElementById('ledgerMonth').value = 'all'; 
+                app.updateLedgerView();
+                alert(`已切換至 ${state.chartFilters.selectedYear} 年，交易紀錄顯示全年 (進階季度篩選開發中)`);
+            },
+            filterByYear: (y) => {
+                document.getElementById('ledgerYear').value = y;
+                document.getElementById('ledgerMonth').value = 'all';
+                app.setChartMode('weekly'); // Drill down to weekly view of that year
+            },
+            clearDateFilter: () => { state.filterDay = null; app.updateLedgerView(); },
+            
+            // --- EXPORT FUNCTIONS ---
+            exportToExcel: () => { /* Original Profile Export */ if (!state.allTransactionsCache.length) return alert("無資料"); const y = document.getElementById('statYear').value, m = document.getElementById('statMonth').value, d = state.allTransactionsCache.map(t => ({ 日期: t.date, 帳本: t.ledgerName, 類型: t.type, 金額: t.amount, 項目: t.name, 分類: t.category, 商店: t.merchant || '' })); const w = XLSX.utils.json_to_sheet(d), b = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(b, w, "Data"); XLSX.writeFile(b, `帳本_${y}_${m}.xlsx`); },
+            
+            exportTrendReport: () => {
+                const stats = state.currentChartStats;
+                const rows = [];
+                // Transform stats object to array for Excel
+                Object.keys(stats).forEach(key => {
+                    const s = stats[key];
+                    const row = { '時間區段': s.label, '總支出': s.total };
+                    s.cats.forEach((c, i) => {
+                        row[`Top ${i+1} 類別`] = c.name;
+                        row[`Top ${i+1} 金額`] = c.val;
+                        row[`Top ${i+1} 佔比`] = c.pct + '%';
+                    });
+                    rows.push(row);
+                });
+                
+                if (rows.length === 0) return alert("目前圖表無資料可匯出");
+                
+                const ws = XLSX.utils.json_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Trend_Analysis");
+                XLSX.writeFile(wb, `消費趨勢報表_${state.chartMode}_${new Date().toISOString().slice(0,10)}.xlsx`);
             },
 
-            listenTransactions: () => {
-                if (!state.currentLedger) return;
-                if (state.unsubscribeTrans) state.unsubscribeTrans();
-                const loader = document.getElementById('loadingIndicator');
-                loader.classList.remove('hidden');
-                const q = query(collection(state.db, "transactions"), where("ledgerId", "==", state.currentLedger.id));
-                state.unsubscribeTrans = onSnapshot(q, (snapshot) => {
-                    state.transactions = [];
-                    snapshot.forEach((doc) => state.transactions.push({ id: doc.id, ...doc.data() }));
-                    state.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-                    ui.renderTransactions();
-                    loader.classList.add('hidden');
+            exportCurrentList: () => {
+                const list = state.currentListData;
+                if (list.length === 0) return alert("目前列表無資料可匯出");
+                
+                const exportData = list.map(t => ({
+                    '日期': t.date,
+                    '商店/對象': t.merchant || '',
+                    '項目名稱': t.name,
+                    '類別': t.category,
+                    '類型': t.type === 'expense' ? '支出' : '收入',
+                    '金額': t.amount,
+                    '幣別': t.currency,
+                    '付款人': t.paidBy || '',
+                    '備註': ''
+                }));
+
+                const ws = XLSX.utils.json_to_sheet(exportData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Transactions");
+                XLSX.writeFile(wb, `交易明細清單_${new Date().toISOString().slice(0,10)}.xlsx`);
+            },
+
+            askAI: async () => { const i = document.getElementById('aiChatInput'), h = document.getElementById('aiChatHistory'), b = document.getElementById('btnAiSend'), q = i.value.trim(); if (!q || !state.geminiKey) return; h.innerHTML += `<div class="bg-indigo-100 p-2 rounded-lg ml-auto w-fit mb-2 text-sm text-indigo-900">${q}</div>`; b.disabled = true; i.value = ''; try { const p = `Role: Financial Assistant. Context JSON: ${JSON.stringify(state.allTransactionsCache.slice(0, 50).map(t => ({ d: t.date, a: t.amount, c: t.category, i: t.name })))}. Question: "${q}". Answer in Traditional Chinese, concise.`; const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${state.geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: p }] }] }) }); const d = await r.json(); h.innerHTML += `<div class="bg-white border p-2 rounded-lg w-fit mb-2 text-sm text-gray-700">${marked.parse(d.candidates[0].content.parts[0].text)}</div>`; } catch (e) { h.innerHTML += `<div class="text-red-500 text-xs">Error</div>`; } b.disabled = false; h.scrollTop = h.scrollHeight; },
+            
+            deleteSelected: async () => {
+                const checked = document.querySelectorAll('.tx-checkbox:checked');
+                if(checked.length === 0) return;
+                if(!confirm(`確定要刪除選取的 ${checked.length} 筆/組交易紀錄嗎？`)) return;
+                const btn = document.getElementById('bulkDeleteBtn'); btn.disabled = true; btn.innerHTML = '<div class="loader w-3 h-3 border-red-200 border-t-red-600 mr-2"></div> 刪除中...';
+                try { const batch = writeBatch(state.db); checked.forEach(cb => { cb.getAttribute('data-ids').split(',').forEach(id => batch.delete(doc(state.db, "transactions", id))); }); await batch.commit(); document.getElementById('selectAllTx').checked = false; ui.updateBulkActionState(); } catch (e) { alert("刪除失敗"); console.error(e); } finally { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-trash-can"></i> 刪除選取 (<span id="selectedCount">0</span>)`; }
+            },
+
+            archiveLedger: async () => { if(!state.currentLedger) return; const p=document.getElementById('targetPersonalLedger').value; if(!p)return alert("選帳本"); const a=parseInt(document.getElementById('settleShareAmount').innerText.replace(/,/g,''))||0; const b=writeBatch(state.db); b.update(doc(state.db,"ledgers",state.currentLedger.id),{status:'archived'}); if(a>0) b.set(doc(collection(state.db,"transactions")),{ledgerId:p,type:'expense',date:new Date().toISOString().split('T')[0],amount:a,originalAmount:a,currency:'TWD',exchangeRate:1,name:`${state.currentLedger.name}(分帳)`,category:'娛樂',createdAt:new Date().toISOString(),lastEditedBy:state.userName}); await b.commit(); alert("歸檔成功"); ui.closeModal('settleModal'); },
+            fetchRates: async()=>{try{const r=await fetch('https://api.exchangerate-api.com/v4/latest/TWD');const d=await r.json();if(d.rates)state.rates={TWD:1,JPY:1/d.rates.JPY,USD:1/d.rates.USD,KRW:1/d.rates.KRW,EUR:1/d.rates.EUR,CNY:1/d.rates.CNY};}catch{}},
+            connectFirebase: async(c)=>{try{const a=initializeApp(c);state.db=getFirestore(a);try{await enableIndexedDbPersistence(state.db)}catch{}state.isOnline=true;}catch(e){console.error(e);alert("連線失敗: "+e.message)}},
+            loadGlobalSettings: async()=>{if(!state.db)return;try{const d=await getDoc(doc(state.db,"settings","global"));if(d.exists()&&d.data().gemini_api_key){state.geminiKey=d.data().gemini_api_key;document.getElementById('geminiKeyInput').value=state.geminiKey;document.getElementById('apiKeyLabel').innerHTML+='(雲端)';}}catch{}},
+            saveSettings: async()=>{const k=document.getElementById('geminiKeyInput').value.trim(),s=document.getElementById('scriptUrlInput').value.trim(),p=document.getElementById('aiPromptInput').value.trim();if(!k)return alert("API Key Empty");try{localStorage.setItem('acc_script_url',s);localStorage.setItem('acc_ai_prompt', p);state.customAiPrompt = p;await setDoc(doc(state.db,"settings","global"),{gemini_api_key:k,updatedAt:new Date().toISOString(),updatedBy:state.userName},{merge:true});localStorage.setItem('acc_gemini_key',k);alert("設定已儲存！");location.reload();}catch{alert("Err");}},
+            removeLedgerPassword: async()=>{if(!confirm("Del PW?"))return;await updateDoc(doc(state.db,"ledgers",state.currentLedger.id),{password:""});alert("Removed");ui.closeModal('settingsModal');},
+            addCategory: ()=>{const t=document.getElementById('newCatType').value,n=document.getElementById('newCatName').value.trim();if(!n)return;state.categories[t].push(n);app.saveCategories();ui.renderSettings();},
+            removeCategory: (t,n)=>{if(confirm("Del?")){state.categories[t]=state.categories[t].filter(c=>c!==n);app.saveCategories();ui.renderSettings();}},
+            saveCategories: ()=>localStorage.setItem('acc_custom_categories',JSON.stringify(state.categories)),
+            listenLedgers: ()=>{if(state.unsubscribeLedgers)state.unsubscribeLedgers();state.unsubscribeLedgers=onSnapshot(query(collection(state.db,"ledgers")),s=>{state.ledgers=[];s.forEach(d=>state.ledgers.push({id:d.id,...d.data()}));state.ledgers=state.ledgers.filter(l=>l.type==='personal'?l.createdBy===state.userName:l.members&&l.members.includes(state.userName)).sort((a,b)=>(a.status==='archived'?1:0)-(b.status==='archived'?1:0));if(!state.currentLedger&&state.ledgers.length>0)ui.switchLedger(localStorage.getItem('acc_current_ledger')||state.ledgers[0].id);ui.renderLedgerList();});},
+            
+            // Assets Functions
+            listenAssets: () => {
+                if(!state.userName) return;
+                if(state.unsubscribeAssets) state.unsubscribeAssets();
+                const q = query(collection(state.db, "user_assets"), where("userId", "==", state.userName));
+                state.unsubscribeAssets = onSnapshot(q, (snapshot) => {
+                    state.assets = [];
+                    snapshot.forEach(doc => state.assets.push({ id: doc.id, ...doc.data() }));
+                    ui.renderAssets();
+                    ui.renderAssetOptions(); // Update datalist
                 });
             },
+            saveAsset: async () => {
+                const name = document.getElementById('assetNameInput').value.trim();
+                const balance = parseFloat(document.getElementById('assetBalanceInput').value);
+                if (!name || isNaN(balance)) return alert("請輸入完整資訊");
 
-            addTransaction: async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('submitBtn');
-                btn.disabled = true; btn.innerHTML = '處理中...';
-                
-                let driveUrl = document.getElementById('hiddenImageUrl').value;
-                if (state.currentImage && state.scriptUrl) {
-                    try {
-                        const res = await fetch(state.scriptUrl, { method: 'POST', body: JSON.stringify({ image: state.currentImage.base64, mimeType: state.currentImage.mimeType, filename: `receipt_${Date.now()}.jpg` }) });
-                        const resData = await res.json();
-                        if (resData.status === 'success') driveUrl = resData.url;
-                    } catch (err) { console.error("Upload failed", err); }
-                }
-
-                const editingId = document.getElementById('editingTxId').value;
-                const type = document.getElementById('tType').value;
-                const isGroup = state.currentLedger?.type === 'group';
-                
-                let amountTWD = parseFloat(document.getElementById('tAmount').value);
-                let originalAmount = amountTWD;
-                let currency = 'TWD';
-                let rate = 1;
-                let paidBy = '';
-                let splitWith = []; 
-
-                if (isGroup) {
-                    currency = document.getElementById('tCurrency').value;
-                    rate = parseFloat(document.getElementById('tRate').value) || 1;
-                    if (currency !== 'TWD') { originalAmount = amountTWD; amountTWD = Math.round(originalAmount * rate); }
-                    paidBy = document.getElementById('tPaidBy').value;
-                    
-                    const checkboxes = document.querySelectorAll('#tSplitMembers input[type="checkbox"]:checked');
-                    checkboxes.forEach(cb => splitWith.push(cb.value));
-                    if(splitWith.length === 0) return alert("至少要選擇一位分攤對象");
-                }
-
-                const txData = {
-                    ledgerId: state.currentLedger.id,
-                    type, date: document.getElementById('tDate').value,
-                    amount: amountTWD, originalAmount, currency, exchangeRate: rate,
-                    paidBy, splitWith, // Save split list
-                    name: document.getElementById('tName').value, category: document.getElementById('tCategory').value,
-                    imageUrl: driveUrl, lastEditedBy: state.userName, lastEditedAt: new Date().toISOString()
-                };
+                const existing = state.assets.find(a => a.name === name);
+                const historyEntry = { date: new Date().toISOString(), balance: balance };
 
                 try {
-                    if (editingId) {
-                        const oldTx = state.transactions.find(t => t.id === editingId);
-                        const editLog = { editor: state.userName, date: new Date().toISOString(), oldAmount: oldTx.amount, newAmount: amountTWD };
-                        const history = oldTx.editHistory || []; history.push(editLog);
-                        await updateDoc(doc(state.db, "transactions", editingId), { ...txData, editHistory: history });
+                    if (existing) {
+                        const newHistory = [...(existing.history || []), historyEntry];
+                        await updateDoc(doc(state.db, "user_assets", existing.id), {
+                            currentBalance: balance,
+                            updatedAt: new Date().toISOString(),
+                            history: newHistory
+                        });
                     } else {
-                        await addDoc(collection(state.db, "transactions"), { ...txData, createdAt: new Date().toISOString() });
-                    }
-                    ui.closeModal('transactionModal'); ai.clearImage();
-                } catch (err) { alert("錯誤：" + err.message); } 
-                finally { btn.disabled = false; btn.innerHTML = '確認儲存'; }
-            },
-
-            editTransaction: (id) => {
-                const tx = state.transactions.find(t => t.id === id);
-                if (!tx) return;
-                ui.openTransactionModal('編輯紀錄');
-                document.getElementById('editingTxId').value = tx.id;
-                document.getElementById('tType').value = tx.type;
-                ui.updateCategories();
-                document.getElementById('tDate').value = tx.date;
-                document.getElementById('tName').value = tx.name;
-                document.getElementById('tCategory').value = tx.category;
-                document.getElementById('hiddenImageUrl').value = tx.imageUrl || '';
-
-                if (state.currentLedger.type === 'group') {
-                    document.getElementById('tCurrency').value = tx.currency || 'TWD';
-                    document.getElementById('tRate').value = tx.exchangeRate || 1;
-                    document.getElementById('tAmount').value = tx.currency !== 'TWD' ? tx.originalAmount : tx.amount;
-                    document.getElementById('tPaidBy').value = tx.paidBy || state.userName;
-                    
-                    const boxes = document.querySelectorAll('#tSplitMembers input[type="checkbox"]');
-                    boxes.forEach(box => {
-                        box.checked = !tx.splitWith || tx.splitWith.includes(box.value);
-                    });
-                    
-                    app.updateRate(false);
-                } else {
-                    document.getElementById('tAmount').value = tx.amount;
-                }
-                const historyBox = document.getElementById('editHistoryBox');
-                const historyList = document.getElementById('editHistoryList');
-                if (tx.editHistory && tx.editHistory.length > 0) {
-                    historyBox.classList.remove('hidden');
-                    historyList.innerHTML = tx.editHistory.map(h => `<li>${h.date.split('T')[0]} ${h.editor} 修改</li>`).join('');
-                } else { historyBox.classList.add('hidden'); }
-            },
-
-            deleteTransaction: async (id) => { if (confirm("確定刪除？")) await deleteDoc(doc(state.db, "transactions", id)); },
-
-            updateRate: (resetValue = true) => {
-                const cur = document.getElementById('tCurrency').value;
-                const rateInput = document.getElementById('tRate');
-                const label = document.getElementById('amountLabel');
-                if (resetValue) rateInput.value = state.rates[cur] ? state.rates[cur].toFixed(3) : 1;
-                label.innerText = cur === 'TWD' ? '(台幣)' : `(${cur} 原幣)`;
-                app.calcTwd();
-            },
-
-            calcTwd: () => {
-                const cur = document.getElementById('tCurrency').value;
-                const amt = parseFloat(document.getElementById('tAmount').value) || 0;
-                const rate = parseFloat(document.getElementById('tRate').value) || 1;
-                const preview = document.getElementById('twdPreview');
-                if (cur !== 'TWD') {
-                    preview.classList.remove('hidden'); preview.querySelector('span').innerText = Math.round(amt * rate).toLocaleString();
-                } else { preview.classList.add('hidden'); }
-            },
-
-            calculateDebt: () => {
-                if (!state.currentLedger || state.currentLedger.type !== 'group') return;
-                const members = state.currentLedger.members;
-                const currentUser = state.userName;
-                const balances = {}; // Track Net Balance
-                const paidMap = {}; // Track Total Paid by each
-                
-                members.forEach(m => { balances[m] = 0; paidMap[m] = 0; });
-                
-                let totalGroupExpense = 0;
-                let userPaidTotal = 0;
-
-                state.transactions.forEach(t => {
-                    if (t.type === 'expense') {
-                        const splitters = t.splitWith && t.splitWith.length > 0 ? t.splitWith : members;
-                        if(!members.includes(t.paidBy)) return;
-
-                        balances[t.paidBy] += t.amount;
-                        paidMap[t.paidBy] += t.amount; // Track gross paid
-                        
-                        totalGroupExpense += t.amount;
-                        if(t.paidBy === currentUser) userPaidTotal += t.amount;
-
-                        const share = t.amount / splitters.length;
-                        splitters.forEach(member => {
-                            if(balances[member] !== undefined) balances[member] -= share;
+                        await addDoc(collection(state.db, "user_assets"), {
+                            userId: state.userName,
+                            name: name,
+                            currentBalance: balance,
+                            updatedAt: new Date().toISOString(),
+                            history: [historyEntry]
                         });
                     }
-                });
-
-                const userNet = balances[currentUser] || 0;
-                const creditors = members.filter(m => balances[m] > 1).map(m => ({name: m, amount: balances[m]})).sort((a,b) => b.amount - a.amount);
-                const debtors = members.filter(m => balances[m] < -1).map(m => ({name: m, amount: balances[m]})).sort((a,b) => a.amount - b.amount);
-
-                // My share for archive
-                const myTotalCost = userPaidTotal - userNet;
-                document.getElementById('settleShareAmount').innerText = Math.round(myTotalCost > 0 ? myTotalCost : 0).toLocaleString();
-
-                const personalLedgers = state.ledgers.filter(l => l.type === 'personal');
-                const select = document.getElementById('targetPersonalLedger');
-                select.innerHTML = personalLedgers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
-                if(personalLedgers.length === 0) select.innerHTML = '<option value="">無個人帳本</option>';
-
-                // Generate Detailed Table
-                let detailsHtml = `<table class="w-full text-xs mb-4 text-gray-600 border-collapse">
-                    <tr class="border-b"><th class="text-left py-1">成員</th><th class="text-right">已付(墊)</th><th class="text-right">應付(分攤)</th><th class="text-right">淨額</th></tr>`;
-                
-                members.forEach(m => {
-                    const paid = paidMap[m];
-                    const net = balances[m];
-                    const share = paid - net; // Derived share
-                    const netClass = net >= 0 ? 'text-emerald-600' : 'text-rose-600';
-                    const netSign = net >= 0 ? '+' : '';
-                    
-                    detailsHtml += `
-                    <tr class="border-b border-gray-100 last:border-0">
-                        <td class="py-1 font-bold ${m === currentUser ? 'text-indigo-600' : ''}">${m}</td>
-                        <td class="text-right">$${Math.round(paid).toLocaleString()}</td>
-                        <td class="text-right">$${Math.round(share).toLocaleString()}</td>
-                        <td class="text-right font-bold ${netClass}">${netSign}$${Math.round(net).toLocaleString()}</td>
-                    </tr>`;
-                });
-                detailsHtml += `</table>`;
-
-                let resultHtml = `
-                    <div class="bg-gray-50 p-4 rounded-lg mb-4 text-center">
-                        <div class="text-2xl font-bold ${userNet >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
-                            ${userNet >= 0 ? '應收' : '應付'} NT$ ${Math.round(Math.abs(userNet)).toLocaleString()}
-                        </div>
-                    </div>
-                    ${detailsHtml}
-                    <h4 class="font-bold text-gray-700 mb-2 border-b pb-1">建議轉帳清單：</h4>
-                    <ul class="space-y-3 mb-2">`;
-
-                if (creditors.length === 0) resultHtml += `<li class="text-center text-green-600">帳目平衡</li>`;
-                else {
-                    let c=0, d=0;
-                    while(c<creditors.length && d<debtors.length) {
-                        const amt = Math.min(creditors[c].amount, Math.abs(debtors[d].amount));
-                        if(amt < 1) break;
-                        
-                        const debtorName = debtors[d].name;
-                        const creditorName = creditors[c].name;
-                        const isMeInvolved = debtorName === currentUser || creditorName === currentUser;
-                        const rowClass = isMeInvolved ? (debtorName === currentUser ? 'border-l-4 border-rose-500 bg-white' : 'border-l-4 border-emerald-500 bg-white') : 'bg-gray-50 opacity-75';
-
-                        resultHtml += `<li class="flex justify-between p-3 rounded shadow-sm ${rowClass} items-center">
-                            <div class="flex items-center gap-2">
-                                <span class="font-bold ${debtorName===currentUser?'text-rose-600':''}">${debtorName}</span>
-                                <i class="fa-solid fa-arrow-right text-gray-400 text-xs"></i>
-                                <span class="font-bold ${creditorName===currentUser?'text-emerald-600':''}">${creditorName}</span>
-                            </div>
-                            <span class="font-bold text-gray-700">NT$ ${Math.round(amt).toLocaleString()}</span>
-                        </li>`;
-                        
-                        creditors[c].amount -= amt; debtors[d].amount += amt;
-                        if(Math.abs(creditors[c].amount) < 1) c++; if(Math.abs(debtors[d].amount) < 1) d++;
-                    }
+                    document.getElementById('assetNameInput').value = '';
+                    document.getElementById('assetBalanceInput').value = '';
+                    alert("資產已更新");
+                } catch (e) {
+                    console.error(e);
+                    alert("更新失敗");
                 }
-                resultHtml += `</ul>`;
-                document.getElementById('settleContent').innerHTML = resultHtml;
-                ui.openModal('settleModal');
+            },
+            deleteAsset: async (id) => {
+                if(confirm("確定刪除此資產紀錄？")) {
+                    await deleteDoc(doc(state.db, "user_assets", id));
+                }
+            },
+            editAsset: (name, balance) => {
+                // Populate input fields
+                document.getElementById('assetNameInput').value = name;
+                document.getElementById('assetBalanceInput').value = balance;
+                
+                // Scroll to top of assets tab
+                const contentAssets = document.getElementById('content-assets');
+                contentAssets.scrollTop = 0;
+                
+                // Focus on balance to allow quick update
+                document.getElementById('assetBalanceInput').focus();
+            },
+
+            createLedger: async()=>{const n=document.getElementById('newLedgerName').value.trim(),t=document.getElementById('newLedgerType').value,c=document.getElementById('newLedgerCurrency').value,p=document.getElementById('newLedgerPassword').value,m=document.getElementById('newLedgerMembers').value;if(!n)return alert("請輸入帳本名稱！");if(!state.userName)return alert("請先登入！");let mem=[];if(t==='group'){mem=m.split(/[,，]/).map(x=>x.trim()).filter(x=>x);if(!mem.includes(state.userName))mem.push(state.userName);}else{mem=[state.userName];}try{const r=await addDoc(collection(state.db,"ledgers"),{name:n,type:t,members:mem,defaultCurrency:c,password:p,createdBy:state.userName,status:'active',createdAt:new Date().toISOString()});if(p)state.unlockedLedgers.push(r.id);ui.closeModal('ledgerModal');ui.switchLedger(r.id);document.getElementById('newLedgerName').value='';document.getElementById('newLedgerMembers').value='';document.getElementById('newLedgerPassword').value='';}catch(e){alert("建立失敗");console.error(e);}},
+            verifyPassword: ()=>{const i=document.getElementById('unlockPasswordInput').value,l=state.ledgers.find(x=>x.id===state.pendingLedgerId);if(l&&i===l.password){state.unlockedLedgers.push(l.id);ui.closeModal('passwordModal');ui.switchLedger(l.id);}else alert("Wrong PW");},
+            listenTransactions: () => { if (!state.currentLedger) return; if (state.unsubscribeTrans) state.unsubscribeTrans(); document.getElementById('loadingIndicator').classList.remove('hidden'); state.unsubscribeTrans = onSnapshot(query(collection(state.db, "transactions"), where("ledgerId", "==", state.currentLedger.id)), snap => { state.transactions = []; snap.forEach(d => state.transactions.push({ id: d.id, ...d.data() })); state.transactions.sort((a, b) => new Date(b.date) - new Date(a.date)); app.updateLedgerView(); document.getElementById('loadingIndicator').classList.add('hidden'); }); },
+            addTransaction: async(e)=>{e.preventDefault();const b=document.getElementById('submitBtn');const originalText=b.innerText;b.disabled=true;b.innerHTML='<div class="loader w-4 h-4 border-white border-t-transparent inline-block mr-2"></div> 儲存中...';let u=document.getElementById('hiddenImageUrl').value;const merch=document.getElementById('tMerchant').value.trim();const groupId=Date.now().toString();try{if(state.currentImage&&state.scriptUrl){const r=await fetch(state.scriptUrl,{method:'POST',body:JSON.stringify({image:state.currentImage.base64,mimeType:state.currentImage.mimeType,filename:`rec_${Date.now()}.jpg`})});const d=await r.json();if(d.status==='success')u=d.url;}const eid=document.getElementById('editingTxId').value,typ=document.getElementById('tType').value,dat=document.getElementById('tDate').value,isG=state.currentLedger.type==='group';let cur='TWD',rate=1,pb='';if(isG){cur=document.getElementById('tCurrency').value;rate=parseFloat(document.getElementById('tRate').value)||1;pb=document.getElementById('tPaidBy').value;}const rows=document.querySelectorAll('.item-row'),bat=writeBatch(state.db);if(eid){const r=rows[0];if(r){const n=r.querySelector('.item-name').value,c=r.querySelector('.item-cat').value;let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a;if(isG&&cur!=='TWD')a=Math.round(oa*rate);const ot=state.transactions.find(t=>t.id===eid),h=ot.editHistory||[];h.push({editor:state.userName,date:new Date().toISOString()});bat.update(doc(state.db,"transactions",eid),{ledgerId:state.currentLedger.id,type:typ,date:dat,amount:a,originalAmount:oa,currency:cur,exchangeRate:rate,paidBy:pb,name:n,category:c,imageUrl:u,merchant:merch,lastEditedBy:state.userName,lastEditedAt:new Date().toISOString(),editHistory:h});}}else{rows.forEach(r=>{const n=r.querySelector('.item-name').value.trim(),c=r.querySelector('.item-cat').value;let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a;if(!n&&a===0)return;if(isG&&cur!=='TWD')a=Math.round(oa*rate);bat.set(doc(collection(state.db,"transactions")),{ledgerId:state.currentLedger.id,type:typ,date:dat,amount:a,originalAmount:oa,currency:cur,exchangeRate:rate,paidBy:pb,name:n,category:c,imageUrl:u,merchant:merch,groupId: groupId,createdAt:new Date().toISOString(),lastEditedBy:state.userName,lastEditedAt:new Date().toISOString()});});}await bat.commit();ui.closeModal('transactionModal');ai.clearImage();}catch(e){alert("儲存失敗: "+e.message);}finally{b.disabled=false;b.innerText=originalText;}},
+            editTransaction: (id)=>{const t=state.transactions.find(x=>x.id===id);if(!t)return;ui.openTransactionModal('編輯');document.getElementById('editingTxId').value=t.id;document.getElementById('tType').value=t.type;document.getElementById('tDate').value=t.date;document.getElementById('hiddenImageUrl').value=t.imageUrl||'';document.getElementById('tMerchant').value=t.merchant||'';document.getElementById('btnAddItem').classList.add('hidden');document.getElementById('uploadContainer').classList.add('hidden');if(state.currentLedger.type==='group'){document.getElementById('tCurrency').value=t.currency||'TWD';document.getElementById('tRate').value=t.exchangeRate||1;document.getElementById('tPaidBy').value=t.paidBy||state.userName;app.updateRate(false);}document.getElementById('transactionItemsList').innerHTML='';ui.addItemRow(t.name,t.category,t.currency!=='TWD'?t.originalAmount:t.amount);ui.updateTotal();},
+            deleteTransaction: async(id)=>{if(confirm("Del?"))await deleteDoc(doc(state.db,"transactions",id));},
+            updateRate: (r=true)=>{const c=document.getElementById('tCurrency').value;if(r)document.getElementById('tRate').value=state.rates[c]?.toFixed(3)||1;app.calcTwd();},
+            calcTwd: ()=>ui.updateTotal(),
+            calculateDebt: ()=>{if(!state.currentLedger||state.currentLedger.type!=='group')return;const mem=state.currentLedger.members,cur=state.userName,bal={};mem.forEach(m=>bal[m]=0);let tot=0;state.transactions.forEach(t=>{if(t.type==='expense'&&mem.includes(t.paidBy)){bal[t.paidBy]+=t.amount;tot+=t.amount;}});const avg=tot/mem.length,net=mem.map(m=>({name:m,amount:bal[m]-avg}));const myNet=net.find(n=>n.name===cur)?.amount||0;document.getElementById('settleShareAmount').innerText=Math.round(avg).toLocaleString();const pl=state.ledgers.filter(l=>l.type==='personal');document.getElementById('targetPersonalLedger').innerHTML=pl.map(l=>`<option value="${l.id}">${l.name}</option>`).join('')||'<option>無</option>';let h=`<div class="text-center mb-4 bg-gray-50 p-4 rounded"><div class="text-2xl font-bold ${myNet>=0?'text-green-600':'text-red-600'}">${myNet>=0?'應收':'應付'} $${Math.round(Math.abs(myNet)).toLocaleString()}</div><div class="text-xs text-gray-400">每人: $${Math.round(avg).toLocaleString()}</div></div><ul class="space-y-2">`;const cr=net.filter(n=>n.amount>1).sort((a,b)=>b.amount-a.amount),db=net.filter(n=>n.amount<-1).sort((a,b)=>a.amount-b.amount);if(cr.length===0)h+='<li class="text-center text-green-500">平帳</li>';else{let c=0,d=0;while(c<cr.length&&d<db.length){let amt=Math.min(cr[c].amount,Math.abs(db[d].amount));if(amt<1)break;if(db[d].name===cur||cr[c].name===cur)h+=`<li class="flex justify-between bg-white p-2 border-l-4 ${db[d].name===cur?'border-red-500':'border-green-500'}"><span>${db[d].name} <i class="fa-solid fa-arrow-right"></i> ${cr[c].name}</span><b>$${Math.round(amt).toLocaleString()}</b></li>`;cr[c].amount-=amt;db[d].amount+=amt;if(Math.abs(cr[c].amount)<1)c++;if(Math.abs(db[d].amount)<1)d++;}}document.getElementById('settleContent').innerHTML=h+'</ul>';ui.openModal('settleModal');},
+            loadUserStats: async () => { /* Load Stats for Profile Tab */ const y=document.getElementById('statYear').value,m=document.getElementById('statMonth').value,cnt=document.getElementById('ledgerStatsContainer'),ldr=document.getElementById('statsLoader');ldr.classList.remove('hidden');cnt.innerHTML='';
+                try{let tx=[];const proms=state.ledgers.map(l=>getDocs(query(collection(state.db,"transactions"),where("ledgerId","==",l.id))).then(s=>s.docs.map(d=>({...d.data(),id:d.id,ledgerName:l.name,ledgerType:l.type,ledgerMembers:l.members}))));const res=await Promise.all(proms);tx=res.flat();state.allTransactionsCache=tx;const ftx=tx.filter(t=>{const d=new Date(t.date);return d.getFullYear().toString()===y&&(m==='all'||(d.getMonth()+1).toString().padStart(2,'0')===m);});state.ledgers.forEach(l=>{const ltx=ftx.filter(t=>t.ledgerId===l.id);if(ltx.length===0)return;let my=0,tot=0;ltx.forEach(t=>{if(t.type==='expense'){tot+=t.amount;if(l.type==='personal'||t.paidBy===state.userName)my+=t.amount;}});if(tot===0&&my===0)return;cnt.innerHTML+=`<div class="bg-white p-4 rounded-xl border mb-3"><div class="flex justify-between"><div><h4 class="font-bold text-sm">${l.name}</h4><p class="text-xl font-bold text-blue-600">$${my.toLocaleString()}</p></div><div class="text-xs text-gray-400 text-right">總支出: $${tot.toLocaleString()}<br>${l.type==='group'?l.members.length+'人':''}</div></div></div>`;});if(cnt.innerHTML==='')cnt.innerHTML='<div class="text-center text-gray-400 py-4">無資料</div>';}catch(e){console.error(e);}finally{ldr.classList.add('hidden');}
             }
         };
 
-        const ai = {
-            handleImageUpload: (input) => {
-                const file = input.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async () => {
-                    const base64 = reader.result.split(',')[1];
-                    state.currentImage = { base64, mimeType: file.type };
-                    document.getElementById('imagePreview').src = reader.result;
-                    document.getElementById('imagePreviewContainer').classList.remove('hidden');
-                    document.getElementById('uploadZone').classList.add('hidden');
-                    if(state.geminiKey) await ai.process(base64, file.type);
-                };
-                reader.readAsDataURL(file);
-            },
-            process: async (base64, mimeType) => {
-                const loader = document.getElementById('aiLoading');
-                loader.classList.remove('hidden');
-                try {
-                    const prompt = `Analyze receipt. Extract JSON: { "amount": number, "currency": "string (TWD, JPY, USD, KRW, EUR, CNY)", "date": "YYYY-MM-DD", "name": "string", "category": "string" }. Rules: If currency symbol is ¥, determine if JPY or CNY based on text, default JPY. Map item to closest category in [飲食, 交通, 購物, 娛樂, 居住, 醫療, 教育, 其他].`;
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${state.geminiKey}`, { method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }] }) });
-                    const data = await res.json();
-                    
-                    if (data.error) { throw new Error(data.error.message); }
-
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                    const json = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
-                    document.getElementById('tAmount').value = json.amount || '';
-                    document.getElementById('tName').value = json.name || '';
-                    if(json.date) document.getElementById('tDate').value = json.date;
-                    if (json.currency && state.rates[json.currency]) { document.getElementById('tCurrency').value = json.currency; app.updateRate(); }
-                    const catSelect = document.getElementById('tCategory');
-                    for(let i=0; i<catSelect.options.length; i++) { if (catSelect.options[i].value === json.category) { catSelect.selectedIndex = i; break; } }
-                } catch(e) { 
-                    console.error(e); 
-                    alert("AI 辨識失敗：" + (e.message || "未知錯誤，請檢查 API Key")); 
-                } finally { loader.classList.add('hidden'); }
-            },
-            clearImage: () => {
-                state.currentImage = null;
-                document.getElementById('receiptUpload').value = '';
-                document.getElementById('imagePreviewContainer').classList.add('hidden');
-                document.getElementById('uploadZone').classList.remove('hidden');
-            }
+        const ai = { /* ... */ 
+            handleImageUpload: (inp) => { const f=inp.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ state.currentImage={base64:r.result.split(',')[1],mimeType:f.type}; document.getElementById('imagePreview').src=r.result; document.getElementById('imagePreviewContainer').classList.remove('hidden'); document.getElementById('uploadZone').classList.add('hidden'); ai.runAiAnalysis(); }; r.readAsDataURL(f); },
+            clearImage: () => { state.currentImage=null; document.getElementById('receiptUpload').value=''; document.getElementById('imagePreviewContainer').classList.add('hidden'); document.getElementById('uploadZone').classList.remove('hidden'); document.getElementById('aiLoading').classList.add('hidden'); document.getElementById('aiStatusText').innerText = "AI 正在辨識收據內容..."; },
+            runQrScan: async () => {},
+            runAiAnalysis: async () => { if(!state.geminiKey) return alert("請先設定 API Key"); const l=document.getElementById('aiLoading'); l.classList.remove('hidden'); document.getElementById('aiStatusText').innerText = "AI 正在辨識收據內容..."; try{ let p = `Analyze this receipt image. Return a JSON object with this exact structure: { "merchant": "store name or null", "items": [{ "name": "item name", "amount": number, "category": "one of ${state.categories.expense.join(',')}" }] }. Only return JSON.`; if (state.customAiPrompt) { p += ` Additional Instruction from user: ${state.customAiPrompt}`; } const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${state.geminiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:p},{inline_data:{mime_type:state.currentImage.mimeType,data:state.currentImage.base64}}]}]})}); const d=await r.json(); const txt = d.candidates[0].content.parts[0].text.replace(/```json/g,'').replace(/```/g,''); const j=JSON.parse(txt); document.getElementById('transactionItemsList').innerHTML=''; (j.items||[]).forEach(i=>ui.addItemRow(i.name,i.category,i.amount)); if(j.merchant) document.getElementById('tMerchant').value = j.merchant; ui.updateTotal(); document.getElementById('aiStatusText').innerText = "辨識完成！請確認細項。"; setTimeout(() => l.classList.add('hidden'), 1500); }catch(e){ console.error(e); document.getElementById('aiStatusText').innerText = "辨識失敗，請手動輸入"; setTimeout(() => l.classList.add('hidden'), 2000); } }
         };
 
         const ui = {
-            renderLedgerList: () => {
-                const list = document.getElementById('ledgerList');
-                const archivedList = document.getElementById('archivedLedgerList');
-                const archivedSection = document.getElementById('archivedSection');
-                list.innerHTML = ''; archivedList.innerHTML = '';
-                let hasArchived = false;
-                state.ledgers.forEach(l => {
-                    const icon = l.type === 'group' ? 'fa-users' : 'fa-book';
-                    const isLocked = l.password && !state.unlockedLedgers.includes(l.id);
-                    const lockIcon = isLocked ? '<i class="fa-solid fa-lock text-xs ml-1 opacity-70"></i>' : '';
-                    const html = `<li><button onclick="ui.switchLedger('${l.id}')" class="w-full text-left px-4 py-3 rounded-lg flex items-center justify-between transition ${l.id === state.currentLedger?.id ? 'bg-emerald-600 text-white shadow-lg' : (l.status === 'archived' ? 'text-slate-500 hover:bg-slate-700 hover:text-white archived-ledger' : 'text-slate-300 hover:bg-slate-700 hover:text-white')}"><span class="truncate"><i class="fa-solid ${icon} mr-2"></i> ${l.name}</span><span>${lockIcon}</span></button></li>`;
-                    if (l.status === 'archived') { archivedList.innerHTML += html; hasArchived = true; } else { list.innerHTML += html; }
-                });
-                if (hasArchived) archivedSection.classList.remove('hidden'); else archivedSection.classList.add('hidden');
-            },
+            renderLedgerList: () => { const l=document.getElementById('ledgerList'), al=document.getElementById('archivedLedgerList'); l.innerHTML=''; al.innerHTML=''; let hasArc=false; state.ledgers.forEach(x=>{ const h=`<li><button onclick="ui.switchLedger('${x.id}')" class="w-full text-left px-4 py-3 rounded-lg flex justify-between ${x.id===state.currentLedger?.id?'bg-emerald-600 text-white':'text-slate-300 hover:bg-slate-700'}"><span><i class="fa-solid ${x.type==='group'?'fa-users':'fa-book'} mr-2"></i>${x.name}</span>${x.password?'<i class="fa-solid fa-lock text-xs"></i>':''} </button></li>`; if(x.status==='archived'){al.innerHTML+=h;hasArc=true;}else l.innerHTML+=h; }); document.getElementById('archivedSection').className=hasArc?'mt-6':'hidden'; },
+            switchLedger: (id) => { const l=state.ledgers.find(x=>x.id===id); if(!l)return; if(l.password&&!state.unlockedLedgers.includes(id)){ state.pendingLedgerId=id; document.getElementById('unlockPasswordInput').value=''; ui.openModal('passwordModal'); return; } state.currentLedger=l; localStorage.setItem('acc_current_ledger',id); document.getElementById('currentLedgerTitle').innerText=l.name; const isG=l.type==='group'; document.getElementById('ledgerTypeBadge').className=isG?'block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded':'hidden'; document.getElementById('ledgerMembers').innerText=isG?l.members.join(','):''; document.getElementById('ledgerMembers').className=isG?'block text-sm text-gray-500':'hidden'; document.getElementById('groupPayerField').className=isG?'col-span-2':'hidden'; document.getElementById('settleBtn').className=isG?'bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg shadow transition flex items-center gap-2 font-medium text-sm':'hidden'; if(l.status==='archived')document.getElementById('addTxBtn').classList.add('hidden'); else document.getElementById('addTxBtn').classList.remove('hidden'); ui.renderLedgerList(); app.listenTransactions(); },
+            
+            toggleSelectAll: (source) => { document.querySelectorAll('.tx-checkbox').forEach(cb => { cb.checked = source.checked; }); ui.updateBulkActionState(); },
+            updateBulkActionState: () => { const count = document.querySelectorAll('.tx-checkbox:checked').length; const btn = document.getElementById('bulkDeleteBtn'); const span = document.getElementById('selectedCount'); if (count > 0) { btn.classList.remove('hidden'); span.innerText = count; } else { btn.classList.add('hidden'); } },
 
-            switchLedger: (id) => {
-                const ledger = state.ledgers.find(l => l.id === id);
-                if(!ledger) return;
-                if (ledger.password && !state.unlockedLedgers.includes(id)) { state.pendingLedgerId = id; document.getElementById('unlockPasswordInput').value = ''; ui.openModal('passwordModal'); return; }
-                state.currentLedger = ledger;
-                localStorage.setItem('acc_current_ledger', id);
-                document.getElementById('currentLedgerTitle').innerText = state.currentLedger.name;
-                const isGroup = state.currentLedger.type === 'group';
-                const isArchived = state.currentLedger.status === 'archived';
-                document.getElementById('ledgerTypeBadge').className = isGroup ? "px-2 py-0.5 rounded text-xs font-bold bg-purple-100 text-purple-700 block" : "hidden";
-                document.getElementById('ledgerTypeBadge').innerText = isGroup ? '多人共用' : '';
-                document.getElementById('ledgerStatusBadge').className = isArchived ? "px-2 py-0.5 rounded text-xs font-bold bg-gray-200 text-gray-600 block" : "hidden";
-                
-                const membersText = document.getElementById('ledgerMembers');
-                const addMemberBtn = document.getElementById('addMemberBtn');
-                if (isGroup) {
-                    membersText.innerText = state.currentLedger.members.join(', ');
-                    membersText.classList.remove('hidden');
-                    document.getElementById('settleBtn').classList.remove('hidden');
-                    document.getElementById('tPaidBy').innerHTML = state.currentLedger.members.map(m => `<option value="${m}">${m}</option>`).join('');
-                    document.getElementById('groupPayerField').classList.remove('hidden');
+            renderTransactionListHTML: (list) => { 
+                const tb=document.getElementById('transactionTableBody');
+                if(list.length===0) { tb.innerHTML='<tr><td colspan="5" class="p-8 text-center text-gray-400">此區間無交易資料</td></tr>'; return; }
+                const groups = {};
+                list.forEach(t => { const gid = t.groupId || t.id; if(!groups[gid]) { groups[gid] = { ...t, items: [], totalAmount: 0 }; } groups[gid].items.push(t); groups[gid].totalAmount += t.amount; });
+
+                tb.innerHTML = Object.values(groups).sort((a,b) => new Date(b.date) - new Date(a.date)).map(g => {
+                    const isGroup = g.items.length > 1; const isE = g.type === 'expense'; const mainColor = isE ? 'text-rose-600' : 'text-emerald-600'; const icon = isGroup ? '<i class="fa-solid fa-layer-group text-gray-400 mr-1"></i>' : '';
                     
-                    const splitDiv = document.getElementById('tSplitMembers');
-                    splitDiv.innerHTML = state.currentLedger.members.map(m => `
-                        <label class="flex items-center space-x-1 bg-white border border-gray-200 rounded px-2 py-1 cursor-pointer hover:bg-gray-50">
-                            <input type="checkbox" value="${m}" checked class="form-checkbox h-3 w-3 text-emerald-600 rounded">
-                            <span>${m}</span>
-                        </label>
-                    `).join('');
-                    
-                    addMemberBtn.classList.remove('hidden'); 
-                } else {
-                    membersText.classList.add('hidden');
-                    document.getElementById('settleBtn').classList.add('hidden');
-                    document.getElementById('groupPayerField').classList.add('hidden');
-                    addMemberBtn.classList.add('hidden');
-                }
-                if(isArchived) { document.getElementById('addTxBtn').classList.add('hidden'); addMemberBtn.classList.add('hidden'); }
-                else document.getElementById('addTxBtn').classList.remove('hidden');
-                ui.renderLedgerList();
-                app.listenTransactions();
-            },
+                    const catTotals = {};
+                    g.items.forEach(i => { catTotals[i.category] = (catTotals[i.category] || 0) + i.amount; });
+                    const topCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]).join(', ');
+                    const suffix = Object.keys(catTotals).length > 3 ? '...' : '';
+                    const displayItems = topCats + suffix;
 
-            renderTransactions: () => {
-                const tbody = document.getElementById('transactionTableBody');
-                let income = 0, expense = 0;
-                if (state.transactions.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-gray-400"><i class="fa-solid fa-file-invoice text-4xl mb-2 block"></i>暫無資料</td></tr>`; } 
-                else {
-                    tbody.innerHTML = state.transactions.map(t => {
-                        const isExp = t.type === 'expense';
-                        if (isExp) expense += t.amount; else income += t.amount;
-                        let detailHtml = t.name;
-                        let amountHtml = `NT$ ${Math.round(t.amount).toLocaleString()}`;
-                        let originalHtml = '-';
-                        if (t.currency && t.currency !== 'TWD') originalHtml = `${t.currency} ${t.originalAmount.toLocaleString()}`;
-                        if (state.currentLedger.type === 'group' && t.paidBy) {
-                            detailHtml += `<br><span class="text-xs text-gray-400"><i class="fa-solid fa-user"></i> ${t.paidBy}`;
-                            if(t.splitWith && t.splitWith.length > 0 && t.splitWith.length < state.currentLedger.members.length) {
-                                detailHtml += ` <i class="fa-solid fa-arrow-right mx-1"></i> ${t.splitWith.length}人`;
-                            }
-                            detailHtml += `</span>`;
-                        }
-                        const editedIndicator = t.editHistory ? `<i class="fa-solid fa-pen-to-square text-xs text-orange-300 ml-1" title="有編輯紀錄"></i>` : '';
-                        const imgBtn = t.imageUrl ? `<button onclick="ui.viewImage('${t.imageUrl}')" class="text-blue-500 hover:text-blue-700 mr-2"><i class="fa-solid fa-image"></i></button>` : '';
-                        const isArchived = state.currentLedger.status === 'archived';
-                        const actionBtns = isArchived ? '<span class="text-xs text-gray-400">已鎖定</span>' : `<button onclick="app.editTransaction('${t.id}')" class="text-gray-300 hover:text-blue-500 transition mr-2"><i class="fa-solid fa-pen"></i></button><button onclick="app.deleteTransaction('${t.id}')" class="text-gray-300 hover:text-rose-500 transition"><i class="fa-solid fa-trash"></i></button>`;
-                        return `<tr class="border-b border-gray-50 hover:bg-gray-50 transition group"><td class="p-4 text-gray-600 text-sm whitespace-nowrap">${t.date}</td><td class="p-4"><div class="font-medium text-gray-800 flex items-center">${detailHtml} ${editedIndicator}</div><span class="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">${t.category}</span></td><td class="p-4 text-gray-500 text-sm">${originalHtml}</td><td class="p-4 text-right font-bold ${isExp ? 'text-rose-600' : 'text-emerald-600'}">${isExp ? '-' : '+'}${amountHtml}</td><td class="p-4 text-center">${imgBtn} ${actionBtns}</td></tr>`;
-                    }).join('');
-                }
-                document.getElementById('totalIncome').innerText = `$${Math.round(income).toLocaleString()}`;
-                document.getElementById('totalExpense').innerText = `$${Math.round(expense).toLocaleString()}`;
-                document.getElementById('totalBalance').innerText = `$${Math.round(income - expense).toLocaleString()}`;
-            },
+                    let titleHtml = '';
+                    if (g.merchant) { titleHtml = `<div class="font-bold text-gray-800">${g.merchant}</div><div class="text-xs text-gray-500 mt-0.5">${displayItems}</div>`; } else { titleHtml = `<div class="font-medium text-gray-800">${displayItems}</div>`; }
 
-            openTransactionModal: (title = '新增紀錄') => {
-                document.getElementById('txModalTitle').innerText = title;
-                document.getElementById('transactionForm').reset();
-                document.getElementById('editingTxId').value = '';
-                document.getElementById('editHistoryBox').classList.add('hidden');
-                document.getElementById('tDate').valueAsDate = new Date();
-                
-                if (state.currentLedger.type === 'group') {
-                    const boxes = document.querySelectorAll('#tSplitMembers input[type="checkbox"]');
-                    boxes.forEach(box => box.checked = true);
-                }
+                    const detailId = `detail-${g.id}`; const allIds = g.items.map(i => i.id).join(',');
 
-                if (state.currentLedger && state.currentLedger.defaultCurrency) { document.getElementById('tCurrency').value = state.currentLedger.defaultCurrency; app.updateRate(); } else { document.getElementById('tCurrency').value = 'TWD'; app.updateRate(); }
-                ui.openModal('transactionModal');
-            },
-
-            toggleMemberInput: () => {
-                const type = document.getElementById('newLedgerType').value;
-                const div = document.getElementById('memberInputDiv');
-                const hint = document.getElementById('privacyHint');
-                if (type === 'group') { div.classList.remove('hidden'); hint.innerHTML = '<i class="fa-solid fa-users"></i> 只有名單內的成員看得到'; } 
-                else { div.classList.add('hidden'); hint.innerHTML = '<i class="fa-solid fa-lock"></i> 只有您看得到此帳本'; }
+                    return `<tr class="border-b hover:bg-gray-50 tx-group-header">
+                        <td class="p-4 w-10 text-center" onclick="event.stopPropagation()"><input type="checkbox" class="tx-checkbox w-4 h-4 cursor-pointer" data-ids="${allIds}" onchange="ui.updateBulkActionState()"></td>
+                        <td class="p-4 text-sm whitespace-nowrap" onclick="ui.toggleDetail('${detailId}')">${g.date}</td>
+                        <td class="p-4" onclick="ui.toggleDetail('${detailId}')"><div class="flex items-center">${icon}<div class="flex flex-col">${titleHtml}<span class="text-xs text-gray-400 mt-0.5">${g.category} ${g.paidBy?`(${g.paidBy})`:''}</span></div></div></td>
+                        <td class="p-4 text-right font-bold ${mainColor}" onclick="ui.toggleDetail('${detailId}')">${isE?'-':'+'}${(isGroup ? g.totalAmount : g.amount).toLocaleString()}</td>
+                        <td class="p-4 text-center" onclick="ui.toggleDetail('${detailId}')"><i class="fa-solid fa-chevron-down text-gray-300 transition" id="arrow-${detailId}"></i></td>
+                    </tr>
+                    <tr id="${detailId}" class="hidden tx-detail-row"><td colspan="5" class="p-0"><div class="p-4 pl-16 bg-slate-50 border-b border-gray-100 shadow-inner"><p class="text-xs text-gray-400 mb-2 font-bold uppercase">細項明細</p>${g.items.map(item => `<div class="flex justify-between items-center py-2 border-b border-gray-200 last:border-0 text-sm"><span>${item.name} <span class="text-xs text-gray-400 ml-2">${item.category}</span></span><div class="flex items-center gap-4"><span class="font-mono text-gray-600">$${item.amount.toLocaleString()}</span><div class="flex gap-2"><button onclick="app.editTransaction('${item.id}')" class="text-blue-400 hover:text-blue-600"><i class="fa-solid fa-pen"></i></button><button onclick="app.deleteTransaction('${item.id}')" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button></div></div></div>`).join('')}</div></td></tr>`;
+                }).join('');
             },
             
-            editUser: () => ui.openUserProfile(),
-            openUserProfile: () => { document.getElementById('userProfileModal').classList.remove('hidden'); document.getElementById('renameInput').value = state.userName; app.loadUserStats(); },
-            logout: () => { localStorage.removeItem('acc_username'); location.reload(); },
-            viewImage: (url) => { document.getElementById('imageViewerSrc').src = url; document.getElementById('imageViewerLink').href = url; document.getElementById('imageViewerModal').classList.remove('hidden'); },
-            closeImageModal: () => { document.getElementById('imageViewerModal').classList.add('hidden'); document.getElementById('imageViewerSrc').src = ''; },
-            updateCategories: () => { const type = document.getElementById('tType').value; document.getElementById('tCategory').innerHTML = CATEGORIES[type].map(c => `<option value="${c}">${c}</option>`).join(''); },
+            renderAssets: () => {
+                const list = document.getElementById('assetsList');
+                list.innerHTML = '';
+                let total = 0;
+                
+                if (state.assets.length === 0) {
+                    list.innerHTML = '<div class="text-center text-gray-400 py-4 text-sm">暫無資產紀錄</div>';
+                } else {
+                    state.assets.sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).forEach(asset => {
+                        total += asset.currentBalance;
+                        const date = new Date(asset.updatedAt).toLocaleDateString();
+                        // Generate history list HTML
+                        const historyHtml = (asset.history || []).sort((a, b) => new Date(b.date) - new Date(a.date)).map(h => `
+                            <li class="flex justify-between text-[10px] text-gray-500 py-1 border-b border-gray-100 last:border-0">
+                                <span>${new Date(h.date).toLocaleString()}</span>
+                                <span class="font-mono">$${h.balance.toLocaleString()}</span>
+                            </li>
+                        `).join('');
+
+                        list.innerHTML += `
+                            <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                                <div class="p-3 flex justify-between items-center cursor-pointer hover:bg-gray-50" onclick="ui.toggleAssetHistory('${asset.id}')">
+                                    <div>
+                                        <p class="font-bold text-gray-800">${asset.name}</p>
+                                        <p class="text-xs text-gray-400">更新於: ${date}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-mono font-bold text-indigo-600 text-lg">$${asset.currentBalance.toLocaleString()}</p>
+                                        <div class="flex gap-3 justify-end mt-1" onclick="event.stopPropagation()">
+                                            <button onclick="app.editAsset('${asset.name}', ${asset.currentBalance})" class="text-xs font-bold text-blue-500 hover:text-blue-700"><i class="fa-solid fa-pen-to-square"></i> 修改</button>
+                                            <button onclick="app.deleteAsset('${asset.id}')" class="text-xs font-bold text-red-400 hover:text-red-600"><i class="fa-solid fa-trash-can"></i> 刪除</button>
+                                            <i class="fa-solid fa-chevron-down text-gray-300 text-xs transition transform" id="asset-arrow-${asset.id}"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="asset-history-${asset.id}" class="hidden bg-gray-50 p-3 text-xs border-t border-gray-100 animate-fade-in">
+                                    <p class="font-bold text-gray-500 mb-2 uppercase">變更歷史</p>
+                                    <ul class="space-y-1 max-h-32 overflow-y-auto">
+                                        ${historyHtml || '<li class="text-center italic">無歷史紀錄</li>'}
+                                    </ul>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById('totalAssetDisplay').innerText = '$' + total.toLocaleString();
+            },
+            
+            renderAssetOptions: () => {
+                const dl = document.getElementById('assetNamesList');
+                if(!dl) return;
+                dl.innerHTML = '';
+                // Combine Default Banks with user's existing asset names, unique
+                const userNames = state.assets.map(a => a.name);
+                const allNames = [...new Set([...DEFAULT_BANKS, ...userNames])];
+                
+                allNames.forEach(n => {
+                    const opt = document.createElement('option');
+                    opt.value = n;
+                    dl.appendChild(opt);
+                });
+            },
+            
+            toggleAssetHistory: (id) => {
+                const el = document.getElementById(`asset-history-${id}`);
+                const arrow = document.getElementById(`asset-arrow-${id}`);
+                if(el.classList.contains('hidden')){
+                    el.classList.remove('hidden');
+                    arrow.classList.add('rotate-180');
+                } else {
+                    el.classList.add('hidden');
+                    arrow.classList.remove('rotate-180');
+                }
+            },
+
+            // --- HOVER STATS LOGIC ---
+            showHoverStats: (key) => {
+                const data = state.currentChartStats[key];
+                if (!data) return;
+                
+                const html = `
+                    <div class="bg-white rounded-xl p-3 border border-indigo-200 shadow-sm animate-fade-in">
+                        <div class="flex justify-between items-end mb-2 border-b border-gray-100 pb-1">
+                            <span class="text-indigo-900 font-bold text-sm">${data.label}</span>
+                            <span class="font-bold text-rose-600 text-base">$${data.total.toLocaleString()}</span>
+                        </div>
+                        <div class="grid grid-cols-1 gap-1">
+                            ${data.cats.map(c => `
+                                <div class="flex justify-between items-center text-xs">
+                                    <span class="text-gray-600">${c.name}</span>
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                            <div class="h-full bg-indigo-400 rounded-full" style="width: ${c.pct}%"></div>
+                                        </div>
+                                        <span class="font-bold text-gray-800 w-8 text-right">${c.pct}%</span>
+                                    </div>
+                                </div>
+                            `).join('') || '<div class="text-center text-gray-400 text-xs">無消費</div>'}
+                        </div>
+                    </div>
+                `;
+                document.getElementById('dailyStatsSummary').innerHTML = html;
+                document.getElementById('dailyStatsSummary').classList.remove('hidden');
+            },
+            resetStatsSummary: () => {
+                document.getElementById('dailyStatsSummary').innerHTML = `
+                    <div class="text-center text-gray-400 text-sm py-6 bg-slate-50 rounded-xl border border-dashed border-gray-200">
+                        滑過或點擊下方圖表以查看該時段消費詳情
+                    </div>
+                `;
+            },
+
+            toggleDetail: (id) => { const row=document.getElementById(id), arrow=document.getElementById(`arrow-${id}`); if(row.classList.contains('hidden')){row.classList.remove('hidden');arrow.classList.add('rotate-180');}else{row.classList.add('hidden');arrow.classList.remove('rotate-180');} },
+            openTransactionModal: (t) => { document.getElementById('txModalTitle').innerText=t||'新增'; document.getElementById('transactionForm').reset(); document.getElementById('transactionItemsList').innerHTML=''; ui.addItemRow(); ui.openModal('transactionModal'); },
+            addItemRow: (n='',c='',a='') => { const div=document.createElement('div'); div.className='grid grid-cols-12 gap-2 p-2 border-b item-row'; div.innerHTML=`<div class="col-span-5"><input class="item-name w-full border p-1" value="${n}" placeholder="品項"></div><div class="col-span-3"><select class="item-cat w-full border p-1">${state.categories[document.getElementById('tType').value].map(x=>`<option ${x===c?'selected':''}>${x}</option>`).join('')}</select></div><div class="col-span-3"><input type="number" class="item-amount w-full border p-1" value="${a}" placeholder="0"></div><div class="col-span-1"><button type="button" onclick="this.parentElement.parentElement.remove()"><i class="fa-solid fa-times"></i></button></div>`; document.getElementById('transactionItemsList').appendChild(div); },
+            updateCategoriesForRows: () => { document.querySelectorAll('.item-cat').forEach(s=>s.innerHTML=state.categories[document.getElementById('tType').value].map(c=>`<option>${c}</option>`).join('')); },
+            updateTotal: () => { let t=0; document.querySelectorAll('.item-amount').forEach(i=>t+=parseFloat(i.value)||0); document.getElementById('displayTotal').innerText='$'+t.toLocaleString(); },
+            toggleMemberInput: () => { document.getElementById('memberInputDiv').classList.toggle('hidden', document.getElementById('newLedgerType').value!=='group'); },
             openModal: (id) => document.getElementById(id).classList.remove('hidden'),
             closeModal: (id) => document.getElementById(id).classList.add('hidden'),
-            toggleMobileMenu: () => document.getElementById('mobileMenu').classList.toggle('hidden')
+            toggleMobileMenu: () => document.getElementById('mobileMenu').classList.toggle('hidden'),
+            viewImage: (u) => { document.getElementById('imageViewerSrc').src=u; ui.openModal('imageViewerModal'); },
+            closeImageModal: () => ui.closeModal('imageViewerModal'),
+            renderSettings: () => {
+                if(state.currentLedger) document.getElementById('settingLedgerName').innerText = state.currentLedger.name;
+                ['expense', 'income'].forEach(t => {
+                    const div = document.getElementById(t+'CatList');
+                    if(div) div.innerHTML = state.categories[t].map(c => `<span class="inline-flex items-center px-2 py-1 rounded bg-white border border-gray-200 text-xs text-gray-700 shadow-sm gap-1">${c}<button onclick="app.removeCategory('${t}','${c}')" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times"></i></button></span>`).join('');
+                });
+            },
+            openSettings: () => {
+                ui.renderSettings();
+                ui.openModal('settingsModal');
+            },
+            openUserProfile: () => { ui.openModal('userProfileModal'); document.getElementById('renameInput').value = state.userName; ui.switchProfileTab('overview'); },
+            switchProfileTab: (tabName) => { ['overview', 'ai-assistant', 'settings', 'assets'].forEach(t => { const el = document.getElementById(`content-${t}`); const btn = document.getElementById(`tab-${t}`); if(el) el.classList.add('hidden'); if(btn) btn.classList.remove('active'); }); document.getElementById(`content-${tabName}`).classList.remove('hidden'); document.getElementById(`tab-${tabName}`).classList.add('active'); if(tabName === 'overview') app.loadUserStats(); },
+            logout: () => { localStorage.removeItem('acc_username'); location.reload(); }
         };
 
         window.app = app; window.ui = ui; window.ai = ai;
