@@ -147,6 +147,12 @@
                 <button id="settleBtn" onclick="app.calculateDebt()" class="hidden bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg shadow transition flex items-center gap-2 font-medium text-sm">
                     <i class="fa-solid fa-calculator"></i> 分帳
                 </button>
+                
+                <!-- NEW: Recurring Transaction Button -->
+                <button onclick="ui.openRecurringModal()" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2.5 rounded-lg shadow transition flex items-center gap-2 font-medium text-sm">
+                    <i class="fa-solid fa-calendar-check"></i> 固定收支
+                </button>
+
                 <button id="addTxBtn" onclick="ui.openTransactionModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg shadow transition flex items-center gap-2 font-medium">
                     <i class="fa-solid fa-plus"></i> 記一筆
                 </button>
@@ -169,62 +175,31 @@
             </div>
         </div>
 
-        <!-- NEW: In-Ledger Analysis Section -->
+        <!-- NEW: In-Ledger Analysis Section (Simplified) -->
         <div class="px-6 py-4">
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                 <div class="flex gap-4 overflow-x-auto pb-2">
-                    <!-- Top 5 Expense -->
+                    <!-- Expense Categories -->
                     <div class="flex-1 min-w-[300px]">
-                        <h4 class="text-xs font-bold text-rose-500 uppercase mb-2 border-b border-rose-100 pb-1">Top 5 消費項目</h4>
+                        <h4 class="text-xs font-bold text-rose-500 uppercase mb-2 border-b border-rose-100 pb-1">各項消費統計 (依類別)</h4>
                         <div id="topExpenseList" class="space-y-2"></div>
                     </div>
-                    <!-- Top 5 Income -->
+                    <!-- Income Categories -->
                     <div class="flex-1 min-w-[300px]">
-                        <h4 class="text-xs font-bold text-emerald-500 uppercase mb-2 border-b border-emerald-100 pb-1">Top 5 收入來源</h4>
+                        <h4 class="text-xs font-bold text-emerald-500 uppercase mb-2 border-b border-emerald-100 pb-1">各項收入來源 (依類別)</h4>
                         <div id="topIncomeList" class="space-y-2"></div>
                     </div>
-                </div>
-
-                <!-- Trend Chart Expansion -->
-                <details class="group mt-4 bg-slate-50 rounded-lg border border-slate-200" open>
-                    <summary class="p-3 text-sm font-bold text-slate-600 flex justify-between items-center cursor-pointer hover:bg-slate-100 rounded-lg transition">
-                        <span class="flex items-center gap-2"><i class="fa-solid fa-chart-simple text-slate-400"></i> 消費趨勢分析</span>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-normal text-slate-400" id="dailyChartHint">滑過長條查看 Top 3 類別</span>
-                            <i class="fa-solid fa-chevron-down group-open:rotate-180 transition"></i>
-                        </div>
-                    </summary>
-                    <div class="p-4 pt-0 border-t border-slate-200 mt-2">
-                        <!-- Chart Mode Switcher -->
-                        <div class="flex flex-wrap items-center gap-2 mb-3 mt-3">
-                            <button onclick="app.setChartMode('weekly')" id="mode-weekly" class="chart-mode-btn active px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600 hover:bg-gray-300">週</button>
-                            <button onclick="app.setChartMode('monthly')" id="mode-monthly" class="chart-mode-btn px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600 hover:bg-gray-300">月 (比較)</button>
-                            <button onclick="app.setChartMode('quarterly')" id="mode-quarterly" class="chart-mode-btn px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600 hover:bg-gray-300">季</button>
-                            <button onclick="app.setChartMode('yearly')" id="mode-yearly" class="chart-mode-btn px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600 hover:bg-gray-300">年</button>
-                            
-                            <!-- Dynamic Chart Controls -->
-                            <div id="chartControls" class="flex items-center gap-2 ml-auto text-xs"></div>
-                            
-                            <!-- Trend Export Button (New) -->
-                            <button onclick="app.exportTrendReport()" class="ml-2 text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1 rounded-full font-bold transition flex items-center gap-1" title="匯出Excel">
-                                <i class="fa-solid fa-file-excel"></i> 匯出報表
-                            </button>
-                        </div>
-
-                        <!-- Summary Container -->
-                        <div id="dailyStatsSummary" class="mb-4 min-h-[80px] transition-all duration-300">
-                            <!-- Placeholder when no hover -->
-                            <div class="text-center text-gray-400 text-sm py-6 bg-slate-50 rounded-xl border border-dashed border-gray-200">
-                                滑過或點擊下方圖表以查看該時段消費詳情
-                            </div>
-                        </div>
-
-                        <!-- Chart Container -->
-                        <div id="dailyChartContainer" class="flex items-end justify-between h-48 mt-2 px-2 gap-2 overflow-x-auto pb-6">
-                            <!-- Bars will be injected here -->
-                        </div>
+                    <!-- Merchant Stats (New) -->
+                    <div class="flex-1 min-w-[300px]">
+                        <h4 class="text-xs font-bold text-indigo-500 uppercase mb-2 border-b border-indigo-100 pb-1">常去商店 / 對象統計</h4>
+                        <div id="topMerchantList" class="space-y-2"></div>
                     </div>
-                </details>
+                    <!-- Diet Stats (New) -->
+                    <div class="flex-1 min-w-[300px]">
+                        <h4 class="text-xs font-bold text-orange-500 uppercase mb-2 border-b border-orange-100 pb-1">飲食細項分析 (早/午/晚餐)</h4>
+                        <div id="dietAnalysisList" class="space-y-2"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -268,6 +243,78 @@
             </div>
         </div>
     </main>
+
+    <!-- Modal: Recurring Transactions -->
+    <div id="recurringModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto flex flex-col">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-check text-purple-500"></i> 固定收支設定
+                </h3>
+                <button onclick="ui.closeModal('recurringModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            
+            <!-- List of Rules -->
+            <div id="recurringListSection" class="flex-1 overflow-y-auto mb-4">
+                <div id="recurringRulesList" class="space-y-3">
+                    <div class="text-center text-gray-400 py-8">載入中...</div>
+                </div>
+            </div>
+
+            <!-- Add/Edit Form (Hidden by default) -->
+            <div id="recurringFormSection" class="hidden bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <h4 class="font-bold text-gray-700 mb-3 text-sm" id="recurringFormTitle">新增規則</h4>
+                <form onsubmit="app.saveRecurringRule(event)" class="space-y-3">
+                    <input type="hidden" id="recRuleId">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">類型</label>
+                            <select id="recType" class="w-full p-2 border border-gray-300 rounded text-sm bg-white" onchange="ui.updateCategoriesForRecurring()">
+                                <option value="expense">支出</option>
+                                <option value="income">收入</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">週期</label>
+                            <select id="recFreq" class="w-full p-2 border border-gray-300 rounded text-sm bg-white">
+                                <option value="monthly">每月一次</option>
+                                <option value="yearly">每年一次</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">項目名稱</label>
+                            <input type="text" id="recName" required placeholder="例如：Netflix" class="w-full p-2 border border-gray-300 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">金額</label>
+                            <input type="number" id="recAmount" required placeholder="0" class="w-full p-2 border border-gray-300 rounded text-sm">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">分類</label>
+                            <select id="recCategory" class="w-full p-2 border border-gray-300 rounded text-sm bg-white"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">下次到期日</label>
+                            <input type="date" id="recNextDate" required class="w-full p-2 border border-gray-300 rounded text-sm">
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2 pt-2">
+                        <button type="button" onclick="ui.toggleRecurringForm(false)" class="flex-1 py-2 text-gray-500 hover:bg-gray-200 rounded text-sm font-bold">取消</button>
+                        <button type="submit" class="flex-1 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm font-bold shadow">儲存設定</button>
+                    </div>
+                </form>
+            </div>
+
+            <button id="btnAddRecurring" onclick="ui.toggleRecurringForm(true)" class="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-purple-400 hover:text-purple-600 transition font-bold flex items-center justify-center gap-2">
+                <i class="fa-solid fa-plus"></i> 新增固定收支規則
+            </button>
+        </div>
+    </div>
 
     <!-- Modal: Create Ledger (Fixed) -->
     <div id="ledgerModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
@@ -560,9 +607,12 @@
                 </div>
                 <div class="border-t border-gray-200 pt-4 mt-4">
                     <h4 class="font-bold text-gray-700 mb-2">當前帳本設定 (<span id="settingLedgerName"></span>)</h4>
-                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                        <span class="text-sm text-gray-600">密碼保護</span>
-                        <button onclick="app.removeLedgerPassword()" class="text-sm text-red-500 hover:text-red-700 font-bold border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition"><i class="fa-solid fa-unlock"></i> 解除密碼</button>
+                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg flex-wrap gap-2">
+                        <span class="text-sm text-gray-600 w-full sm:w-auto">密碼保護</span>
+                        <div class="flex gap-2">
+                            <button onclick="app.setLedgerPassword()" class="text-sm text-blue-500 hover:text-blue-700 font-bold border border-blue-200 px-3 py-1 rounded hover:bg-blue-50 transition"><i class="fa-solid fa-key"></i> 修改/設定密碼</button>
+                            <button onclick="app.removeLedgerPassword()" class="text-sm text-red-500 hover:text-red-700 font-bold border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition"><i class="fa-solid fa-unlock"></i> 解除密碼</button>
+                        </div>
                     </div>
                 </div>
                 <div class="border-t border-gray-200 pt-4 mt-4">
@@ -653,7 +703,12 @@
         import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, deleteDoc, doc, updateDoc, setDoc, getDoc, getDocs, writeBatch, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const FIREBASE_CONFIG = { apiKey: "AIzaSyDqFr0ZkTb9ZdYFaf8S95pjJLEezTF4QwQ", authDomain: "mony-a292c.firebaseapp.com", projectId: "mony-a292c", storageBucket: "mony-a292c.firebasestorage.app", messagingSenderId: "1012872104399", appId: "1:1012872104399:web:8289e7b26d846246fdaaba", measurementId: "G-N5RQB4GCZD" };
-        const DEFAULT_CATEGORIES = { expense: ['飲食', '交通', '購物', '娛樂', '居住', '醫療', '教育', '其他'], income: ['薪水', '獎金', '投資', '兼職', '其他'] };
+        
+        // Updated Categories with more detailed food options
+        const DEFAULT_CATEGORIES = { 
+            expense: ['早餐', '午餐', '晚餐', '飲料', '點心', '飲食', '交通', '購物', '娛樂', '居住', '醫療', '教育', '其他'], 
+            income: ['薪水', '獎金', '投資', '兼職', '其他'] 
+        };
         const DEFAULT_BANKS = [
             "中華郵政", "台北富邦商業銀行", "中國信託商業銀行", "玉山商業銀行", 
             "永豐商業銀行", "台新國際商業銀行", "凱基商業銀行", "國泰世華商業銀行", 
@@ -676,7 +731,10 @@
             },
             currentChartStats: {},
             currentListData: [], // New: stores currently filtered transactions for export
-            importFile: null // For Excel Import
+            importFile: null, // For Excel Import
+            recurringRules: [],
+            unsubscribeRecurring: null,
+            pwAttempts: 0 // New: Track password attempts
         };
 
         const app = {
@@ -689,7 +747,13 @@
                 document.getElementById('tDate').valueAsDate = new Date();
                 
                 const yr = new Date().getFullYear(); const ySel = document.getElementById('ledgerYear');
-                for (let i = yr; i >= yr - 5; i--) ySel.innerHTML += `<option value="${i}">${i}年</option>`;
+                // Updated Date Filters
+                let opts = `<option value="${yr}">${yr}年</option>`;
+                opts += `<option value="all">全部年度</option><option value="last3">近三年</option>`;
+                for (let i = yr - 1; i >= yr - 5; i--) opts += `<option value="${i}">${i}年</option>`;
+                ySel.innerHTML = opts;
+                ySel.value = yr;
+
                 document.getElementById('ledgerMonth').value = (new Date().getMonth() + 1).toString().padStart(2, '0');
                 
                 document.getElementById('statYear').innerHTML = ySel.innerHTML;
@@ -703,17 +767,114 @@
             performLogin: (n) => { state.userName = n; localStorage.setItem('acc_username', n); document.getElementById('sidebarUserName').innerText = n; document.getElementById('renameInput').value = n; document.getElementById('loginModal').classList.add('hidden'); app.listenLedgers(); app.listenAssets(); },
             renameUser: async () => { const n = document.getElementById('renameInput').value.trim(), o = state.userName, b = document.getElementById('renameBtn'); if (!n || n === o) return; if (!confirm(`確定要改名為 "${n}"？`)) return; b.disabled = true; b.innerText = '更新中...'; try { const bat = writeBatch(state.db); bat.set(doc(state.db, "users", n), { createdAt: new Date().toISOString() }); (await getDocs(query(collection(state.db, "ledgers"), where("members", "array-contains", o)))).forEach(d => { const m = d.data().members.map(x => x === o ? n : x); bat.update(d.ref, { members: m, ...(d.data().createdBy === o && { createdBy: n }) }); }); (await getDocs(query(collection(state.db, "transactions"), where("paidBy", "==", o)))).forEach(d => bat.update(d.ref, { paidBy: n })); (await getDocs(query(collection(state.db, "transactions"), where("lastEditedBy", "==", o)))).forEach(d => bat.update(d.ref, { lastEditedBy: n })); bat.delete(doc(state.db, "users", o)); await bat.commit(); alert("更名成功"); app.performLogin(n); location.reload(); } catch (e) { alert("更名失敗:" + e.message); b.disabled = false; b.innerText = '確認'; } },
             
-            // --- EXCEL IMPORT LOGIC (NEW) ---
+            // --- RECURRING RULES LOGIC ---
+            listenRecurringRules: () => {
+                if(!state.currentLedger) return;
+                if(state.unsubscribeRecurring) state.unsubscribeRecurring();
+                
+                const q = query(collection(state.db, "recurring_rules"), where("ledgerId", "==", state.currentLedger.id));
+                state.unsubscribeRecurring = onSnapshot(q, (snapshot) => {
+                    state.recurringRules = [];
+                    snapshot.forEach(doc => state.recurringRules.push({ id: doc.id, ...doc.data() }));
+                    ui.renderRecurringList();
+                });
+            },
+
+            saveRecurringRule: async (e) => {
+                e.preventDefault();
+                const id = document.getElementById('recRuleId').value;
+                const type = document.getElementById('recType').value;
+                const freq = document.getElementById('recFreq').value;
+                const name = document.getElementById('recName').value.trim();
+                const amount = parseFloat(document.getElementById('recAmount').value);
+                const category = document.getElementById('recCategory').value;
+                const nextDate = document.getElementById('recNextDate').value;
+
+                if (!name || !amount || !nextDate) return alert("請填寫完整資訊");
+
+                const ruleData = {
+                    ledgerId: state.currentLedger.id,
+                    type,
+                    frequency: freq,
+                    name,
+                    amount,
+                    category,
+                    nextDueDate: nextDate,
+                    currency: 'TWD', // Default simple for now
+                    updatedAt: new Date().toISOString()
+                };
+
+                try {
+                    if (id) {
+                        await updateDoc(doc(state.db, "recurring_rules", id), ruleData);
+                    } else {
+                        await addDoc(collection(state.db, "recurring_rules"), {
+                            ...ruleData,
+                            createdAt: new Date().toISOString()
+                        });
+                    }
+                    ui.toggleRecurringForm(false);
+                } catch(err) {
+                    alert("儲存失敗: " + err.message);
+                }
+            },
+
+            deleteRecurringRule: async (id) => {
+                if(confirm("確定刪除此固定收支規則？")) {
+                    await deleteDoc(doc(state.db, "recurring_rules", id));
+                }
+            },
+
+            executeRecurring: async (ruleId) => {
+                const rule = state.recurringRules.find(r => r.id === ruleId);
+                if(!rule) return;
+
+                if(!confirm(`確認將「${rule.name}」($${rule.amount}) 加入今日帳本？`)) return;
+
+                const batch = writeBatch(state.db);
+                const txRef = doc(collection(state.db, "transactions"));
+                batch.set(txRef, {
+                    ledgerId: state.currentLedger.id,
+                    type: rule.type,
+                    date: rule.nextDueDate, 
+                    amount: rule.amount,
+                    originalAmount: rule.amount,
+                    currency: 'TWD',
+                    exchangeRate: 1,
+                    paidBy: state.userName,
+                    name: rule.name,
+                    category: rule.category,
+                    merchant: '',
+                    groupId: Date.now().toString(),
+                    createdAt: new Date().toISOString(),
+                    lastEditedBy: state.userName,
+                    lastEditedAt: new Date().toISOString()
+                });
+
+                const currentDue = new Date(rule.nextDueDate);
+                let nextDue = new Date(currentDue);
+                if(rule.frequency === 'monthly') {
+                    nextDue.setMonth(nextDue.getMonth() + 1);
+                } else if (rule.frequency === 'yearly') {
+                    nextDue.setFullYear(nextDue.getFullYear() + 1);
+                }
+                
+                batch.update(doc(state.db, "recurring_rules", ruleId), {
+                    nextDueDate: nextDue.toISOString().split('T')[0]
+                });
+
+                await batch.commit();
+                alert("已成功記帳，並更新下次到期日！");
+            },
+
+            // --- EXCEL IMPORT LOGIC ---
             downloadTemplate: () => {
                 const headers = [['日期 (YYYY-MM-DD)', '收支類型 (支出/收入)', '類別', '項目名稱', '金額', '商店/對象 (選填)', '幣別 (選填)', '備註 (選填)']];
                 const example = [['2024-02-01', '支出', '飲食', '午餐便當', 120, '7-11', 'TWD', '公司聚餐']];
                 
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet([...headers, ...example]);
-                
-                // Set column widths
                 ws['!cols'] = [{wch:15}, {wch:15}, {wch:10}, {wch:20}, {wch:10}, {wch:15}, {wch:10}, {wch:20}];
-                
                 XLSX.utils.book_append_sheet(wb, ws, "匯入範本");
                 XLSX.writeFile(wb, "記帳本匯入範本.xlsx");
             },
@@ -721,11 +882,9 @@
             handleFileSelect: (input) => {
                 const file = input.files[0];
                 if (!file) return;
-                
                 document.getElementById('importFileName').innerText = file.name;
                 document.getElementById('importFileDisplay').classList.remove('hidden');
                 document.getElementById('importPlaceholder').classList.add('hidden');
-                
                 state.importFile = file;
             },
 
@@ -741,35 +900,29 @@
                 reader.onload = async (e) => {
                     try {
                         const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array', cellDates: true }); // Parse dates
+                        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }); // Array of arrays
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
 
                         if (jsonData.length < 2) throw new Error("檔案內容為空或格式錯誤");
 
-                        // Extract rows (skip header)
                         const rows = jsonData.slice(1);
                         const batch = writeBatch(state.db);
                         let count = 0;
                         const groupIdBase = Date.now().toString();
 
                         rows.forEach((row, index) => {
-                            if (!row[0] || !row[4]) return; // Date and Amount are required
-
-                            // Helper to safely get value by index
+                            if (!row[0] || !row[4]) return;
                             const getVal = (idx) => row[idx] ? String(row[idx]).trim() : '';
-                            
-                            // Parse Date
                             let dateStr = '';
                             if (row[0] instanceof Date) {
                                 dateStr = row[0].toISOString().split('T')[0];
                             } else {
-                                // Try parsing string YYYY-MM-DD
                                 const d = new Date(row[0]);
                                 if (!isNaN(d.getTime())) {
                                     dateStr = d.toISOString().split('T')[0];
                                 } else {
-                                    dateStr = new Date().toISOString().split('T')[0]; // Fallback
+                                    dateStr = new Date().toISOString().split('T')[0];
                                 }
                             }
 
@@ -779,8 +932,7 @@
                             const amount = parseFloat(row[4]);
                             const merchant = getVal(5);
                             const currency = getVal(6) || state.currentLedger.defaultCurrency || 'TWD';
-                            const note = getVal(7); // Currently we don't display note in list but good to store? Maybe reuse merchant field or name?
-                            // Let's append note to name if present
+                            const note = getVal(7);
                             const finalName = note ? `${name} (${note})` : name;
 
                             const docRef = doc(collection(state.db, "transactions"));
@@ -789,19 +941,18 @@
                                 type: type,
                                 date: dateStr,
                                 amount: amount,
-                                originalAmount: amount, // Assuming 1:1 for now if imported
+                                originalAmount: amount,
                                 currency: currency,
-                                exchangeRate: 1, // Default
+                                exchangeRate: 1,
                                 paidBy: state.userName,
                                 name: finalName,
                                 category: category,
                                 merchant: merchant,
-                                groupId: groupIdBase + index, // Unique group ID for each row
+                                groupId: groupIdBase + index,
                                 createdAt: new Date().toISOString(),
                                 lastEditedBy: state.userName,
                                 lastEditedAt: new Date().toISOString()
                             };
-
                             batch.set(docRef, txData);
                             count++;
                         });
@@ -810,7 +961,6 @@
                             await batch.commit();
                             alert(`成功匯入 ${count} 筆資料！`);
                             ui.closeModal('importModal');
-                            // Reset input
                             document.getElementById('importFile').value = '';
                             document.getElementById('importFileName').innerText = '';
                             document.getElementById('importFileDisplay').classList.add('hidden');
@@ -840,7 +990,7 @@
                     b.classList.toggle('text-gray-600', b.id !== `mode-${mode}`);
                 });
                 app.renderChartControls();
-                app.updateLedgerView(); // Re-render chart and list
+                app.updateLedgerView(); 
             },
 
             renderChartControls: () => {
@@ -849,7 +999,6 @@
                 const currentYear = new Date().getFullYear();
 
                 if (state.chartMode === 'monthly') {
-                    // Compare 2 Years
                     container.innerHTML = `
                         <select onchange="state.chartFilters.selectedYear=parseInt(this.value); app.updateLedgerView()" class="p-1 rounded border text-xs">
                             ${Array.from({length: 6}, (_, i) => currentYear - i).map(y => `<option value="${y}" ${y===state.chartFilters.selectedYear?'selected':''}>${y}</option>`).join('')}
@@ -877,190 +1026,30 @@
                 const y = document.getElementById('ledgerYear').value;
                 const m = document.getElementById('ledgerMonth').value;
                 
-                // Base filter for the transaction list (default view)
+                // Advanced Date Filtering Logic
                 let listData = state.transactions.filter(t => { 
                     const d = new Date(t.date); 
-                    return d.getFullYear().toString() === y && (m === 'all' || (d.getMonth() + 1).toString().padStart(2, '0') === m); 
+                    const tYear = d.getFullYear();
+                    const tMonth = (d.getMonth() + 1).toString().padStart(2, '0');
+                    const currentYear = new Date().getFullYear();
+
+                    let yearMatch = false;
+                    if (y === 'all') {
+                        yearMatch = true;
+                    } else if (y === 'last3') {
+                        yearMatch = tYear >= (currentYear - 2);
+                    } else {
+                        yearMatch = tYear.toString() === y;
+                    }
+
+                    // Month match applies within the selected year range
+                    let monthMatch = (m === 'all' || tMonth === m);
+
+                    return yearMatch && monthMatch;
                 });
 
-                // --- Chart Data Preparation ---
-                const chartContainer = document.getElementById('dailyChartContainer');
-                chartContainer.innerHTML = '';
-                state.currentChartStats = {}; // Reset stats cache
-                
-                // Helper to calculate top 3 categories + % for a set of transactions
-                const calcStats = (txList, totalAmt) => {
-                    const catMap = {};
-                    txList.forEach(t => {
-                        if(t.type === 'expense') catMap[t.category] = (catMap[t.category] || 0) + t.amount;
-                    });
-                    const top3 = Object.entries(catMap)
-                        .sort((a,b) => b[1] - a[1])
-                        .slice(0, 3)
-                        .map(([name, val]) => ({ name, val, pct: totalAmt > 0 ? Math.round((val/totalAmt)*100) : 0 }));
-                    return top3;
-                };
-
-                if (state.chartMode === 'weekly') {
-                    const dayStats = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 0:0 };
-                    const dayTx = { 1:[], 2:[], 3:[], 4:[], 5:[], 6:[], 0:[] };
-                    
-                    // Use listData because Weekly follows the global month filter
-                    listData.forEach(t => { 
-                        if(t.type === 'expense') {
-                            const day = new Date(t.date).getDay();
-                            dayStats[day] += t.amount;
-                            dayTx[day].push(t);
-                        }
-                    });
-                    const maxVal = Math.max(...Object.values(dayStats), 1);
-                    const order = [1, 2, 3, 4, 5, 6, 0];
-                    const dayNames = ['日','一','二','三','四','五','六'];
-                    
-                    chartContainer.innerHTML = order.map(d => {
-                        // Store Stats
-                        state.currentChartStats[d] = {
-                            label: `星期${dayNames[d]}`,
-                            total: dayStats[d],
-                            cats: calcStats(dayTx[d], dayStats[d])
-                        };
-
-                        const isSelected = state.filterDay === d;
-                        const h = Math.max((dayStats[d] / maxVal) * 100, 5);
-                        const displayAmt = dayStats[d] > 1000 ? (dayStats[d]/1000).toFixed(1)+'k' : dayStats[d];
-                        
-                        return `
-                        <div onmouseenter="ui.showHoverStats('${d}')" onclick="app.filterByDay(${d})" class="flex-1 flex flex-col justify-end items-center group cursor-pointer h-full relative">
-                            <span class="text-xs font-bold text-gray-600 mb-1 ${dayStats[d]>0 ? 'opacity-100' : 'opacity-0'} group-hover:opacity-100 transition">$${displayAmt}</span>
-                            <div class="w-full mx-1 ${isSelected ? 'bg-indigo-600 shadow-lg scale-105' : 'bg-indigo-300 hover:bg-indigo-400'} rounded-t-lg transition-all duration-300" style="height: ${h}%"></div>
-                            <span class="text-[10px] text-gray-500 mt-1">${dayNames[d]}</span>
-                        </div>`;
-                    }).join('');
-
-                    if(state.filterDay !== null) {
-                        listData = listData.filter(t => new Date(t.date).getDay() === state.filterDay);
-                        document.getElementById('clearFilterBtn').classList.remove('hidden');
-                        ui.showHoverStats(state.filterDay); // Keep selected stats visible
-                    } else {
-                        document.getElementById('clearFilterBtn').classList.add('hidden');
-                        ui.resetStatsSummary();
-                    }
-
-                } else if (state.chartMode === 'monthly') {
-                    const y1 = state.chartFilters.selectedYear;
-                    const y2 = state.chartFilters.compareYear;
-                    const monthlyStats = {}; 
-                    const monthlyTx = {};
-                    
-                    for(let i=1; i<=12; i++) { 
-                        monthlyStats[i] = { [y1]: 0, [y2]: 0 }; 
-                        monthlyTx[i] = { [y1]: [], [y2]: [] };
-                    }
-
-                    state.transactions.forEach(t => {
-                        if (t.type !== 'expense') return;
-                        const d = new Date(t.date);
-                        const yr = d.getFullYear();
-                        const mo = d.getMonth() + 1;
-                        if ((yr === y1 || yr === y2) && monthlyStats[mo]) {
-                            monthlyStats[mo][yr] += t.amount;
-                            monthlyTx[mo][yr].push(t);
-                        }
-                    });
-
-                    const allValues = Object.values(monthlyStats).flatMap(o => Object.values(o));
-                    const maxVal = Math.max(...allValues, 1);
-
-                    chartContainer.innerHTML = Object.keys(monthlyStats).map(mo => {
-                        const v1 = monthlyStats[mo][y1];
-                        const v2 = y2 ? monthlyStats[mo][y2] : 0;
-                        const h1 = Math.max((v1/maxVal)*100, 5);
-                        const h2 = Math.max((v2/maxVal)*100, 5);
-                        
-                        // Key for stats: "m_1_2024" etc.
-                        const k1 = `m_${mo}_${y1}`;
-                        state.currentChartStats[k1] = { label: `${y1}年 ${mo}月`, total: v1, cats: calcStats(monthlyTx[mo][y1], v1) };
-                        if(y2) {
-                            const k2 = `m_${mo}_${y2}`;
-                            state.currentChartStats[k2] = { label: `${y2}年 ${mo}月`, total: v2, cats: calcStats(monthlyTx[mo][y2], v2) };
-                        }
-
-                        return `
-                        <div class="flex-1 flex flex-col justify-end items-center h-full gap-1 min-w-[30px]">
-                            <div class="flex items-end justify-center w-full gap-0.5 h-full">
-                                <div onmouseenter="ui.showHoverStats('m_${mo}_${y1}')" onclick="app.filterByMonth(${mo}, ${y1})" class="w-1/2 bg-indigo-500 rounded-t-sm transition-all relative hover:bg-indigo-600 cursor-pointer" style="height: ${h1}%"></div>
-                                ${y2 ? `<div onmouseenter="ui.showHoverStats('m_${mo}_${y2}')" onclick="app.filterByMonth(${mo}, ${y2})" class="w-1/2 bg-gray-300 rounded-t-sm transition-all relative hover:bg-gray-400 cursor-pointer" style="height: ${h2}%"></div>` : ''}
-                            </div>
-                            <span class="text-[10px] text-gray-500">${mo}月</span>
-                        </div>`;
-                    }).join('');
-                    ui.resetStatsSummary();
-
-                } else if (state.chartMode === 'quarterly') {
-                    const y = state.chartFilters.selectedYear;
-                    const qStats = { 1:0, 2:0, 3:0, 4:0 };
-                    const qTx = { 1:[], 2:[], 3:[], 4:[] };
-                    
-                    state.transactions.forEach(t => {
-                        if (t.type !== 'expense') return;
-                        const d = new Date(t.date);
-                        if (d.getFullYear() === y) {
-                            const q = Math.floor(d.getMonth() / 3) + 1;
-                            qStats[q] += t.amount;
-                            qTx[q].push(t);
-                        }
-                    });
-                    
-                    const maxVal = Math.max(...Object.values(qStats), 1);
-                    
-                    chartContainer.innerHTML = [1,2,3,4].map(q => {
-                        const val = qStats[q];
-                        const h = Math.max((val/maxVal)*100, 5);
-                        
-                        state.currentChartStats[`q_${q}`] = { label: `${y} Q${q}`, total: val, cats: calcStats(qTx[q], val) };
-
-                        return `
-                        <div onmouseenter="ui.showHoverStats('q_${q}')" onclick="app.filterByQuarter(${q})" class="flex-1 flex flex-col justify-end items-center group cursor-pointer h-full">
-                            <span class="text-xs font-bold text-gray-600 mb-1 opacity-0 group-hover:opacity-100 transition">$${val > 1000 ? (val/1000).toFixed(0)+'k' : val}</span>
-                            <div class="w-2/3 bg-teal-500 rounded-t-lg transition-all group-hover:bg-teal-600" style="height: ${h}%"></div>
-                            <span class="text-xs text-gray-500 mt-2 font-bold">Q${q}</span>
-                        </div>`;
-                    }).join('');
-                    ui.resetStatsSummary();
-
-                } else if (state.chartMode === 'yearly') {
-                    const currentYear = new Date().getFullYear();
-                    const years = Array.from({length: 5}, (_, i) => currentYear - 4 + i);
-                    const yStats = {};
-                    const yTx = {};
-                    years.forEach(y => { yStats[y] = 0; yTx[y] = []; });
-
-                    state.transactions.forEach(t => {
-                        if (t.type !== 'expense') return;
-                        const yr = new Date(t.date).getFullYear();
-                        if (yStats[yr] !== undefined) {
-                            yStats[yr] += t.amount;
-                            yTx[yr].push(t);
-                        }
-                    });
-
-                    const maxVal = Math.max(...Object.values(yStats), 1);
-
-                    chartContainer.innerHTML = years.map(yr => {
-                        const val = yStats[yr];
-                        const h = Math.max((val/maxVal)*100, 5);
-                        
-                        state.currentChartStats[`y_${yr}`] = { label: `${yr}年`, total: val, cats: calcStats(yTx[yr], val) };
-
-                        return `
-                        <div onmouseenter="ui.showHoverStats('y_${yr}')" onclick="app.filterByYear(${yr})" class="flex-1 flex flex-col justify-end items-center group cursor-pointer h-full">
-                            <span class="text-xs font-bold text-gray-600 mb-1 opacity-0 group-hover:opacity-100 transition">$${val > 1000 ? (val/1000).toFixed(0)+'k' : val}</span>
-                            <div class="w-1/2 bg-blue-600 rounded-t-lg transition-all group-hover:bg-blue-700" style="height: ${h}%"></div>
-                            <span class="text-xs text-gray-500 mt-2 font-bold">${yr}</span>
-                        </div>`;
-                    }).join('');
-                    ui.resetStatsSummary();
-                }
+                // Update Top Stats
+                ui.renderTopStats(listData);
 
                 // Save list data for Export
                 state.currentListData = listData;
@@ -1090,34 +1079,32 @@
             filterByYear: (y) => {
                 document.getElementById('ledgerYear').value = y;
                 document.getElementById('ledgerMonth').value = 'all';
-                app.setChartMode('weekly'); // Drill down to weekly view of that year
+                app.setChartMode('weekly'); 
             },
             clearDateFilter: () => { state.filterDay = null; app.updateLedgerView(); },
             
             // --- EXPORT FUNCTIONS ---
-            exportToExcel: () => { /* Original Profile Export */ if (!state.allTransactionsCache.length) return alert("無資料"); const y = document.getElementById('statYear').value, m = document.getElementById('statMonth').value, d = state.allTransactionsCache.map(t => ({ 日期: t.date, 帳本: t.ledgerName, 類型: t.type, 金額: t.amount, 項目: t.name, 分類: t.category, 商店: t.merchant || '' })); const w = XLSX.utils.json_to_sheet(d), b = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(b, w, "Data"); XLSX.writeFile(b, `帳本_${y}_${m}.xlsx`); },
+            exportToExcel: () => { if (!state.allTransactionsCache.length) return alert("無資料"); const y = document.getElementById('statYear').value, m = document.getElementById('statMonth').value, d = state.allTransactionsCache.map(t => ({ 日期: t.date, 帳本: t.ledgerName, 類型: t.type, 金額: t.amount, 項目: t.name, 分類: t.category, 商店: t.merchant || '' })); const w = XLSX.utils.json_to_sheet(d), b = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(b, w, "Data"); XLSX.writeFile(b, `帳本_${y}_${m}.xlsx`); },
             
             exportTrendReport: () => {
                 const stats = state.currentChartStats;
                 const rows = [];
-                // Transform stats object to array for Excel
                 Object.keys(stats).forEach(key => {
                     const s = stats[key];
-                    const row = { '時間區段': s.label, '總支出': s.total };
-                    s.cats.forEach((c, i) => {
-                        row[`Top ${i+1} 類別`] = c.name;
-                        row[`Top ${i+1} 金額`] = c.val;
-                        row[`Top ${i+1} 佔比`] = c.pct + '%';
+                    rows.push({
+                        '時間區段': s.label, 
+                        '總收入': s.income,
+                        '總支出': s.expense,
+                        '淨利': s.income - s.expense
                     });
-                    rows.push(row);
                 });
                 
                 if (rows.length === 0) return alert("目前圖表無資料可匯出");
                 
                 const ws = XLSX.utils.json_to_sheet(rows);
                 const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Trend_Analysis");
-                XLSX.writeFile(wb, `消費趨勢報表_${state.chartMode}_${new Date().toISOString().slice(0,10)}.xlsx`);
+                XLSX.utils.book_append_sheet(wb, ws, "Income_Expense_Report");
+                XLSX.writeFile(wb, `收支報表_${state.chartMode}_${new Date().toISOString().slice(0,10)}.xlsx`);
             },
 
             exportCurrentList: () => {
@@ -1157,7 +1144,8 @@
             connectFirebase: async(c)=>{try{const a=initializeApp(c);state.db=getFirestore(a);try{await enableIndexedDbPersistence(state.db)}catch{}state.isOnline=true;}catch(e){console.error(e);alert("連線失敗: "+e.message)}},
             loadGlobalSettings: async()=>{if(!state.db)return;try{const d=await getDoc(doc(state.db,"settings","global"));if(d.exists()&&d.data().gemini_api_key){state.geminiKey=d.data().gemini_api_key;document.getElementById('geminiKeyInput').value=state.geminiKey;document.getElementById('apiKeyLabel').innerHTML+='(雲端)';}}catch{}},
             saveSettings: async()=>{const k=document.getElementById('geminiKeyInput').value.trim(),s=document.getElementById('scriptUrlInput').value.trim(),p=document.getElementById('aiPromptInput').value.trim();if(!k)return alert("API Key Empty");try{localStorage.setItem('acc_script_url',s);localStorage.setItem('acc_ai_prompt', p);state.customAiPrompt = p;await setDoc(doc(state.db,"settings","global"),{gemini_api_key:k,updatedAt:new Date().toISOString(),updatedBy:state.userName},{merge:true});localStorage.setItem('acc_gemini_key',k);alert("設定已儲存！");location.reload();}catch{alert("Err");}},
-            removeLedgerPassword: async()=>{if(!confirm("Del PW?"))return;await updateDoc(doc(state.db,"ledgers",state.currentLedger.id),{password:""});alert("Removed");ui.closeModal('settingsModal');},
+            setLedgerPassword: async() => { const p = prompt("請輸入新密碼 (空白則為無密碼):"); if(p !== null) { await updateDoc(doc(state.db, "ledgers", state.currentLedger.id), { password: p }); alert("密碼已更新"); } },
+            removeLedgerPassword: async()=>{if(!confirm("確定要移除密碼保護嗎?"))return;await updateDoc(doc(state.db,"ledgers",state.currentLedger.id),{password:""});alert("已移除");ui.closeModal('settingsModal');},
             addCategory: ()=>{const t=document.getElementById('newCatType').value,n=document.getElementById('newCatName').value.trim();if(!n)return;state.categories[t].push(n);app.saveCategories();ui.renderSettings();},
             removeCategory: (t,n)=>{if(confirm("Del?")){state.categories[t]=state.categories[t].filter(c=>c!==n);app.saveCategories();ui.renderSettings();}},
             saveCategories: ()=>localStorage.setItem('acc_custom_categories',JSON.stringify(state.categories)),
@@ -1227,7 +1215,35 @@
             },
 
             createLedger: async()=>{const n=document.getElementById('newLedgerName').value.trim(),t=document.getElementById('newLedgerType').value,c=document.getElementById('newLedgerCurrency').value,p=document.getElementById('newLedgerPassword').value,m=document.getElementById('newLedgerMembers').value;if(!n)return alert("請輸入帳本名稱！");if(!state.userName)return alert("請先登入！");let mem=[];if(t==='group'){mem=m.split(/[,，]/).map(x=>x.trim()).filter(x=>x);if(!mem.includes(state.userName))mem.push(state.userName);}else{mem=[state.userName];}try{const r=await addDoc(collection(state.db,"ledgers"),{name:n,type:t,members:mem,defaultCurrency:c,password:p,createdBy:state.userName,status:'active',createdAt:new Date().toISOString()});if(p)state.unlockedLedgers.push(r.id);ui.closeModal('ledgerModal');ui.switchLedger(r.id);document.getElementById('newLedgerName').value='';document.getElementById('newLedgerMembers').value='';document.getElementById('newLedgerPassword').value='';}catch(e){alert("建立失敗");console.error(e);}},
-            verifyPassword: ()=>{const i=document.getElementById('unlockPasswordInput').value,l=state.ledgers.find(x=>x.id===state.pendingLedgerId);if(l&&i===l.password){state.unlockedLedgers.push(l.id);ui.closeModal('passwordModal');ui.switchLedger(l.id);}else alert("Wrong PW");},
+            verifyPassword: ()=>{
+                const i = document.getElementById('unlockPasswordInput').value;
+                const l = state.ledgers.find(x => x.id === state.pendingLedgerId);
+                
+                if(l && i === l.password){
+                    state.unlockedLedgers.push(l.id);
+                    state.pwAttempts = 0; // reset
+                    ui.closeModal('passwordModal');
+                    ui.switchLedger(l.id);
+                } else {
+                    state.pwAttempts = (state.pwAttempts || 0) + 1;
+                    if (state.pwAttempts >= 3) {
+                        if (l.createdBy === state.userName) {
+                            if(confirm("密碼輸入錯誤多次。您是此帳本的建立者，是否要重設密碼？")) {
+                                const newPw = prompt("請輸入新密碼 (空白代表取消密碼保護):");
+                                if (newPw !== null) {
+                                    updateDoc(doc(state.db, "ledgers", l.id), { password: newPw });
+                                    alert("密碼已更新，請重新嘗試解鎖");
+                                    state.pwAttempts = 0;
+                                }
+                            }
+                        } else {
+                            alert("密碼錯誤 (錯誤次數過多，請聯繫帳本建立者)");
+                        }
+                    } else {
+                        alert(`密碼錯誤 (剩餘嘗試次數: ${3 - state.pwAttempts})`);
+                    }
+                }
+            },
             listenTransactions: () => { if (!state.currentLedger) return; if (state.unsubscribeTrans) state.unsubscribeTrans(); document.getElementById('loadingIndicator').classList.remove('hidden'); state.unsubscribeTrans = onSnapshot(query(collection(state.db, "transactions"), where("ledgerId", "==", state.currentLedger.id)), snap => { state.transactions = []; snap.forEach(d => state.transactions.push({ id: d.id, ...d.data() })); state.transactions.sort((a, b) => new Date(b.date) - new Date(a.date)); app.updateLedgerView(); document.getElementById('loadingIndicator').classList.add('hidden'); }); },
             addTransaction: async(e)=>{e.preventDefault();const b=document.getElementById('submitBtn');const originalText=b.innerText;b.disabled=true;b.innerHTML='<div class="loader w-4 h-4 border-white border-t-transparent inline-block mr-2"></div> 儲存中...';let u=document.getElementById('hiddenImageUrl').value;const merch=document.getElementById('tMerchant').value.trim();const groupId=Date.now().toString();try{if(state.currentImage&&state.scriptUrl){const r=await fetch(state.scriptUrl,{method:'POST',body:JSON.stringify({image:state.currentImage.base64,mimeType:state.currentImage.mimeType,filename:`rec_${Date.now()}.jpg`})});const d=await r.json();if(d.status==='success')u=d.url;}const eid=document.getElementById('editingTxId').value,typ=document.getElementById('tType').value,dat=document.getElementById('tDate').value,isG=state.currentLedger.type==='group';let cur='TWD',rate=1,pb='';if(isG){cur=document.getElementById('tCurrency').value;rate=parseFloat(document.getElementById('tRate').value)||1;pb=document.getElementById('tPaidBy').value;}const rows=document.querySelectorAll('.item-row'),bat=writeBatch(state.db);if(eid){const r=rows[0];if(r){const n=r.querySelector('.item-name').value,c=r.querySelector('.item-cat').value;let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a;if(isG&&cur!=='TWD')a=Math.round(oa*rate);const ot=state.transactions.find(t=>t.id===eid),h=ot.editHistory||[];h.push({editor:state.userName,date:new Date().toISOString()});bat.update(doc(state.db,"transactions",eid),{ledgerId:state.currentLedger.id,type:typ,date:dat,amount:a,originalAmount:oa,currency:cur,exchangeRate:rate,paidBy:pb,name:n,category:c,imageUrl:u,merchant:merch,lastEditedBy:state.userName,lastEditedAt:new Date().toISOString(),editHistory:h});}}else{rows.forEach(r=>{const n=r.querySelector('.item-name').value.trim(),c=r.querySelector('.item-cat').value;let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a;if(!n&&a===0)return;if(isG&&cur!=='TWD')a=Math.round(oa*rate);bat.set(doc(collection(state.db,"transactions")),{ledgerId:state.currentLedger.id,type:typ,date:dat,amount:a,originalAmount:oa,currency:cur,exchangeRate:rate,paidBy:pb,name:n,category:c,imageUrl:u,merchant:merch,groupId: groupId,createdAt:new Date().toISOString(),lastEditedBy:state.userName,lastEditedAt:new Date().toISOString()});});}await bat.commit();ui.closeModal('transactionModal');ai.clearImage();}catch(e){alert("儲存失敗: "+e.message);}finally{b.disabled=false;b.innerText=originalText;}},
             editTransaction: (id)=>{const t=state.transactions.find(x=>x.id===id);if(!t)return;ui.openTransactionModal('編輯');document.getElementById('editingTxId').value=t.id;document.getElementById('tType').value=t.type;document.getElementById('tDate').value=t.date;document.getElementById('hiddenImageUrl').value=t.imageUrl||'';document.getElementById('tMerchant').value=t.merchant||'';document.getElementById('btnAddItem').classList.add('hidden');document.getElementById('uploadContainer').classList.add('hidden');if(state.currentLedger.type==='group'){document.getElementById('tCurrency').value=t.currency||'TWD';document.getElementById('tRate').value=t.exchangeRate||1;document.getElementById('tPaidBy').value=t.paidBy||state.userName;app.updateRate(false);}document.getElementById('transactionItemsList').innerHTML='';ui.addItemRow(t.name,t.category,t.currency!=='TWD'?t.originalAmount:t.amount);ui.updateTotal();},
@@ -1236,7 +1252,34 @@
             calcTwd: ()=>ui.updateTotal(),
             calculateDebt: ()=>{if(!state.currentLedger||state.currentLedger.type!=='group')return;const mem=state.currentLedger.members,cur=state.userName,bal={};mem.forEach(m=>bal[m]=0);let tot=0;state.transactions.forEach(t=>{if(t.type==='expense'&&mem.includes(t.paidBy)){bal[t.paidBy]+=t.amount;tot+=t.amount;}});const avg=tot/mem.length,net=mem.map(m=>({name:m,amount:bal[m]-avg}));const myNet=net.find(n=>n.name===cur)?.amount||0;document.getElementById('settleShareAmount').innerText=Math.round(avg).toLocaleString();const pl=state.ledgers.filter(l=>l.type==='personal');document.getElementById('targetPersonalLedger').innerHTML=pl.map(l=>`<option value="${l.id}">${l.name}</option>`).join('')||'<option>無</option>';let h=`<div class="text-center mb-4 bg-gray-50 p-4 rounded"><div class="text-2xl font-bold ${myNet>=0?'text-green-600':'text-red-600'}">${myNet>=0?'應收':'應付'} $${Math.round(Math.abs(myNet)).toLocaleString()}</div><div class="text-xs text-gray-400">每人: $${Math.round(avg).toLocaleString()}</div></div><ul class="space-y-2">`;const cr=net.filter(n=>n.amount>1).sort((a,b)=>b.amount-a.amount),db=net.filter(n=>n.amount<-1).sort((a,b)=>a.amount-b.amount);if(cr.length===0)h+='<li class="text-center text-green-500">平帳</li>';else{let c=0,d=0;while(c<cr.length&&d<db.length){let amt=Math.min(cr[c].amount,Math.abs(db[d].amount));if(amt<1)break;if(db[d].name===cur||cr[c].name===cur)h+=`<li class="flex justify-between bg-white p-2 border-l-4 ${db[d].name===cur?'border-red-500':'border-green-500'}"><span>${db[d].name} <i class="fa-solid fa-arrow-right"></i> ${cr[c].name}</span><b>$${Math.round(amt).toLocaleString()}</b></li>`;cr[c].amount-=amt;db[d].amount+=amt;if(Math.abs(cr[c].amount)<1)c++;if(Math.abs(db[d].amount)<1)d++;}}document.getElementById('settleContent').innerHTML=h+'</ul>';ui.openModal('settleModal');},
             loadUserStats: async () => { /* Load Stats for Profile Tab */ const y=document.getElementById('statYear').value,m=document.getElementById('statMonth').value,cnt=document.getElementById('ledgerStatsContainer'),ldr=document.getElementById('statsLoader');ldr.classList.remove('hidden');cnt.innerHTML='';
-                try{let tx=[];const proms=state.ledgers.map(l=>getDocs(query(collection(state.db,"transactions"),where("ledgerId","==",l.id))).then(s=>s.docs.map(d=>({...d.data(),id:d.id,ledgerName:l.name,ledgerType:l.type,ledgerMembers:l.members}))));const res=await Promise.all(proms);tx=res.flat();state.allTransactionsCache=tx;const ftx=tx.filter(t=>{const d=new Date(t.date);return d.getFullYear().toString()===y&&(m==='all'||(d.getMonth()+1).toString().padStart(2,'0')===m);});state.ledgers.forEach(l=>{const ltx=ftx.filter(t=>t.ledgerId===l.id);if(ltx.length===0)return;let my=0,tot=0;ltx.forEach(t=>{if(t.type==='expense'){tot+=t.amount;if(l.type==='personal'||t.paidBy===state.userName)my+=t.amount;}});if(tot===0&&my===0)return;cnt.innerHTML+=`<div class="bg-white p-4 rounded-xl border mb-3"><div class="flex justify-between"><div><h4 class="font-bold text-sm">${l.name}</h4><p class="text-xl font-bold text-blue-600">$${my.toLocaleString()}</p></div><div class="text-xs text-gray-400 text-right">總支出: $${tot.toLocaleString()}<br>${l.type==='group'?l.members.length+'人':''}</div></div></div>`;});if(cnt.innerHTML==='')cnt.innerHTML='<div class="text-center text-gray-400 py-4">無資料</div>';}catch(e){console.error(e);}finally{ldr.classList.add('hidden');}
+                try{let tx=[];const proms=state.ledgers.map(l=>getDocs(query(collection(state.db,"transactions"),where("ledgerId","==",l.id))).then(s=>s.docs.map(d=>({...d.data(),id:d.id,ledgerName:l.name,ledgerType:l.type,ledgerMembers:l.members}))));const res=await Promise.all(proms);tx=res.flat();state.allTransactionsCache=tx;const ftx=tx.filter(t=>{const d=new Date(t.date);return d.getFullYear().toString()===y&&(m==='all'||(d.getMonth()+1).toString().padStart(2,'0')===m);});state.ledgers.forEach(l=>{const ltx=ftx.filter(t=>t.ledgerId===l.id);if(ltx.length===0)return;let my=0,tot=0;ltx.forEach(t=>{if(t.type==='expense'){tot+=t.amount;if(l.type==='personal'||t.paidBy===state.userName)my+=t.amount;}});if(tot===0&&my===0)return;cnt.innerHTML+=`<div class="bg-white p-4 rounded-xl border mb-3"><div class="flex justify-between"><div><h4 class="font-bold text-sm">${l.name}</h4><p class="text-xl font-bold text-blue-600">$${my.toLocaleString()}</p></div><div class="text-xs text-gray-400 text-right">總支出: $${tot.toLocaleString()}<br>${l.type==='group'?l.members.length+'人':''}</div></div></div>`;});if(cnt.innerHTML==='')cnt.innerHTML='<div class="text-center text-gray-400 py-4">無資料</div>';
+                
+                // Detailed Stats Logic
+                if(document.getElementById('showDetailsCheck').checked) {
+                    const yearTx = tx.filter(t => new Date(t.date).getFullYear().toString() === y);
+                    if(yearTx.length > 0) {
+                        const process = (type, title, color) => {
+                            const filtered = yearTx.filter(t => t.type === type && (t.ledgerType === 'personal' || t.paidBy === state.userName));
+                            const total = filtered.reduce((acc, t) => acc + t.amount, 0);
+                            const catMap = {};
+                            filtered.forEach(t => catMap[t.category] = (catMap[t.category] || 0) + t.amount);
+                            const sorted = Object.entries(catMap).sort((a,b) => b[1] - a[1]);
+                            
+                            return `
+                                <div class="bg-white p-4 rounded-xl border mt-4">
+                                    <h4 class="font-bold text-sm text-${color}-600 mb-3 border-b pb-2">${title} (${y}年總計)</h4>
+                                    ${sorted.map(([cat, amt]) => {
+                                        const pct = total ? Math.round((amt/total)*100) : 0;
+                                        return `<div class="flex justify-between text-xs mb-1"><span>${cat}</span><span class="font-bold">$${amt.toLocaleString()} (${pct}%)</span></div>
+                                                <div class="w-full bg-gray-100 h-1.5 rounded-full mb-2"><div class="bg-${color}-400 h-1.5 rounded-full" style="width:${pct}%"></div></div>`;
+                                    }).join('') || '<div class="text-center text-gray-400 text-xs">無紀錄</div>'}
+                                </div>
+                            `;
+                        };
+                        cnt.innerHTML = process('expense', '年度消費類別統計', 'rose') + process('income', '年度收入來源統計', 'emerald') + cnt.innerHTML;
+                    }
+                }
+                }catch(e){console.error(e);}finally{ldr.classList.add('hidden');}
             }
         };
 
@@ -1244,12 +1287,59 @@
             handleImageUpload: (inp) => { const f=inp.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ state.currentImage={base64:r.result.split(',')[1],mimeType:f.type}; document.getElementById('imagePreview').src=r.result; document.getElementById('imagePreviewContainer').classList.remove('hidden'); document.getElementById('uploadZone').classList.add('hidden'); ai.runAiAnalysis(); }; r.readAsDataURL(f); },
             clearImage: () => { state.currentImage=null; document.getElementById('receiptUpload').value=''; document.getElementById('imagePreviewContainer').classList.add('hidden'); document.getElementById('uploadZone').classList.remove('hidden'); document.getElementById('aiLoading').classList.add('hidden'); document.getElementById('aiStatusText').innerText = "AI 正在辨識收據內容..."; },
             runQrScan: async () => {},
-            runAiAnalysis: async () => { if(!state.geminiKey) return alert("請先設定 API Key"); const l=document.getElementById('aiLoading'); l.classList.remove('hidden'); document.getElementById('aiStatusText').innerText = "AI 正在辨識收據內容..."; try{ let p = `Analyze this receipt image. Return a JSON object with this exact structure: { "merchant": "store name or null", "items": [{ "name": "item name", "amount": number, "category": "one of ${state.categories.expense.join(',')}" }] }. Only return JSON.`; if (state.customAiPrompt) { p += ` Additional Instruction from user: ${state.customAiPrompt}`; } const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${state.geminiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:p},{inline_data:{mime_type:state.currentImage.mimeType,data:state.currentImage.base64}}]}]})}); const d=await r.json(); const txt = d.candidates[0].content.parts[0].text.replace(/```json/g,'').replace(/```/g,''); const j=JSON.parse(txt); document.getElementById('transactionItemsList').innerHTML=''; (j.items||[]).forEach(i=>ui.addItemRow(i.name,i.category,i.amount)); if(j.merchant) document.getElementById('tMerchant').value = j.merchant; ui.updateTotal(); document.getElementById('aiStatusText').innerText = "辨識完成！請確認細項。"; setTimeout(() => l.classList.add('hidden'), 1500); }catch(e){ console.error(e); document.getElementById('aiStatusText').innerText = "辨識失敗，請手動輸入"; setTimeout(() => l.classList.add('hidden'), 2000); } }
+            runAiAnalysis: async () => { 
+                if(!state.geminiKey) return alert("請先設定 API Key"); 
+                const l=document.getElementById('aiLoading'); 
+                l.classList.remove('hidden'); 
+                document.getElementById('aiStatusText').innerText = "AI 正在辨識收據內容..."; 
+                
+                try{ 
+                    // Update: Instruct AI to normalize categories and detect new ones
+                    const existingCats = state.categories.expense.join(', ');
+                    let p = `Analyze this receipt image. Return a JSON object with this exact structure: { "merchant": "store name or null", "items": [{ "name": "item name", "amount": number, "category": "category name" }] }. 
+                    
+                    RULES FOR CATEGORY:
+                    1. Try to map the item to one of these existing categories: [${existingCats}].
+                    2. Normalization: If the item is food, try to map to '早餐', '午餐', '晚餐', '飲料', '點心' based on the time or item type. If unsure, use '飲食'. Map '食' to '飲食'. Map '車資' to '交通'.
+                    3. If the item clearly doesn't fit any existing category, SUGGEST a new concise 2-char category name (e.g., '美容', '3C').
+                    4. Only return JSON.`; 
+                    
+                    if (state.customAiPrompt) { p += ` Additional Instruction from user: ${state.customAiPrompt}`; } 
+                    
+                    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${state.geminiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:p},{inline_data:{mime_type:state.currentImage.mimeType,data:state.currentImage.base64}}]}]})}); 
+                    const d=await r.json(); 
+                    const txt = d.candidates[0].content.parts[0].text.replace(/```json/g,'').replace(/```/g,''); 
+                    const j=JSON.parse(txt); 
+                    
+                    document.getElementById('transactionItemsList').innerHTML=''; 
+                    
+                    // Process items and check for new categories
+                    (j.items||[]).forEach(i => {
+                        // Check if category exists
+                        if (!state.categories.expense.includes(i.category) && !state.categories.income.includes(i.category)) {
+                            // Auto-add new category to expense list by default
+                            state.categories.expense.push(i.category);
+                            app.saveCategories();
+                            ui.renderSettings(); // Update UI in background
+                        }
+                        ui.addItemRow(i.name, i.category, i.amount);
+                    }); 
+                    
+                    if(j.merchant) document.getElementById('tMerchant').value = j.merchant; 
+                    ui.updateTotal(); 
+                    document.getElementById('aiStatusText').innerText = "辨識完成！請確認細項。"; 
+                    setTimeout(() => l.classList.add('hidden'), 1500); 
+                }catch(e){ 
+                    console.error(e); 
+                    document.getElementById('aiStatusText').innerText = "辨識失敗，請手動輸入"; 
+                    setTimeout(() => l.classList.add('hidden'), 2000); 
+                } 
+            }
         };
 
         const ui = {
             renderLedgerList: () => { const l=document.getElementById('ledgerList'), al=document.getElementById('archivedLedgerList'); l.innerHTML=''; al.innerHTML=''; let hasArc=false; state.ledgers.forEach(x=>{ const h=`<li><button onclick="ui.switchLedger('${x.id}')" class="w-full text-left px-4 py-3 rounded-lg flex justify-between ${x.id===state.currentLedger?.id?'bg-emerald-600 text-white':'text-slate-300 hover:bg-slate-700'}"><span><i class="fa-solid ${x.type==='group'?'fa-users':'fa-book'} mr-2"></i>${x.name}</span>${x.password?'<i class="fa-solid fa-lock text-xs"></i>':''} </button></li>`; if(x.status==='archived'){al.innerHTML+=h;hasArc=true;}else l.innerHTML+=h; }); document.getElementById('archivedSection').className=hasArc?'mt-6':'hidden'; },
-            switchLedger: (id) => { const l=state.ledgers.find(x=>x.id===id); if(!l)return; if(l.password&&!state.unlockedLedgers.includes(id)){ state.pendingLedgerId=id; document.getElementById('unlockPasswordInput').value=''; ui.openModal('passwordModal'); return; } state.currentLedger=l; localStorage.setItem('acc_current_ledger',id); document.getElementById('currentLedgerTitle').innerText=l.name; const isG=l.type==='group'; document.getElementById('ledgerTypeBadge').className=isG?'block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded':'hidden'; document.getElementById('ledgerMembers').innerText=isG?l.members.join(','):''; document.getElementById('ledgerMembers').className=isG?'block text-sm text-gray-500':'hidden'; document.getElementById('groupPayerField').className=isG?'col-span-2':'hidden'; document.getElementById('settleBtn').className=isG?'bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg shadow transition flex items-center gap-2 font-medium text-sm':'hidden'; if(l.status==='archived')document.getElementById('addTxBtn').classList.add('hidden'); else document.getElementById('addTxBtn').classList.remove('hidden'); ui.renderLedgerList(); app.listenTransactions(); },
+            switchLedger: (id) => { const l=state.ledgers.find(x=>x.id===id); if(!l)return; if(l.password&&!state.unlockedLedgers.includes(id)){ state.pendingLedgerId=id; document.getElementById('unlockPasswordInput').value=''; ui.openModal('passwordModal'); return; } state.currentLedger=l; localStorage.setItem('acc_current_ledger',id); document.getElementById('currentLedgerTitle').innerText=l.name; const isG=l.type==='group'; document.getElementById('ledgerTypeBadge').className=isG?'block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded':'hidden'; document.getElementById('ledgerMembers').innerText=isG?l.members.join(','):''; document.getElementById('ledgerMembers').className=isG?'block text-sm text-gray-500':'hidden'; document.getElementById('groupPayerField').className=isG?'col-span-2':'hidden'; document.getElementById('settleBtn').className=isG?'bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg shadow transition flex items-center gap-2 font-medium text-sm':'hidden'; if(l.status==='archived')document.getElementById('addTxBtn').classList.add('hidden'); else document.getElementById('addTxBtn').classList.remove('hidden'); ui.renderLedgerList(); app.listenTransactions(); app.listenRecurringRules(); },
             
             toggleSelectAll: (source) => { document.querySelectorAll('.tx-checkbox').forEach(cb => { cb.checked = source.checked; }); ui.updateBulkActionState(); },
             updateBulkActionState: () => { const count = document.querySelectorAll('.tx-checkbox:checked').length; const btn = document.getElementById('bulkDeleteBtn'); const span = document.getElementById('selectedCount'); if (count > 0) { btn.classList.remove('hidden'); span.innerText = count; } else { btn.classList.add('hidden'); } },
@@ -1285,6 +1375,88 @@
                 }).join('');
             },
             
+            renderTopStats: (list) => {
+                const process = (type) => {
+                    const filtered = list.filter(t => t.type === type);
+                    const total = filtered.reduce((sum, t) => sum + t.amount, 0);
+                    const catMap = {};
+                    filtered.forEach(t => catMap[t.category] = (catMap[t.category] || 0) + t.amount);
+                    const sorted = Object.entries(catMap).sort((a,b) => b[1] - a[1]);
+                    return sorted.map(([cat, amt]) => {
+                        const pct = total ? Math.round((amt/total)*100) : 0;
+                        return `<div class="flex justify-between items-center text-xs mb-1">
+                                    <span class="text-gray-600">${cat}</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono font-bold">${pct}%</span>
+                                        <span class="text-gray-800">$${amt.toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div class="w-full bg-gray-100 h-1.5 rounded-full mb-2">
+                                    <div class="bg-${type==='expense'?'rose':'emerald'}-400 h-1.5 rounded-full" style="width:${pct}%"></div>
+                                </div>`;
+                    }).join('') || '<div class="text-gray-400 text-xs text-center">無資料</div>';
+                };
+
+                // New Merchant Stats Function
+                const processMerchant = () => {
+                    const filtered = list.filter(t => t.type === 'expense' && t.merchant);
+                    const total = filtered.reduce((sum, t) => sum + t.amount, 0);
+                    const merchMap = {};
+                    filtered.forEach(t => merchMap[t.merchant] = (merchMap[t.merchant] || 0) + t.amount);
+                    const sorted = Object.entries(merchMap).sort((a,b) => b[1] - a[1]).slice(0, 5); // Top 5
+                    
+                    return sorted.map(([merch, amt]) => {
+                        const pct = total ? Math.round((amt/total)*100) : 0;
+                        return `<div class="flex justify-between items-center text-xs mb-1">
+                                    <span class="text-gray-600 truncate max-w-[120px]" title="${merch}">${merch}</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono font-bold">${pct}%</span>
+                                        <span class="text-gray-800">$${amt.toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div class="w-full bg-gray-100 h-1.5 rounded-full mb-2">
+                                    <div class="bg-indigo-400 h-1.5 rounded-full" style="width:${pct}%"></div>
+                                </div>`;
+                    }).join('') || '<div class="text-gray-400 text-xs text-center">無商店資料</div>';
+                };
+
+                // New Diet Analysis Function
+                const processDiet = () => {
+                    const foodCats = ['早餐', '午餐', '晚餐', '飲料', '點心', '飲食'];
+                    const filtered = list.filter(t => t.type === 'expense' && foodCats.includes(t.category));
+                    const total = filtered.reduce((sum, t) => sum + t.amount, 0);
+                    
+                    if (total === 0) return '<div class="text-gray-400 text-xs text-center">無飲食資料</div>';
+
+                    // Group specifically
+                    const dietMap = {};
+                    filtered.forEach(t => dietMap[t.category] = (dietMap[t.category] || 0) + t.amount);
+                    const sorted = Object.entries(dietMap).sort((a,b) => b[1] - a[1]);
+
+                    return `
+                        <div class="mb-2 text-xs font-bold text-gray-500">總飲食支出: <span class="text-orange-600 text-sm">$${total.toLocaleString()}</span></div>
+                        ${sorted.map(([cat, amt]) => {
+                            const pct = total ? Math.round((amt/total)*100) : 0;
+                            return `<div class="flex justify-between items-center text-xs mb-1">
+                                        <span class="text-gray-600">${cat}</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-mono font-bold">${pct}%</span>
+                                            <span class="text-gray-800">$${amt.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                    <div class="w-full bg-gray-100 h-1.5 rounded-full mb-2">
+                                        <div class="bg-orange-400 h-1.5 rounded-full" style="width:${pct}%"></div>
+                                    </div>`;
+                        }).join('')}
+                    `;
+                };
+
+                document.getElementById('topExpenseList').innerHTML = process('expense');
+                document.getElementById('topIncomeList').innerHTML = process('income');
+                document.getElementById('topMerchantList').innerHTML = processMerchant();
+                document.getElementById('dietAnalysisList').innerHTML = processDiet();
+            },
+
             renderAssets: () => {
                 const list = document.getElementById('assetsList');
                 list.innerHTML = '';
@@ -1360,6 +1532,101 @@
                 }
             },
 
+            // --- RECURRING UI LOGIC ---
+            openRecurringModal: () => {
+                ui.openModal('recurringModal');
+                ui.toggleRecurringForm(false);
+                ui.renderRecurringList();
+            },
+
+            toggleRecurringForm: (show, editData = null) => {
+                const formSection = document.getElementById('recurringFormSection');
+                const listSection = document.getElementById('recurringListSection');
+                const btnAdd = document.getElementById('btnAddRecurring');
+                const formTitle = document.getElementById('recurringFormTitle');
+
+                if (show) {
+                    formSection.classList.remove('hidden');
+                    listSection.classList.add('hidden');
+                    btnAdd.classList.add('hidden');
+                    
+                    if (editData) {
+                        formTitle.innerText = "編輯規則";
+                        document.getElementById('recRuleId').value = editData.id;
+                        document.getElementById('recType').value = editData.type;
+                        document.getElementById('recFreq').value = editData.frequency;
+                        document.getElementById('recName').value = editData.name;
+                        document.getElementById('recAmount').value = editData.amount;
+                        document.getElementById('recCategory').value = editData.category;
+                        document.getElementById('recNextDate').value = editData.nextDueDate;
+                    } else {
+                        formTitle.innerText = "新增規則";
+                        document.getElementById('recRuleId').value = '';
+                        document.getElementById('recName').value = '';
+                        document.getElementById('recAmount').value = '';
+                        document.getElementById('recNextDate').value = new Date().toISOString().split('T')[0];
+                    }
+                    ui.updateCategoriesForRecurring();
+                } else {
+                    formSection.classList.add('hidden');
+                    listSection.classList.remove('hidden');
+                    btnAdd.classList.remove('hidden');
+                }
+            },
+
+            updateCategoriesForRecurring: () => {
+                const type = document.getElementById('recType').value;
+                const catSelect = document.getElementById('recCategory');
+                const cats = state.categories[type] || [];
+                const currentVal = catSelect.value;
+                
+                catSelect.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+                if (currentVal && cats.includes(currentVal)) {
+                    catSelect.value = currentVal;
+                }
+            },
+
+            editRecurringRule: (id) => {
+                const rule = state.recurringRules.find(r => r.id === id);
+                if (rule) ui.toggleRecurringForm(true, rule);
+            },
+
+            renderRecurringList: () => {
+                const container = document.getElementById('recurringRulesList');
+                if (!state.recurringRules.length) {
+                    container.innerHTML = '<div class="text-center text-gray-400 py-8">尚無固定收支設定</div>';
+                    return;
+                }
+
+                container.innerHTML = state.recurringRules.map(r => {
+                    const today = new Date().toISOString().split('T')[0];
+                    const isDue = r.nextDueDate <= today;
+                    const typeColor = r.type === 'expense' ? 'text-rose-600' : 'text-emerald-600';
+                    const freqText = r.frequency === 'monthly' ? '每月' : '每年';
+
+                    return `
+                    <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center ${isDue ? 'ring-2 ring-purple-400 bg-purple-50' : ''}">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold px-2 py-0.5 rounded ${r.type === 'expense' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">${freqText}</span>
+                                <h4 class="font-bold text-gray-800">${r.name}</h4>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">
+                                金額: <span class="font-mono ${typeColor} font-bold">$${r.amount.toLocaleString()}</span> | 
+                                分類: ${r.category} | 
+                                下次: <span class="${isDue ? 'text-red-600 font-bold' : ''}">${r.nextDueDate}</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 items-center">
+                            ${isDue ? `<button onclick="app.executeRecurring('${r.id}')" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow animate-pulse">立即入帳</button>` : ''}
+                            <button onclick="ui.editRecurringRule('${r.id}')" class="text-gray-400 hover:text-blue-500 p-2"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="app.deleteRecurringRule('${r.id}')" class="text-gray-400 hover:text-red-500 p-2"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            },
+
             // --- HOVER STATS LOGIC ---
             showHoverStats: (key) => {
                 const data = state.currentChartStats[key];
@@ -1369,20 +1636,22 @@
                     <div class="bg-white rounded-xl p-3 border border-indigo-200 shadow-sm animate-fade-in">
                         <div class="flex justify-between items-end mb-2 border-b border-gray-100 pb-1">
                             <span class="text-indigo-900 font-bold text-sm">${data.label}</span>
-                            <span class="font-bold text-rose-600 text-base">$${data.total.toLocaleString()}</span>
                         </div>
-                        <div class="grid grid-cols-1 gap-1">
-                            ${data.cats.map(c => `
-                                <div class="flex justify-between items-center text-xs">
-                                    <span class="text-gray-600">${c.name}</span>
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                            <div class="h-full bg-indigo-400 rounded-full" style="width: ${c.pct}%"></div>
-                                        </div>
-                                        <span class="font-bold text-gray-800 w-8 text-right">${c.pct}%</span>
-                                    </div>
-                                </div>
-                            `).join('') || '<div class="text-center text-gray-400 text-xs">無消費</div>'}
+                        <div class="grid grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <span class="block text-gray-400 uppercase text-[10px]">收入</span>
+                                <span class="font-bold text-emerald-600 text-sm">$${data.income.toLocaleString()}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-gray-400 uppercase text-[10px]">支出</span>
+                                <span class="font-bold text-rose-600 text-sm">$${data.expense.toLocaleString()}</span>
+                            </div>
+                        </div>
+                        <div class="mt-2 pt-1 border-t border-dashed border-gray-200 text-center">
+                            <span class="text-[10px] text-gray-400">淨利</span>
+                            <span class="font-bold ${data.income - data.expense >= 0 ? 'text-blue-600' : 'text-red-500'} ml-1">
+                                $${(data.income - data.expense).toLocaleString()}
+                            </span>
                         </div>
                     </div>
                 `;
@@ -1392,7 +1661,7 @@
             resetStatsSummary: () => {
                 document.getElementById('dailyStatsSummary').innerHTML = `
                     <div class="text-center text-gray-400 text-sm py-6 bg-slate-50 rounded-xl border border-dashed border-gray-200">
-                        滑過或點擊下方圖表以查看該時段消費詳情
+                        滑過或點擊下方圖表以查看收支詳情
                     </div>
                 `;
             },
