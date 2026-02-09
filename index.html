@@ -184,19 +184,35 @@
             </div>
         </div>
 
-        <!-- NEW: In-Ledger Analysis Section (Simplified) -->
+        <!-- UPDATED: Collapsible In-Ledger Analysis Section with Merchant Stats -->
         <div class="px-4 md:px-6 py-2 md:py-4">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <div class="flex gap-4 overflow-x-auto pb-2">
-                    <!-- Expense Categories -->
-                    <div class="flex-1 min-w-[250px] md:min-w-[300px]">
-                        <h4 class="text-xs font-bold text-rose-500 uppercase mb-2 border-b border-rose-100 pb-1">各項消費統計 (依類別)</h4>
-                        <div id="topExpenseList" class="space-y-2"></div>
-                    </div>
-                    <!-- Income Categories -->
-                    <div class="flex-1 min-w-[250px] md:min-w-[300px]">
-                        <h4 class="text-xs font-bold text-emerald-500 uppercase mb-2 border-b border-emerald-100 pb-1">各項收入來源 (依類別)</h4>
-                        <div id="topIncomeList" class="space-y-2"></div>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <!-- Header / Toggle -->
+                <div class="p-4 bg-gray-50 cursor-pointer flex justify-between items-center hover:bg-gray-100 transition" onclick="ui.toggleStatsSection()">
+                    <h3 class="font-bold text-gray-700 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-blue-500"></i> 收支與商店分析
+                    </h3>
+                    <i id="statsToggleIcon" class="fa-solid fa-chevron-down text-gray-400 transition-transform"></i>
+                </div>
+                
+                <!-- Content (Default Hidden) -->
+                <div id="statsContent" class="hidden p-4 border-t border-gray-100">
+                    <div class="flex gap-4 overflow-x-auto pb-2">
+                        <!-- Expense Categories -->
+                        <div class="flex-1 min-w-[250px] md:min-w-[300px]">
+                            <h4 class="text-xs font-bold text-rose-500 uppercase mb-2 border-b border-rose-100 pb-1">消費統計 (依類別)</h4>
+                            <div id="topExpenseList" class="space-y-2"></div>
+                        </div>
+                        <!-- Merchant Stats (New) -->
+                        <div class="flex-1 min-w-[250px] md:min-w-[300px]">
+                            <h4 class="text-xs font-bold text-blue-500 uppercase mb-2 border-b border-blue-100 pb-1">商店/對象消費統計</h4>
+                            <div id="topMerchantList" class="space-y-2"></div>
+                        </div>
+                        <!-- Income Categories -->
+                        <div class="flex-1 min-w-[250px] md:min-w-[300px]">
+                            <h4 class="text-xs font-bold text-emerald-500 uppercase mb-2 border-b border-emerald-100 pb-1">收入來源 (依類別)</h4>
+                            <div id="topIncomeList" class="space-y-2"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -208,16 +224,16 @@
                 <div class="p-3 md:p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <h3 class="font-bold text-gray-700 text-sm md:text-base" id="listHeaderTitle">交易紀錄</h3>
                     <div class="flex items-center gap-2">
-                         <button id="bulkDeleteBtn" onclick="app.deleteSelected()" class="hidden text-xs bg-red-100 hover:bg-red-200 text-red-600 px-2 py-1 rounded font-bold transition flex items-center gap-1">
-                            <i class="fa-solid fa-trash-can"></i> <span class="hidden md:inline">刪除</span>(<span id="selectedCount">0</span>)
-                         </button>
-                         
-                         <!-- List Export Button -->
-                         <button onclick="app.exportCurrentList()" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-1 rounded font-bold transition flex items-center gap-1">
-                            <i class="fa-solid fa-file-export"></i> <span class="hidden md:inline">匯出</span>
-                         </button>
+                          <button id="bulkDeleteBtn" onclick="app.deleteSelected()" class="hidden text-xs bg-red-100 hover:bg-red-200 text-red-600 px-2 py-1 rounded font-bold transition flex items-center gap-1">
+                             <i class="fa-solid fa-trash-can"></i> <span class="hidden md:inline">刪除</span>(<span id="selectedCount">0</span>)
+                          </button>
+                          
+                          <!-- List Export Button -->
+                          <button onclick="app.exportCurrentList()" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-1 rounded font-bold transition flex items-center gap-1">
+                             <i class="fa-solid fa-file-export"></i> <span class="hidden md:inline">匯出</span>
+                          </button>
 
-                         <button id="clearFilterBtn" onclick="app.clearDateFilter()" class="hidden text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-gray-600"><i class="fa-solid fa-filter-circle-xmark"></i></button>
+                          <button id="clearFilterBtn" onclick="app.clearDateFilter()" class="hidden text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-gray-600"><i class="fa-solid fa-filter-circle-xmark"></i></button>
                         <div id="loadingIndicator" class="hidden flex items-center gap-1 text-xs text-gray-500">
                             <div class="loader w-4 h-4"></div> <span class="hidden md:inline">同步中...</span>
                         </div>
@@ -355,10 +371,7 @@
                     </div>
                     <p class="text-[10px] text-gray-500 mt-1"><i class="fa-solid fa-circle-info"></i> 僅顯示已建立的使用者。若找不到成員，請先登出並建立新角色。</p>
                 </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">密碼保護 (選填)</label>
-                    <input type="password" id="newLedgerPassword" placeholder="設定密碼 (空白則不設防)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
-                </div>
+                <!-- 移除帳本密碼欄位 -->
                 <button onclick="app.createLedger()" class="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-lg mt-2">立即建立</button>
             </div>
         </div>
@@ -368,7 +381,7 @@
     <div id="imageViewerModal" class="fixed inset-0 bg-black/90 z-[100] hidden flex items-center justify-center" onclick="ui.closeImageModal()">
         <div class="relative max-w-4xl max-h-[90vh] p-2" onclick="event.stopPropagation()">
             <button onclick="ui.closeImageModal()" class="absolute -top-10 right-0 text-white text-3xl hover:text-gray-300 transition"><i class="fa-solid fa-times"></i></button>
-            <img id="imageViewerSrc" class="max-w-full max-h-[85vh] rounded-lg shadow-2xl border-2 border-gray-800" src="">
+            <img id="imageViewerSrc" class="max-w-full max-h-[85vh] rounded-lg shadow-2xl border-2 border-gray-800" src="" referrerpolicy="no-referrer" onerror="this.src='https://placehold.co/600x400?text=Image+Load+Error'">
             <div class="text-center mt-4"><a id="imageViewerLink" href="#" target="_blank" class="text-blue-400 hover:text-blue-300 text-sm underline"><i class="fa-solid fa-external-link-alt"></i> 開啟原圖</a></div>
         </div>
     </div>
@@ -383,11 +396,16 @@
             </div>
 
             <!-- Existing User Select -->
-            <div id="existingUserSection" class="mb-6">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">選擇現有角色</label>
-                <select id="loginUserSelect" class="w-full p-3 border border-gray-300 rounded-lg mb-3 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-                    <option value="">載入中...</option>
-                </select>
+            <div id="existingUserSection" class="mb-6 space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">選擇現有角色</label>
+                    <select id="loginUserSelect" class="w-full p-3 border border-gray-300 rounded-lg mb-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="">載入中...</option>
+                    </select>
+                </div>
+                <div>
+                    <input type="password" id="loginPasswordInput" placeholder="請輸入密碼 (舊用戶若無則留空)" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
                 <button onclick="app.loginExistingUser()" class="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold transition">登入</button>
             </div>
 
@@ -400,9 +418,10 @@
             <!-- Create New User -->
             <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-2">建立新角色</label>
-                <div class="flex gap-2">
-                    <input type="text" id="newUserNameInput" placeholder="輸入新暱稱" class="flex-1 p-3 border border-gray-300 rounded-lg text-sm">
-                    <button onclick="app.registerNewUser()" class="bg-gray-800 text-white px-4 rounded-lg hover:bg-gray-900 transition">建立</button>
+                <div class="space-y-2">
+                    <input type="text" id="newUserNameInput" placeholder="輸入新暱稱" class="w-full p-3 border border-gray-300 rounded-lg text-sm">
+                    <input type="password" id="newUserNamePassword" placeholder="設定登入密碼" class="w-full p-3 border border-gray-300 rounded-lg text-sm">
+                    <button onclick="app.registerNewUser()" class="w-full bg-gray-800 text-white py-3 rounded-lg hover:bg-gray-900 transition font-bold">建立並登入</button>
                 </div>
             </div>
         </div>
@@ -499,7 +518,7 @@
 
                 <!-- TAB 4: Settings -->
                 <div id="content-settings" class="hidden">
-                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-100 mb-4">
                         <label class="block text-xs font-bold text-gray-800 uppercase mb-2">修改顯示名稱</label>
                         <div class="flex gap-2">
                             <input type="text" id="renameInput" placeholder="輸入新名稱" class="flex-1 p-3 border border-gray-300 rounded-lg font-bold text-gray-700">
@@ -507,7 +526,27 @@
                         </div>
                         <p class="text-xs text-gray-400 mt-2"><i class="fa-solid fa-circle-exclamation"></i> 這會更新所有帳本中的顯示名稱。</p>
                     </div>
-                    <div class="mt-4 text-center">
+
+                    <div class="bg-yellow-50 p-5 rounded-xl border border-yellow-100">
+                        <label class="block text-xs font-bold text-yellow-800 uppercase mb-2">重設登入密碼</label>
+                        <div class="flex gap-2 items-center">
+                            <button onclick="app.changeUserPassword()" class="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg font-bold transition whitespace-nowrap">立即重設密碼</button>
+                            <span class="text-xs text-yellow-600">忘記密碼請重設，無需舊密碼</span>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-gray-200 pt-4 mt-4">
+                        <h4 class="font-bold text-gray-700 mb-2">常用商店管理</h4>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="flex gap-2 mb-2">
+                                <input type="text" id="newMerchantName" placeholder="商店名稱" class="flex-1 p-2 border border-gray-300 rounded text-sm">
+                                <button onclick="app.addMerchant()" class="bg-blue-600 text-white px-3 rounded hover:bg-blue-700"><i class="fa-solid fa-plus"></i></button>
+                            </div>
+                            <div id="merchantListSetting" class="flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 text-center">
                          <button onclick="ui.logout()" class="text-sm text-red-500 hover:underline"><i class="fa-solid fa-right-from-bracket"></i> 登出/切換帳號</button>
                     </div>
                 </div>
@@ -639,19 +678,6 @@
         </div>
     </div>
 
-    <!-- Modal: Password & Add Tx & Add Ledger -->
-    <div id="passwordModal" class="fixed inset-0 bg-slate-900/90 z-[70] hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 m-4 text-center animate-fade-in">
-            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 text-xl"><i class="fa-solid fa-lock"></i></div>
-            <h3 class="text-xl font-bold text-gray-800 mb-2">此帳本受密碼保護</h3>
-            <input type="password" id="unlockPasswordInput" class="w-full p-3 border border-gray-300 rounded-lg mb-4 text-center text-lg" placeholder="••••">
-            <div class="flex gap-2">
-                <button onclick="ui.closeModal('passwordModal')" class="flex-1 py-3 text-gray-500 hover:bg-gray-100 rounded-lg">取消</button>
-                <button onclick="app.verifyPassword()" class="flex-1 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold shadow-lg">解鎖</button>
-            </div>
-        </div>
-    </div>
-
     <!-- TRANSACTION MODAL -->
     <div id="transactionModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 m-4 overflow-y-auto max-h-[90vh]">
@@ -676,7 +702,13 @@
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
                     <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">類型</label><select id="tType" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm" onchange="ui.updateCategoriesForRows()"><option value="expense">支出</option><option value="income">收入</option></select></div>
                     <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">日期</label><input type="date" id="tDate" required class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm cursor-pointer hover:bg-gray-50"></div>
-                    <div class="col-span-2"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">商店/對象 (選填)</label><input type="text" id="tMerchant" placeholder="例如: 7-11, 全聯" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm"></div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">商店/對象 (選填)</label>
+                        <div class="relative">
+                            <input type="text" id="tMerchant" list="merchantDatalist" placeholder="輸入或選擇..." class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm">
+                            <datalist id="merchantDatalist"></datalist>
+                        </div>
+                    </div>
                     <div id="groupPayerField" class="hidden col-span-2 md:col-span-2"><label class="block text-xs font-bold text-yellow-700 uppercase mb-1">先墊錢的人</label><select id="tPaidBy" class="w-full p-2 bg-white border border-yellow-200 rounded-lg text-sm"></select></div>
                     
                     <!-- NEW Currency Wrapper -->
@@ -695,9 +727,20 @@
                             <select id="tCurrency" class="w-24 p-1.5 bg-white border border-yellow-200 rounded text-sm" onchange="app.updateRate()">
                                 <option value="TWD">TWD</option><option value="JPY">JPY</option><option value="USD">USD</option><option value="KRW">KRW</option><option value="EUR">EUR</option><option value="CNY">CNY</option>
                             </select>
-                            <input type="number" id="tRate" step="0.001" placeholder="匯率" class="w-20 p-1.5 bg-white border border-yellow-200 rounded text-sm" oninput="app.calcTwd()">
+                            <input type="number" id="tRate" step="0.0001" placeholder="匯率" class="w-20 p-1.5 bg-white border border-yellow-200 rounded text-sm" oninput="app.calcTwd()">
                             <span id="rateHint" class="text-xs text-yellow-600"></span>
                             <button type="button" class="ml-auto text-xs text-gray-400 hover:text-gray-600" onclick="ui.toggleCurrencyEdit(false)"><i class="fa-solid fa-check"></i> 完成</button>
+                        </div>
+                    </div>
+
+                    <!-- NEW: Split Among Section -->
+                    <div id="splitSection" class="col-span-2 md:col-span-4 hidden transition-all duration-300 ease-in-out">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1 flex justify-between items-center">
+                            <span>分攤給誰 (預設全員)</span>
+                            <span class="text-[10px] text-blue-500 cursor-pointer hover:underline" onclick="ui.toggleAllSplit(true)">全選</span>
+                        </label>
+                        <div class="flex flex-wrap gap-2 bg-gray-50 p-2 border border-gray-200 rounded-lg max-h-24 overflow-y-auto" id="splitUserContainer">
+                            <!-- Checkboxes injected by JS -->
                         </div>
                     </div>
                 </div>
@@ -750,6 +793,14 @@
             "第一商業銀行", "合作金庫", "華南商業銀行", "彰化商業銀行", 
             "遠東國際商業銀行", "星展(台灣)商業銀行"
         ];
+        
+        const DEFAULT_MERCHANTS = [
+            "7-ELEVEN", "全家便利商店", "萊爾富", "OK超商", 
+            "全聯福利中心", "家樂福", "大潤發", "好市多", 
+            "屈臣氏", "康是美", "寶雅", "蝦皮購物", 
+            "麥當勞", "肯德基", "摩斯漢堡", "星巴克", 
+            "路易莎", "50嵐", "清心福全", "台灣中油"
+        ];
 
         // --- NEW: Local Keyword Mapping for Auto-Categorization ---
         const CATEGORY_KEYWORDS = {
@@ -772,8 +823,9 @@
         };
 
         const state = {
-            db: null, geminiKey: localStorage.getItem('acc_gemini_key') || 'AIzaSyA2WZwhP-dG_37EEW9MDrlUQ_TG-d1TAdY', scriptUrl: localStorage.getItem('acc_script_url') || 'https://script.google.com/macros/s/AKfycbxY6Rsu-YbelHECVROC6xQK3vh-8qTzRDKAj29iDPOwbPmNKawSB42tF7UE1tbSQJy6cw/exec',
+            db: null, geminiKey: localStorage.getItem('acc_gemini_key') || 'AIzaSyA2WZwhP-dG_37EEW9MDrlUQ_TG-d1TAdY', scriptUrl: localStorage.getItem('acc_script_url') || 'https://script.google.com/macros/s/AKfycbwNIaGFsgcePv5Sp3jLNZHYMGPDxroDjAez_K2r0L5WihkcC2waA6J5-LwBLjg1gz7Img/exec',
             userName: localStorage.getItem('acc_username') || '', ledgers: [], currentLedger: null, transactions: [], allTransactionsCache: [], usersList: [], unsubscribeTrans: null, unsubscribeLedgers: null, isOnline: false, currentImage: null, lastQrData: null, rates: { TWD: 1, JPY: 0.22, USD: 31.5, KRW: 0.024, EUR: 34.5, CNY: 4.4 }, unlockedLedgers: [], pendingLedgerId: null, categories: JSON.parse(localStorage.getItem('acc_custom_categories')) || DEFAULT_CATEGORIES,
+            merchants: JSON.parse(localStorage.getItem('acc_custom_merchants')) || DEFAULT_MERCHANTS,
             filterDay: null,
             customAiPrompt: localStorage.getItem('acc_ai_prompt') || '',
             assets: [], 
@@ -832,10 +884,76 @@
                 }
             },
             loadUsersList: async () => { try { const q = query(collection(state.db, "users")); const s = await getDocs(q); state.usersList = []; const sl = document.getElementById('loginUserSelect'); sl.innerHTML = '<option value="">請選擇角色...</option>'; s.forEach(d => { state.usersList.push(d.id); sl.innerHTML += `<option value="${d.id}">${d.id}</option>`; }); if (state.usersList.length === 0) document.getElementById('existingUserSection').classList.add('hidden'); } catch (e) { console.error("Login List Error", e); } },
-            loginExistingUser: () => { const n = document.getElementById('loginUserSelect').value; if (!n) return alert("請選擇一個角色"); app.performLogin(n); },
-            registerNewUser: async () => { const n = document.getElementById('newUserNameInput').value.trim(); if (!n) return alert("請輸入名稱"); try { const d = doc(state.db, "users", n); if ((await getDoc(d)).exists()) return alert("此名稱已存在"); await setDoc(d, { createdAt: new Date().toISOString() }); app.performLogin(n); } catch(e) { alert("註冊失敗: " + e.message); } },
+            
+            // --- UPDATED LOGIN LOGIC ---
+            loginExistingUser: async () => { 
+                const n = document.getElementById('loginUserSelect').value;
+                const p = document.getElementById('loginPasswordInput').value.trim();
+                
+                if (!n) return alert("請選擇一個角色");
+                
+                try {
+                    const userDoc = await getDoc(doc(state.db, "users", n));
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        // If user has a password set, verify it
+                        if (userData.password && userData.password !== p) {
+                            return alert("密碼錯誤！");
+                        }
+                        // If no password set (legacy user), allow login but maybe warn
+                        if (!userData.password && p) {
+                            // Optional: Could auto-set password here, but better let them do it in settings
+                        }
+                        app.performLogin(n);
+                    } else {
+                        alert("用户不存在");
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert("登入失敗: " + e.message);
+                }
+            },
+            registerNewUser: async () => { 
+                const n = document.getElementById('newUserNameInput').value.trim();
+                const p = document.getElementById('newUserNamePassword').value.trim();
+                
+                if (!n) return alert("請輸入名稱");
+                if (!p) return alert("請設定登入密碼");
+                
+                try { 
+                    const d = doc(state.db, "users", n); 
+                    if ((await getDoc(d)).exists()) return alert("此名稱已存在"); 
+                    await setDoc(d, { 
+                        createdAt: new Date().toISOString(),
+                        password: p 
+                    }); 
+                    app.performLogin(n); 
+                } catch(e) { 
+                    alert("註冊失敗: " + e.message); 
+                } 
+            },
             performLogin: (n) => { state.userName = n; localStorage.setItem('acc_username', n); document.getElementById('sidebarUserName').innerText = n; document.getElementById('renameInput').value = n; document.getElementById('loginModal').classList.add('hidden'); app.listenLedgers(); app.listenAssets(); },
-            renameUser: async () => { const n = document.getElementById('renameInput').value.trim(), o = state.userName, b = document.getElementById('renameBtn'); if (!n || n === o) return; if (!confirm(`確定要改名為 "${n}"？`)) return; b.disabled = true; b.innerText = '更新中...'; try { const bat = writeBatch(state.db); bat.set(doc(state.db, "users", n), { createdAt: new Date().toISOString() }); (await getDocs(query(collection(state.db, "ledgers"), where("members", "array-contains", o)))).forEach(d => { const m = d.data().members.map(x => x === o ? n : x); bat.update(d.ref, { members: m, ...(d.data().createdBy === o && { createdBy: n }) }); }); (await getDocs(query(collection(state.db, "transactions"), where("paidBy", "==", o)))).forEach(d => bat.update(d.ref, { paidBy: n })); (await getDocs(query(collection(state.db, "transactions"), where("lastEditedBy", "==", o)))).forEach(d => bat.update(d.ref, { lastEditedBy: n })); bat.delete(doc(state.db, "users", o)); await bat.commit(); alert("更名成功"); app.performLogin(n); location.reload(); } catch (e) { alert("更名失敗:" + e.message); b.disabled = false; b.innerText = '確認'; } },
+            
+            changeUserPassword: async () => {
+                const newPw = prompt("請輸入新密碼:");
+                if (newPw) {
+                    try {
+                        await updateDoc(doc(state.db, "users", state.userName), { password: newPw });
+                        alert("密碼修改成功！下次登入請使用新密碼。");
+                    } catch (e) {
+                        alert("修改失敗: " + e.message);
+                    }
+                }
+            },
+
+            renameUser: async () => { const n = document.getElementById('renameInput').value.trim(), o = state.userName, b = document.getElementById('renameBtn'); if (!n || n === o) return; if (!confirm(`確定要改名為 "${n}"？`)) return; b.disabled = true; b.innerText = '更新中...'; try { const bat = writeBatch(state.db); 
+                // Copy user data including password
+                const oldUserDoc = await getDoc(doc(state.db, "users", o));
+                const oldUserData = oldUserDoc.exists() ? oldUserDoc.data() : { createdAt: new Date().toISOString() };
+                
+                bat.set(doc(state.db, "users", n), oldUserData); 
+                
+                (await getDocs(query(collection(state.db, "ledgers"), where("members", "array-contains", o)))).forEach(d => { const m = d.data().members.map(x => x === o ? n : x); bat.update(d.ref, { members: m, ...(d.data().createdBy === o && { createdBy: n }) }); }); (await getDocs(query(collection(state.db, "transactions"), where("paidBy", "==", o)))).forEach(d => bat.update(d.ref, { paidBy: n })); (await getDocs(query(collection(state.db, "transactions"), where("lastEditedBy", "==", o)))).forEach(d => bat.update(d.ref, { lastEditedBy: n })); bat.delete(doc(state.db, "users", o)); await bat.commit(); alert("更名成功"); app.performLogin(n); location.reload(); } catch (e) { alert("更名失敗:" + e.message); b.disabled = false; b.innerText = '確認'; } },
             
             // --- NEW: Ledger Management Functions ---
             editLedger: async (id, oldName) => {
@@ -1211,13 +1329,13 @@
                 let listData = [];
                 
                 if (state.filterMode === 'range') {
-                     const start = document.getElementById('filterStartDate').value;
-                     const end = document.getElementById('filterEndDate').value;
-                     if (start && end) {
-                         listData = state.transactions.filter(t => t.date >= start && t.date <= end);
-                     } else {
-                         listData = state.transactions; 
-                     }
+                      const start = document.getElementById('filterStartDate').value;
+                      const end = document.getElementById('filterEndDate').value;
+                      if (start && end) {
+                          listData = state.transactions.filter(t => t.date >= start && t.date <= end);
+                      } else {
+                          listData = state.transactions; 
+                      }
                 } else {
                     const y = document.getElementById('ledgerYear').value;
                     const m = document.getElementById('ledgerMonth').value;
@@ -1330,7 +1448,7 @@
                 XLSX.writeFile(wb, `交易明細清單_${new Date().toISOString().slice(0,10)}.xlsx`);
             },
 
-            askAI: async () => { const i = document.getElementById('aiChatInput'), h = document.getElementById('aiChatHistory'), b = document.getElementById('btnAiSend'), q = i.value.trim(); if (!q || !state.geminiKey) return; h.innerHTML += `<div class="bg-indigo-100 p-2 rounded-lg ml-auto w-fit mb-2 text-sm text-indigo-900">${q}</div>`; b.disabled = true; i.value = ''; try { const p = `Role: Financial Assistant. Context JSON: ${JSON.stringify(state.allTransactionsCache.slice(0, 50).map(t => ({ d: t.date, a: t.amount, c: t.category, i: t.name })))}. Question: "${q}". Answer in Traditional Chinese, concise.`; const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${state.geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: p }] }] }) }); const d = await r.json(); h.innerHTML += `<div class="bg-white border p-2 rounded-lg w-fit mb-2 text-sm text-gray-700">${marked.parse(d.candidates[0].content.parts[0].text)}</div>`; } catch (e) { h.innerHTML += `<div class="text-red-500 text-xs">Error</div>`; } b.disabled = false; h.scrollTop = h.scrollHeight; },
+            askAI: async () => { const i = document.getElementById('aiChatInput'), h = document.getElementById('aiChatHistory'), b = document.getElementById('btnAiSend'), q = i.value.trim(); if (!q || !state.geminiKey) return; h.innerHTML += `<div class="bg-indigo-100 p-2 rounded-lg ml-auto w-fit mb-2 text-sm text-indigo-900">${q}</div>`; b.disabled = true; i.value = ''; try { const p = `Role: Financial Assistant. Context JSON: ${JSON.stringify(state.allTransactionsCache.slice(0, 50).map(t => ({ d: t.date, a: t.amount, c: t.category, i: t.name })))}. Question: "${q}". Answer in Traditional Chinese, concise.`; const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${state.geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: p }] }] }) }); const d = await r.json(); h.innerHTML += `<div class="bg-white border p-2 rounded-lg w-fit mb-2 text-sm text-gray-700">${marked.parse(d.candidates[0].content.parts[0].text)}</div>`; } catch (e) { h.innerHTML += `<div class="text-red-500 text-xs">Error</div>`; } b.disabled = false; h.scrollTop = h.scrollHeight; },
             
             deleteSelected: async () => {
                 const checked = document.querySelectorAll('.tx-checkbox:checked');
@@ -1349,6 +1467,27 @@
             removeLedgerPassword: async()=>{if(!confirm("確定要移除密碼保護嗎?"))return;await updateDoc(doc(state.db,"ledgers",state.currentLedger.id),{password:""});alert("已移除");ui.closeModal('settingsModal');},
             addCategory: ()=>{const t=document.getElementById('newCatType').value,n=document.getElementById('newCatName').value.trim();if(!n)return;state.categories[t].push(n);app.saveCategories();ui.renderSettings();},
             removeCategory: (t,n)=>{if(confirm("Del?")){state.categories[t]=state.categories[t].filter(c=>c!==n);app.saveCategories();ui.renderSettings();}},
+            
+            // --- NEW: Merchant Management ---
+            addMerchant: () => {
+                const n = document.getElementById('newMerchantName').value.trim();
+                if (!n) return;
+                if (!state.merchants.includes(n)) {
+                    state.merchants.push(n);
+                    app.saveMerchants();
+                    ui.renderSettings();
+                }
+                document.getElementById('newMerchantName').value = '';
+            },
+            removeMerchant: (n) => {
+                if (confirm(`確定要刪除「${n}」嗎？`)) {
+                    state.merchants = state.merchants.filter(m => m !== n);
+                    app.saveMerchants();
+                    ui.renderSettings();
+                }
+            },
+            saveMerchants: () => localStorage.setItem('acc_custom_merchants', JSON.stringify(state.merchants)),
+
             saveCategories: ()=>localStorage.setItem('acc_custom_categories',JSON.stringify(state.categories)),
             listenLedgers: ()=>{if(state.unsubscribeLedgers)state.unsubscribeLedgers();state.unsubscribeLedgers=onSnapshot(query(collection(state.db,"ledgers")),s=>{state.ledgers=[];s.forEach(d=>state.ledgers.push({id:d.id,...d.data()}));state.ledgers=state.ledgers.filter(l=>l.type==='personal'?l.createdBy===state.userName:l.members&&l.members.includes(state.userName)).sort((a,b)=>(a.status==='archived'?1:0)-(b.status==='archived'?1:0));if(!state.currentLedger&&state.ledgers.length>0)ui.switchLedger(localStorage.getItem('acc_current_ledger')||state.ledgers[0].id);ui.renderLedgerList();});},
             
@@ -1478,19 +1617,306 @@
                 }
             },
             listenTransactions: () => { if (!state.currentLedger) return; if (state.unsubscribeTrans) state.unsubscribeTrans(); document.getElementById('loadingIndicator').classList.remove('hidden'); state.unsubscribeTrans = onSnapshot(query(collection(state.db, "transactions"), where("ledgerId", "==", state.currentLedger.id)), snap => { state.transactions = []; snap.forEach(d => state.transactions.push({ id: d.id, ...d.data() })); state.transactions.sort((a, b) => new Date(b.date) - new Date(a.date)); app.updateLedgerView(); document.getElementById('loadingIndicator').classList.add('hidden'); }); },
-            addTransaction: async(e)=>{e.preventDefault();const b=document.getElementById('submitBtn');const originalText=b.innerText;b.disabled=true;b.innerHTML='<div class="loader w-4 h-4 border-white border-t-transparent inline-block mr-2"></div> 儲存中...';let u=document.getElementById('hiddenImageUrl').value;const merch=document.getElementById('tMerchant').value.trim();const groupId=Date.now().toString();try{if(state.currentImage&&state.scriptUrl){const r=await fetch(state.scriptUrl,{method:'POST',body:JSON.stringify({image:state.currentImage.base64,mimeType:state.currentImage.mimeType,filename:`rec_${Date.now()}.jpg`})});const d=await r.json();if(d.status==='success')u=d.url;}const eid=document.getElementById('editingTxId').value,typ=document.getElementById('tType').value,dat=document.getElementById('tDate').value,isG=state.currentLedger.type==='group';let cur='TWD',rate=1,pb='';if(isG){cur=document.getElementById('tCurrency').value;rate=parseFloat(document.getElementById('tRate').value)||1;pb=document.getElementById('tPaidBy').value;}const rows=document.querySelectorAll('.item-row'),bat=writeBatch(state.db);if(eid){const r=rows[0];if(r){const n=r.querySelector('.item-name').value,c=r.querySelector('.item-cat').value;let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a;if(isG&&cur!=='TWD')a=Math.round(oa*rate);const ot=state.transactions.find(t=>t.id===eid),h=ot.editHistory||[];h.push({editor:state.userName,date:new Date().toISOString()});bat.update(doc(state.db,"transactions",eid),{ledgerId:state.currentLedger.id,type:typ,date:dat,amount:a,originalAmount:oa,currency:cur,exchangeRate:rate,paidBy:pb,name:n,category:c,imageUrl:u,merchant:merch,lastEditedBy:state.userName,lastEditedAt:new Date().toISOString(),editHistory:h});}}else{rows.forEach(r=>{const n=r.querySelector('.item-name').value.trim(),c=r.querySelector('.item-cat').value;let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a;if(!n&&a===0)return;if(isG&&cur!=='TWD')a=Math.round(oa*rate);bat.set(doc(collection(state.db,"transactions")),{ledgerId:state.currentLedger.id,type:typ,date:dat,amount:a,originalAmount:oa,currency:cur,exchangeRate:rate,paidBy:pb,name:n,category:c,imageUrl:u,merchant:merch,groupId: groupId,createdAt:new Date().toISOString(),lastEditedBy:state.userName,lastEditedAt:new Date().toISOString()});});}await bat.commit();ui.closeModal('transactionModal');ai.clearImage();}catch(e){alert("儲存失敗: "+e.message);}finally{b.disabled=false;b.innerText=originalText;}},
-            editTransaction: (id)=>{const t=state.transactions.find(x=>x.id===id);if(!t)return;ui.openTransactionModal('編輯');document.getElementById('editingTxId').value=t.id;document.getElementById('tType').value=t.type;document.getElementById('tDate').value=t.date;document.getElementById('hiddenImageUrl').value=t.imageUrl||'';document.getElementById('tMerchant').value=t.merchant||'';document.getElementById('btnAddItem').classList.add('hidden');document.getElementById('uploadContainer').classList.add('hidden');if(state.currentLedger.type==='group'){document.getElementById('tCurrency').value=t.currency||'TWD';document.getElementById('tRate').value=t.exchangeRate||1;document.getElementById('tPaidBy').value=t.paidBy||state.userName;app.updateRate(false);}document.getElementById('transactionItemsList').innerHTML='';ui.addItemRow(t.name,t.category,t.currency!=='TWD'?t.originalAmount:t.amount);ui.updateTotal();},
+            addTransaction: async(e)=>{
+                e.preventDefault();
+                const b=document.getElementById('submitBtn');
+                const originalText=b.innerText;
+                b.disabled=true;
+                b.innerHTML='<div class="loader w-4 h-4 border-white border-t-transparent inline-block mr-2"></div> 儲存中...';
+                let u=document.getElementById('hiddenImageUrl').value;
+                const merch=document.getElementById('tMerchant').value.trim();
+                const groupId=Date.now().toString();
+                
+                try{
+                    if(state.currentImage&&state.scriptUrl){
+                        const r=await fetch(state.scriptUrl,{method:'POST',body:JSON.stringify({image:state.currentImage.base64,mimeType:state.currentImage.mimeType,filename:`rec_${Date.now()}.jpg`})});
+                        const d=await r.json();
+                        if(d.status==='success') {
+                            u = d.url;
+                            // --- NEW: Convert URL immediately if it's a Drive URL ---
+                            u = app.getDirectDriveUrl(u);
+                        }
+                    }
+                    const eid=document.getElementById('editingTxId').value;
+                    const typ=document.getElementById('tType').value;
+                    const dat=document.getElementById('tDate').value;
+                    const isG=state.currentLedger.type==='group';
+                    let cur='TWD',rate=1,pb='';
+                    let splitAmong = []; // Array of user IDs
+
+                    if(isG){
+                        cur=document.getElementById('tCurrency').value;
+                        rate=parseFloat(document.getElementById('tRate').value)||1;
+                        pb=document.getElementById('tPaidBy').value;
+                        
+                        // Capture split selection
+                        const checkboxes = document.querySelectorAll('.split-checkbox:checked');
+                        splitAmong = Array.from(checkboxes).map(cb => cb.value);
+                        if (splitAmong.length === 0) {
+                            alert("請至少選擇一位分攤對象");
+                            return; // Stop execution
+                        }
+                    }
+
+                    const rows=document.querySelectorAll('.item-row'),bat=writeBatch(state.db);
+                    
+                    if(eid){
+                        const r=rows[0];
+                        if(r){
+                            const n=r.querySelector('.item-name').value,c=r.querySelector('.item-cat').value;
+                            const note = r.querySelector('.item-note').value; // Get note
+                            let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a;
+                            if(isG&&cur!=='TWD')a=Math.round(oa*rate);
+                            const ot=state.transactions.find(t=>t.id===eid),h=ot.editHistory||[];
+                            h.push({editor:state.userName,date:new Date().toISOString()});
+                            bat.update(doc(state.db,"transactions",eid),{
+                                ledgerId:state.currentLedger.id,
+                                type:typ,
+                                date:dat,
+                                amount:a,
+                                originalAmount:oa,
+                                currency:cur,
+                                exchangeRate:rate,
+                                paidBy:pb,
+                                splitAmong: splitAmong, // Save split info
+                                name:n,
+                                category:c,
+                                imageUrl:u,
+                                merchant:merch,
+                                lastEditedBy:state.userName,
+                                lastEditedAt:new Date().toISOString(),
+                                editHistory:h,
+                                note: note // Save note
+                            });
+                        }
+                    } else {
+                        rows.forEach(r=>{
+                            const n=r.querySelector('.item-name').value.trim(),c=r.querySelector('.item-cat').value;
+                            const note = r.querySelector('.item-note').value.trim(); // Get note
+                            let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a;
+                            if(!n&&a===0)return;
+                            if(isG&&cur!=='TWD')a=Math.round(oa*rate);
+                            bat.set(doc(collection(state.db,"transactions")),{
+                                ledgerId:state.currentLedger.id,
+                                type:typ,
+                                date:dat,
+                                amount:a,
+                                originalAmount:oa,
+                                currency:cur,
+                                exchangeRate:rate,
+                                paidBy:pb,
+                                splitAmong: splitAmong, // Save split info
+                                name:n,
+                                category:c,
+                                imageUrl:u,
+                                merchant:merch,
+                                groupId: groupId,
+                                createdAt:new Date().toISOString(),
+                                lastEditedBy:state.userName,
+                                lastEditedAt:new Date().toISOString(),
+                                note: note // Save note
+                            });
+                        });
+                    }
+                    await bat.commit();
+                    ui.closeModal('transactionModal');
+                    ai.clearImage();
+                } catch(e) {
+                    alert("儲存失敗: "+e.message);
+                } finally {
+                    b.disabled=false;
+                    b.innerText=originalText;
+                }
+            },
+            
+            // --- NEW: Helper to Convert Drive URL ---
+            getDirectDriveUrl: (url) => {
+                if (!url) return '';
+                try {
+                    if (url.includes('drive.google.com')) {
+                        let id = '';
+                        if (url.includes('/file/d/')) {
+                            id = url.split('/file/d/')[1].split('/')[0];
+                        } else if (url.includes('id=')) {
+                            id = url.split('id=')[1].split('&')[0];
+                        }
+                        // 修改：使用 thumbnail 介面來繞過瀏覽器的第三方 Cookie 阻擋
+                        // sz=w1000 代表寬度最大 1000px，足夠清晰且載入快
+                        if (id) return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
+                    }
+                } catch (e) { console.error('URL convert error', e); }
+                return url;
+            },
+
+            editTransaction: (id)=>{
+                const t=state.transactions.find(x=>x.id===id);
+                if(!t)return;
+                ui.openTransactionModal('編輯');
+                document.getElementById('editingTxId').value=t.id;
+                document.getElementById('tType').value=t.type;
+                document.getElementById('tDate').value=t.date;
+                document.getElementById('hiddenImageUrl').value=t.imageUrl||'';
+                document.getElementById('tMerchant').value=t.merchant||'';
+                document.getElementById('btnAddItem').classList.add('hidden');
+                document.getElementById('uploadContainer').classList.add('hidden');
+                if(state.currentLedger.type==='group'){
+                    document.getElementById('tCurrency').value=t.currency||'TWD';
+                    document.getElementById('tRate').value=t.exchangeRate||1;
+                    document.getElementById('tPaidBy').value=t.paidBy||state.userName;
+                    
+                    // Set Split Selection
+                    if (t.splitAmong) {
+                        const allBoxes = document.querySelectorAll('.split-checkbox');
+                        allBoxes.forEach(cb => cb.checked = t.splitAmong.includes(cb.value));
+                    }
+                    
+                    app.updateRate(false);
+                }
+                document.getElementById('transactionItemsList').innerHTML='';
+                ui.addItemRow(t.name,t.category,t.currency!=='TWD'?t.originalAmount:t.amount, t.note);
+                ui.updateTotal();
+            },
             deleteTransaction: async(id)=>{if(confirm("Del?"))await deleteDoc(doc(state.db,"transactions",id));},
             updateRate: (r=true)=>{
                 const c=document.getElementById('tCurrency').value;
-                if(r) document.getElementById('tRate').value=state.rates[c]?.toFixed(3)||1;
+                if(r) document.getElementById('tRate').value=state.rates[c]?.toFixed(4)||1;
                 // Update View Text
                 const rateVal = document.getElementById('tRate').value;
                 document.getElementById('currencyViewText').innerText = `${c} (匯率: ${rateVal})`;
                 app.calcTwd();
             },
             calcTwd: ()=>ui.updateTotal(),
-            calculateDebt: ()=>{if(!state.currentLedger||state.currentLedger.type!=='group')return;const mem=state.currentLedger.members,cur=state.userName,bal={};mem.forEach(m=>bal[m]=0);let tot=0;state.transactions.forEach(t=>{if(t.type==='expense'&&mem.includes(t.paidBy)){bal[t.paidBy]+=t.amount;tot+=t.amount;}});const avg=tot/mem.length,net=mem.map(m=>({name:m,amount:bal[m]-avg}));const myNet=net.find(n=>n.name===cur)?.amount||0;document.getElementById('settleShareAmount').innerText=Math.round(avg).toLocaleString();const pl=state.ledgers.filter(l=>l.type==='personal');document.getElementById('targetPersonalLedger').innerHTML=pl.map(l=>`<option value="${l.id}">${l.name}</option>`).join('')||'<option>無</option>';let h=`<div class="text-center mb-4 bg-gray-50 p-4 rounded"><div class="text-2xl font-bold ${myNet>=0?'text-green-600':'text-red-600'}">${myNet>=0?'應收':'應付'} $${Math.round(Math.abs(myNet)).toLocaleString()}</div><div class="text-xs text-gray-400">每人: $${Math.round(avg).toLocaleString()}</div></div><ul class="space-y-2">`;const cr=net.filter(n=>n.amount>1).sort((a,b)=>b.amount-a.amount),db=net.filter(n=>n.amount<-1).sort((a,b)=>a.amount-b.amount);if(cr.length===0)h+='<li class="text-center text-green-500">平帳</li>';else{let c=0,d=0;while(c<cr.length&&d<db.length){let amt=Math.min(cr[c].amount,Math.abs(db[d].amount));if(amt<1)break;if(db[d].name===cur||cr[c].name===cur)h+=`<li class="flex justify-between bg-white p-2 border-l-4 ${db[d].name===cur?'border-red-500':'border-green-500'}"><span>${db[d].name} <i class="fa-solid fa-arrow-right"></i> ${cr[c].name}</span><b>$${Math.round(amt).toLocaleString()}</b></li>`;cr[c].amount-=amt;db[d].amount+=amt;if(Math.abs(cr[c].amount)<1)c++;if(Math.abs(db[d].amount)<1)d++;}}document.getElementById('settleContent').innerHTML=h+'</ul>';ui.openModal('settleModal');},
+            
+            // --- NEW: Improved Debt Calculation Logic ---
+            calculateDebt: () => {
+                if (!state.currentLedger || state.currentLedger.type !== 'group') return;
+                
+                const members = state.currentLedger.members;
+                const balances = {}; // How much each person paid vs consumed
+                const details = {};  // Detailed breakdown for report
+
+                // Initialize
+                members.forEach(m => {
+                    balances[m] = 0;
+                    details[m] = { paid: 0, share: 0 };
+                });
+
+                // Iterate ALL expenses
+                state.transactions.forEach(t => {
+                    if (t.type !== 'expense') return; // Income doesn't count for debt usually, or is shared differently. Assuming expense splitting here.
+                    
+                    const payer = t.paidBy;
+                    const amount = t.amount;
+                    // Backward compatibility: if splitAmong is missing, assume everyone
+                    const beneficiaries = t.splitAmong && t.splitAmong.length > 0 ? t.splitAmong : members;
+
+                    // 1. Credit the payer (they paid, so they are owed positive)
+                    if (balances[payer] !== undefined) {
+                        balances[payer] += amount;
+                        details[payer].paid += amount;
+                    }
+
+                    // 2. Debit the beneficiaries (they consumed, so they owe negative)
+                    const splitAmount = amount / beneficiaries.length;
+                    beneficiaries.forEach(b => {
+                        if (balances[b] !== undefined) {
+                            balances[b] -= splitAmount;
+                            details[b].share += splitAmount;
+                        }
+                    });
+                });
+
+                // Calculate Net Transfers
+                const net = members.map(m => ({ name: m, amount: balances[m] }));
+                const creditors = net.filter(n => n.amount > 1).sort((a, b) => b.amount - a.amount);
+                const debtors = net.filter(n => n.amount < -1).sort((a, b) => a.amount - b.amount);
+
+                // --- Generate HTML Report ---
+                
+                // 1. Personal Detail Table
+                let detailHtml = `
+                    <div class="mb-4 overflow-x-auto">
+                        <table class="w-full text-xs text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 border-b">
+                                    <th class="p-2">成員</th>
+                                    <th class="p-2 text-right">先墊金額</th>
+                                    <th class="p-2 text-right">實際消費</th>
+                                    <th class="p-2 text-right">結餘</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                members.forEach(m => {
+                    const d = details[m];
+                    const netVal = balances[m];
+                    const colorClass = netVal >= 0 ? 'text-green-600' : 'text-red-600';
+                    const statusText = netVal >= 0 ? '應收' : '應付';
+                    
+                    detailHtml += `
+                        <tr class="border-b border-gray-100">
+                            <td class="p-2 font-bold">${m}</td>
+                            <td class="p-2 text-right text-gray-500">$${Math.round(d.paid).toLocaleString()}</td>
+                            <td class="p-2 text-right text-gray-500">$${Math.round(d.share).toLocaleString()}</td>
+                            <td class="p-2 text-right font-bold ${colorClass}">
+                                ${statusText} $${Math.round(Math.abs(netVal)).toLocaleString()}
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                detailHtml += `</tbody></table></div>`;
+
+                // 2. Transfer Plan
+                let transferHtml = `<h4 class="font-bold text-gray-700 mb-2 border-l-4 border-indigo-500 pl-2">建議轉帳方案</h4><ul class="space-y-2">`;
+                
+                if (creditors.length === 0) {
+                    transferHtml += '<li class="text-center text-green-500 font-bold bg-green-50 p-2 rounded">目前帳目已平衡，無需轉帳！</li>';
+                } else {
+                    let c = 0; 
+                    let d = 0;
+                    while (c < creditors.length && d < debtors.length) {
+                        let amount = Math.min(creditors[c].amount, Math.abs(debtors[d].amount));
+                        
+                        if (amount >= 1) { // Filter out tiny dust amounts
+                            const debtorName = debtors[d].name;
+                            const creditorName = creditors[c].name;
+                            
+                            // Highlight user's name
+                            const isMe = (state.userName === debtorName || state.userName === creditorName);
+                            const bgClass = isMe ? 'bg-indigo-50 border border-indigo-200' : 'bg-white border-b border-gray-100';
+                            
+                            transferHtml += `
+                                <li class="flex justify-between items-center p-2 rounded ${bgClass}">
+                                    <div class="flex items-center gap-2 text-sm">
+                                        <span class="font-bold text-gray-700">${debtorName}</span>
+                                        <i class="fa-solid fa-arrow-right text-gray-400 text-xs"></i>
+                                        <span class="font-bold text-gray-700">${creditorName}</span>
+                                    </div>
+                                    <span class="font-mono font-bold text-indigo-600">$${Math.round(amount).toLocaleString()}</span>
+                                </li>
+                            `;
+                        }
+
+                        creditors[c].amount -= amount;
+                        debtors[d].amount += amount;
+
+                        if (Math.abs(creditors[c].amount) < 1) c++;
+                        if (Math.abs(debtors[d].amount) < 1) d++;
+                    }
+                }
+                transferHtml += '</ul>';
+
+                // Find my share to update the Archive section placeholder
+                const myShare = details[state.userName] ? Math.round(details[state.userName].share) : 0;
+                document.getElementById('settleShareAmount').innerText = myShare.toLocaleString();
+
+                // Combine and render
+                document.getElementById('settleContent').innerHTML = detailHtml + transferHtml;
+                ui.openModal('settleModal');
+            },
+
             loadUserStats: async () => { /* Load Stats for Profile Tab */ const y=document.getElementById('statYear').value,m=document.getElementById('statMonth').value,cnt=document.getElementById('ledgerStatsContainer'),ldr=document.getElementById('statsLoader');ldr.classList.remove('hidden');cnt.innerHTML='';
                 try{let tx=[];const proms=state.ledgers.map(l=>getDocs(query(collection(state.db,"transactions"),where("ledgerId","==",l.id))).then(s=>s.docs.map(d=>({...d.data(),id:d.id,ledgerName:l.name,ledgerType:l.type,ledgerMembers:l.members}))));const res=await Promise.all(proms);tx=res.flat();state.allTransactionsCache=tx;const ftx=tx.filter(t=>{const d=new Date(t.date);return d.getFullYear().toString()===y&&(m==='all'||(d.getMonth()+1).toString().padStart(2,'0')===m);});state.ledgers.forEach(l=>{const ltx=ftx.filter(t=>t.ledgerId===l.id);if(ltx.length===0)return;let my=0,tot=0;ltx.forEach(t=>{if(t.type==='expense'){tot+=t.amount;if(l.type==='personal'||t.paidBy===state.userName)my+=t.amount;}});if(tot===0&&my===0)return;cnt.innerHTML+=`<div class="bg-white p-4 rounded-xl border mb-3"><div class="flex justify-between"><div><h4 class="font-bold text-sm">${l.name}</h4><p class="text-xl font-bold text-blue-600">$${my.toLocaleString()}</p></div><div class="text-xs text-gray-400 text-right">總支出: $${tot.toLocaleString()}<br>${l.type==='group'?l.members.length+'人':''}</div></div></div>`;});if(cnt.innerHTML==='')cnt.innerHTML='<div class="text-center text-gray-400 py-4">無資料</div>';
                 
@@ -1534,20 +1960,48 @@
                 document.getElementById('aiStatusText').innerText = "AI 正在辨識收據內容..."; 
                 
                 try{ 
-                    // Update: Instruct AI to normalize categories and detect new ones
+                    // Update: Instruct AI to normalize categories, detect new ones, AND perform tax distribution
                     const existingCats = state.categories.expense.join(', ');
-                    let p = `Analyze this receipt image. Return a JSON object with this exact structure: { "merchant": "store name or null", "items": [{ "name": "item name", "amount": number, "category": "category name" }] }. 
+                    let p = `Analyze this receipt image. 
                     
-                    RULES FOR CATEGORY:
-                    1. Try to map the item to one of these existing categories: [${existingCats}].
-                    2. Normalization: If the item is food, try to map to '早餐', '午餐', '晚餐', '飲料', '點心' based on the time or item type. If unsure, use '飲食'. Map '食' to '飲食'. Map '車資' to '交通'.
-                    3. If the item clearly doesn't fit any existing category, SUGGEST a new concise 2-char category name (e.g., '美容', '3C').
-                    4. Only return JSON.`; 
+                    TASKS:
+                    1. Identify all item names and their base prices.
+                    2. Identify global modifiers: Service Charge (e.g., 10%), VAT/Tax (e.g., 5% or fixed amount), and Global Discounts.
+                    3. DISTRIBUTE these global modifiers proportionally to each item based on its price weight.
+                       Formula: FinalItemPrice = BasePrice + (BasePrice / Subtotal) * (TotalServiceFee + TotalTax - TotalDiscount).
+                    4. Translate item names to Traditional Chinese. Format: "Traditional Chinese Name (Original Name)".
+                    5. Create a 'note' field for each item showing the calculation. Example: "Base $100 + Service $10".
+                    6. Map category to existing: [${existingCats}]. If vague (food), map to '早餐'/'午餐'/'晚餐'/'飲料' based on time/type.
+                    
+                    RETURN JSON OBJECT (No markdown): 
+                    { 
+                      "merchant": "store name", 
+                      "items": [
+                        { "name": "...", "amount": number (final distributed price), "category": "...", "note": "..." }
+                      ] 
+                    }`; 
                     
                     if (state.customAiPrompt) { p += ` Additional Instruction from user: ${state.customAiPrompt}`; } 
                     
-                    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${state.geminiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:p},{inline_data:{mime_type:state.currentImage.mimeType,data:state.currentImage.base64}}]}]})}); 
-                    const d=await r.json(); 
+                    // Use gemini-2.5-flash-preview-09-2025 as per environment requirements
+                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${state.geminiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            contents: [{ 
+                                role: "user",
+                                parts: [
+                                    { text: p }, 
+                                    { inlineData: { mimeType: state.currentImage.mimeType, data: state.currentImage.base64 } }
+                                ] 
+                            }] 
+                        })
+                    });
+                    
+                    const d = await r.json();
+                    if (d.error) throw new Error(d.error.message); // Handle API errors
+                    if (!d.candidates || !d.candidates[0].content) throw new Error("No content returned");
+                    
                     const txt = d.candidates[0].content.parts[0].text.replace(/```json/g,'').replace(/```/g,''); 
                     const j=JSON.parse(txt); 
                     
@@ -1562,15 +2016,16 @@
                             app.saveCategories();
                             ui.renderSettings(); // Update UI in background
                         }
-                        ui.addItemRow(i.name, i.category, i.amount);
+                        ui.addItemRow(i.name, i.category, i.amount, i.note);
                     }); 
                     
                     if(j.merchant) document.getElementById('tMerchant').value = j.merchant; 
                     ui.updateTotal(); 
-                    document.getElementById('aiStatusText').innerText = "辨識完成！請確認細項。"; 
+                    document.getElementById('aiStatusText').innerText = "辨識完成！已自動分攤稅費。"; 
                     setTimeout(() => l.classList.add('hidden'), 1500); 
                 }catch(e){ 
                     console.error(e); 
+                    alert("辨識錯誤: " + e.message); // Show actual error
                     document.getElementById('aiStatusText').innerText = "辨識失敗，請手動輸入"; 
                     setTimeout(() => l.classList.add('hidden'), 2000); 
                 } 
@@ -1592,6 +2047,37 @@
                     const r = document.getElementById('tRate').value;
                     document.getElementById('currencyViewText').innerText = `${c} (匯率: ${r})`;
                 }
+            },
+            toggleStatsSection: () => {
+                const content = document.getElementById('statsContent');
+                const icon = document.getElementById('statsToggleIcon');
+                if (content.classList.contains('hidden')) {
+                    content.classList.remove('hidden');
+                    icon.classList.add('rotate-180');
+                } else {
+                    content.classList.add('hidden');
+                    icon.classList.remove('rotate-180');
+                }
+            },
+            toggleAllSplit: (checked) => {
+                document.querySelectorAll('.split-checkbox').forEach(cb => cb.checked = checked);
+            },
+            renderSplitCheckboxes: () => {
+                const container = document.getElementById('splitUserContainer');
+                container.innerHTML = '';
+                
+                // Show current members
+                if(!state.currentLedger || !state.currentLedger.members) return;
+                
+                state.currentLedger.members.forEach(m => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center gap-1.5';
+                    div.innerHTML = `
+                        <input type="checkbox" id="split-${m}" value="${m}" class="split-checkbox w-3.5 h-3.5 text-indigo-600 rounded border-gray-300" checked>
+                        <label for="split-${m}" class="text-xs text-gray-700 cursor-pointer select-none">${m}</label>
+                    `;
+                    container.appendChild(div);
+                });
             },
             renderLedgerList: () => { 
                 const l = document.getElementById('ledgerList'), al = document.getElementById('archivedLedgerList'); 
@@ -1675,7 +2161,12 @@
                 }); 
                 document.getElementById('archivedSection').className = hasArc ? 'mt-6' : 'hidden'; 
             },
-            switchLedger: (id) => { const l=state.ledgers.find(x=>x.id===id); if(!l)return; if(l.password&&!state.unlockedLedgers.includes(id)){ state.pendingLedgerId=id; document.getElementById('unlockPasswordInput').value=''; ui.openModal('passwordModal'); return; } state.currentLedger=l; localStorage.setItem('acc_current_ledger',id); document.getElementById('currentLedgerTitle').innerText=l.name; const isG=l.type==='group'; document.getElementById('ledgerTypeBadge').className=isG?'block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded':'hidden'; document.getElementById('ledgerMembers').innerText=isG?l.members.join(','):''; document.getElementById('ledgerMembers').className=isG?'block text-sm text-gray-500':'hidden'; document.getElementById('groupPayerField').className=isG?'col-span-2':'hidden'; document.getElementById('settleBtn').className=isG?'bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg shadow transition flex items-center gap-1 font-medium text-xs md:text-sm':'hidden'; if(l.status==='archived')document.getElementById('addTxBtn').classList.add('hidden'); else document.getElementById('addTxBtn').classList.remove('hidden'); ui.renderLedgerList(); app.listenTransactions(); app.listenRecurringRules(); },
+            switchLedger: (id) => { const l=state.ledgers.find(x=>x.id===id); if(!l)return; 
+                // Removed password check logic here as we rely on user login
+                state.currentLedger=l; localStorage.setItem('acc_current_ledger',id); document.getElementById('currentLedgerTitle').innerText=l.name; const isG=l.type==='group'; document.getElementById('ledgerTypeBadge').className=isG?'block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded':'hidden'; document.getElementById('ledgerMembers').innerText=isG?l.members.join(','):''; document.getElementById('ledgerMembers').className=isG?'block text-sm text-gray-500':'hidden'; document.getElementById('groupPayerField').className=isG?'col-span-2':'hidden'; document.getElementById('settleBtn').className=isG?'bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg shadow transition flex items-center gap-1 font-medium text-xs md:text-sm':'hidden'; 
+                // Toggle Split Section Visibility
+                document.getElementById('splitSection').classList.toggle('hidden', !isG);
+                if(l.status==='archived')document.getElementById('addTxBtn').classList.add('hidden'); else document.getElementById('addTxBtn').classList.remove('hidden'); ui.renderLedgerList(); app.listenTransactions(); app.listenRecurringRules(); },
             
             toggleSelectAll: (source) => { document.querySelectorAll('.tx-checkbox').forEach(cb => { cb.checked = source.checked; }); ui.updateBulkActionState(); },
             updateBulkActionState: () => { const count = document.querySelectorAll('.tx-checkbox:checked').length; const btn = document.getElementById('bulkDeleteBtn'); const span = document.getElementById('selectedCount'); if (count > 0) { btn.classList.remove('hidden'); span.innerText = count; } else { btn.classList.add('hidden'); } },
@@ -1695,8 +2186,14 @@
                     const suffix = Object.keys(catTotals).length > 3 ? '...' : '';
                     const displayItems = topCats + suffix;
 
+                    // Add Image Icon logic for Header
+                    // 修改：確保傳遞給 viewImage 的是原始 Drive URL (方便轉換) 或已經轉換好的
+                    const hasImage = g.items.some(i => i.imageUrl);
+                    const imageItem = g.items.find(i=>i.imageUrl);
+                    const imageIcon = hasImage ? `<button onclick="event.stopPropagation(); ui.viewImage('${imageItem.imageUrl}')" class="text-indigo-500 hover:text-indigo-700 ml-2" title="查看收據"><i class="fa-solid fa-paperclip"></i></button>` : '';
+
                     let titleHtml = '';
-                    if (g.merchant) { titleHtml = `<div class="font-bold text-gray-800 text-sm md:text-base">${g.merchant}</div><div class="text-xs text-gray-500 mt-0.5 truncate max-w-[120px] md:max-w-none">${displayItems}</div>`; } else { titleHtml = `<div class="font-medium text-gray-800 text-sm md:text-base truncate max-w-[120px] md:max-w-none">${displayItems}</div>`; }
+                    if (g.merchant) { titleHtml = `<div class="font-bold text-gray-800 text-sm md:text-base">${g.merchant}${imageIcon}</div><div class="text-xs text-gray-500 mt-0.5 truncate max-w-[120px] md:max-w-none">${displayItems}</div>`; } else { titleHtml = `<div class="font-medium text-gray-800 text-sm md:text-base truncate max-w-[120px] md:max-w-none">${displayItems}${imageIcon}</div>`; }
 
                     const detailId = `detail-${g.id}`; const allIds = g.items.map(i => i.id).join(',');
 
@@ -1707,7 +2204,22 @@
                         <td class="p-2 md:p-4 text-right font-bold ${mainColor} text-sm md:text-base" onclick="ui.toggleDetail('${detailId}')">${isE?'-':'+'}${(isGroup ? g.totalAmount : g.amount).toLocaleString()}</td>
                         <td class="p-2 md:p-4 text-center" onclick="ui.toggleDetail('${detailId}')"><i class="fa-solid fa-chevron-down text-gray-300 transition text-xs md:text-sm" id="arrow-${detailId}"></i></td>
                     </tr>
-                    <tr id="${detailId}" class="hidden tx-detail-row"><td colspan="5" class="p-0"><div class="p-4 pl-4 md:pl-16 bg-slate-50 border-b border-gray-100 shadow-inner"><p class="text-xs text-gray-400 mb-2 font-bold uppercase">細項明細</p>${g.items.map(item => `<div class="flex justify-between items-center py-2 border-b border-gray-200 last:border-0 text-sm"><span>${item.name} <span class="text-xs text-gray-400 ml-2">${item.category}</span></span><div class="flex items-center gap-4"><span class="font-mono text-gray-600">$${item.amount.toLocaleString()}</span><div class="flex gap-2"><button onclick="app.editTransaction('${item.id}')" class="text-blue-400 hover:text-blue-600"><i class="fa-solid fa-pen"></i></button><button onclick="app.deleteTransaction('${item.id}')" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button></div></div></div>`).join('')}</div></td></tr>`;
+                    <tr id="${detailId}" class="hidden tx-detail-row"><td colspan="5" class="p-0"><div class="p-4 pl-4 md:pl-16 bg-slate-50 border-b border-gray-100 shadow-inner"><p class="text-xs text-gray-400 mb-2 font-bold uppercase">細項明細</p>${g.items.map(item => `
+                    <div class="py-2 border-b border-gray-200 last:border-0 text-sm">
+                        <div class="flex justify-between items-center mb-1">
+                            <span>
+                                ${item.name} <span class="text-xs text-gray-400 ml-2">${item.category}</span>
+                                ${item.imageUrl ? `<button onclick="ui.viewImage('${item.imageUrl}')" class="text-indigo-400 hover:text-indigo-600 ml-2"><i class="fa-solid fa-image"></i></button>` : ''}
+                            </span>
+                            <div class="flex items-center gap-4"><span class="font-mono text-gray-600">$${item.amount.toLocaleString()}</span>
+                                <div class="flex gap-2">
+                                    <button onclick="app.editTransaction('${item.id}')" class="text-blue-400 hover:text-blue-600"><i class="fa-solid fa-pen"></i></button>
+                                    <button onclick="app.deleteTransaction('${item.id}')" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                        ${item.note ? `<p class="text-xs text-gray-400 bg-gray-100 p-1 rounded inline-block"><i class="fa-solid fa-circle-info mr-1"></i>${item.note}</p>` : ''}
+                    </div>`).join('')}</div></td></tr>`;
                 }).join('');
             },
             
@@ -1732,8 +2244,35 @@
                                 </div>`;
                     }).join('') || '<div class="text-gray-400 text-xs text-center">無資料</div>';
                 };
+
+                const processMerchant = () => {
+                    const filtered = list.filter(t => t.type === 'expense'); // Only analyze expense
+                    const total = filtered.reduce((sum, t) => sum + t.amount, 0);
+                    const merchMap = {};
+                    filtered.forEach(t => {
+                        const mName = t.merchant || '未分類';
+                        merchMap[mName] = (merchMap[mName] || 0) + t.amount;
+                    });
+                    const sorted = Object.entries(merchMap).sort((a,b) => b[1] - a[1]).slice(0, 5); // Top 5
+                    
+                    return sorted.map(([name, amt]) => {
+                        const pct = total ? Math.round((amt/total)*100) : 0;
+                        return `<div class="flex justify-between items-center text-xs mb-1">
+                                    <span class="text-gray-600 truncate max-w-[100px]">${name}</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono font-bold">${pct}%</span>
+                                        <span class="text-gray-800">$${amt.toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div class="w-full bg-gray-100 h-1.5 rounded-full mb-2">
+                                    <div class="bg-blue-400 h-1.5 rounded-full" style="width:${pct}%"></div>
+                                </div>`;
+                    }).join('') || '<div class="text-gray-400 text-xs text-center">無資料</div>';
+                };
+
                 document.getElementById('topExpenseList').innerHTML = process('expense');
                 document.getElementById('topIncomeList').innerHTML = process('income');
+                document.getElementById('topMerchantList').innerHTML = processMerchant();
             },
 
             renderAssets: () => {
@@ -1972,13 +2511,51 @@
                 // 3. Reset UI to View Mode (Hidden edit controls)
                 ui.toggleCurrencyEdit(false);
 
+                // 4. Update Split Checkboxes
+                ui.renderSplitCheckboxes();
+
+                // 5. Populate Payer Select if group ledger
+                if (ledger.type === 'group') {
+                    const payerSelect = document.getElementById('tPaidBy');
+                    payerSelect.innerHTML = '';
+                    ledger.members.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m;
+                        opt.innerText = m;
+                        if (m === state.userName) opt.selected = true;
+                        payerSelect.appendChild(opt);
+                    });
+                }
+                
+                // 6. Populate Merchant Datalist
+                const merchantDatalist = document.getElementById('merchantDatalist');
+                merchantDatalist.innerHTML = '';
+                state.merchants.forEach(m => {
+                    const option = document.createElement('option');
+                    option.value = m;
+                    merchantDatalist.appendChild(option);
+                });
+
                 ui.openModal('transactionModal'); 
             },
-            addItemRow: (n='',c='',a='') => { 
+            addItemRow: (n='',c='',a='', note='') => { 
                 const div=document.createElement('div'); 
-                div.className='grid grid-cols-12 gap-2 p-2 border-b item-row'; 
+                div.className='grid grid-cols-12 gap-2 p-2 border-b item-row items-start'; 
                 // Added onblur="app.autoCategorize(this)" to item-name input
-                div.innerHTML=`<div class="col-span-5"><input class="item-name w-full border p-1" value="${n}" placeholder="品項" onblur="app.autoCategorize(this)"></div><div class="col-span-3"><select class="item-cat w-full border p-1">${state.categories[document.getElementById('tType').value].map(x=>`<option ${x===c?'selected':''}>${x}</option>`).join('')}</select></div><div class="col-span-3"><input type="number" class="item-amount w-full border p-1" value="${a}" placeholder="0" oninput="ui.updateTotal()"></div><div class="col-span-1"><button type="button" onclick="this.parentElement.parentElement.remove(); ui.updateTotal()"><i class="fa-solid fa-times"></i></button></div>`; 
+                div.innerHTML=`
+                    <div class="col-span-5">
+                        <textarea class="item-name w-full border p-1 rounded text-sm mb-1" rows="2" placeholder="品項" onblur="app.autoCategorize(this)">${n}</textarea>
+                        <input type="text" class="item-note w-full border p-1 rounded text-xs text-gray-500 bg-gray-50" value="${note}" placeholder="備註/公式 (選填)">
+                    </div>
+                    <div class="col-span-3">
+                        <select class="item-cat w-full border p-1 rounded text-sm">${state.categories[document.getElementById('tType').value].map(x=>`<option ${x===c?'selected':''}>${x}</option>`).join('')}</select>
+                    </div>
+                    <div class="col-span-3">
+                        <input type="number" class="item-amount w-full border p-1 rounded text-sm" value="${a}" placeholder="0" oninput="ui.updateTotal()">
+                    </div>
+                    <div class="col-span-1 text-center">
+                        <button type="button" class="text-gray-400 hover:text-red-500" onclick="this.parentElement.parentElement.remove(); ui.updateTotal()"><i class="fa-solid fa-times"></i></button>
+                    </div>`; 
                 document.getElementById('transactionItemsList').appendChild(div); 
             },
             updateCategoriesForRows: () => { document.querySelectorAll('.item-cat').forEach(s=>s.innerHTML=state.categories[document.getElementById('tType').value].map(c=>`<option>${c}</option>`).join('')); },
@@ -2015,7 +2592,16 @@
             openModal: (id) => document.getElementById(id).classList.remove('hidden'),
             closeModal: (id) => document.getElementById(id).classList.add('hidden'),
             toggleMobileMenu: () => document.getElementById('mobileMenu').classList.toggle('hidden'),
-            viewImage: (u) => { document.getElementById('imageViewerSrc').src=u; ui.openModal('imageViewerModal'); },
+            viewImage: (u) => { 
+                // Convert to thumbnail URL for display inside the modal (fixes broken image)
+                const directUrl = app.getDirectDriveUrl(u);
+                document.getElementById('imageViewerSrc').src = directUrl; 
+                
+                // Keep the original link for "Open Original" in case user wants full res/download
+                // If the original URL was already a direct link, use it, otherwise use the converted one
+                document.getElementById('imageViewerLink').href = u.includes('drive.google.com') ? u : directUrl; 
+                ui.openModal('imageViewerModal'); 
+            },
             closeImageModal: () => ui.closeModal('imageViewerModal'),
             renderSettings: () => {
                 if(state.currentLedger) document.getElementById('settingLedgerName').innerText = state.currentLedger.name;
@@ -2023,6 +2609,12 @@
                     const div = document.getElementById(t+'CatList');
                     if(div) div.innerHTML = state.categories[t].map(c => `<span class="inline-flex items-center px-2 py-1 rounded bg-white border border-gray-200 text-xs text-gray-700 shadow-sm gap-1">${c}<button onclick="app.removeCategory('${t}','${c}')" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times"></i></button></span>`).join('');
                 });
+                
+                // Render Merchant List in Settings
+                const mDiv = document.getElementById('merchantListSetting');
+                if (mDiv) {
+                    mDiv.innerHTML = state.merchants.map(m => `<span class="inline-flex items-center px-2 py-1 rounded bg-white border border-gray-200 text-xs text-gray-700 shadow-sm gap-1">${m}<button onclick="app.removeMerchant('${m}')" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times"></i></button></span>`).join('');
+                }
             },
             openSettings: () => {
                 ui.renderSettings();
