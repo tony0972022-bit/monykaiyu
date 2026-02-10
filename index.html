@@ -263,6 +263,21 @@
         </div>
     </main>
 
+    <!-- Generic Confirmation Modal (NEW) -->
+    <div id="confirmModal" class="fixed inset-0 bg-black/50 z-[100] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm m-4 animate-fade-in text-center">
+            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-2xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-800 mb-2" id="confirmTitle">確認刪除？</h3>
+            <p class="text-gray-500 text-sm mb-6" id="confirmMessage">此動作無法復原。</p>
+            <div class="flex gap-3 justify-center">
+                <button onclick="ui.closeModal('confirmModal')" class="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-600 font-bold text-sm hover:bg-gray-50">取消</button>
+                <button id="confirmBtnAction" class="px-5 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 shadow-md">確認刪除</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Create/Edit Ledger -->
     <div id="ledgerModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto">
@@ -616,6 +631,72 @@
         </div>
     </div>
 
+    <!-- Modal: Recurring Rules (NEW - Fixed Missing Modal) -->
+    <div id="recurringModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800" id="recurringModalTitle">📅 固定收支設定</h3>
+                <button onclick="ui.closeModal('recurringModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+
+            <!-- List Section -->
+            <div id="recurringListSection">
+                <div id="recurringRulesList" class="space-y-3 mb-4">
+                    <!-- Rules will be injected here -->
+                </div>
+                <button id="btnAddRecurring" onclick="ui.toggleRecurringForm(true)" class="w-full py-3 border-2 border-dashed border-purple-300 text-purple-500 rounded-lg font-bold hover:bg-purple-50 transition">
+                    <i class="fa-solid fa-plus"></i> 新增固定規則
+                </button>
+            </div>
+
+            <!-- Form Section (Hidden by default) -->
+            <form id="recurringFormSection" class="hidden space-y-4" onsubmit="app.saveRecurringRule(event)">
+                <div class="flex justify-between items-center border-b pb-2 mb-2">
+                    <h4 class="font-bold text-gray-700" id="recurringFormTitle">新增規則</h4>
+                    <button type="button" onclick="ui.toggleRecurringForm(false)" class="text-sm text-gray-500 hover:text-gray-700">取消</button>
+                </div>
+                <input type="hidden" id="recRuleId">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">類型</label>
+                        <select id="recType" class="w-full p-2 border border-gray-300 rounded-lg text-sm" onchange="ui.updateCategoriesForRecurring()">
+                            <option value="expense">支出</option>
+                            <option value="income">收入</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">頻率</label>
+                        <select id="recFreq" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="monthly">每月</option>
+                            <option value="yearly">每年</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">項目名稱</label>
+                    <input type="text" id="recName" required placeholder="例如：房租、Netflix..." class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">金額 (TWD)</label>
+                        <input type="number" id="recAmount" required placeholder="0" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">分類</label>
+                        <select id="recCategory" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                            <!-- Categories injected by JS -->
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">下次到期日</label>
+                    <input type="date" id="recNextDate" required class="w-full p-2 border border-gray-300 rounded-lg text-sm cursor-pointer">
+                </div>
+                <button type="submit" class="w-full py-3 bg-purple-600 text-white rounded-lg font-bold shadow hover:bg-purple-700 transition">儲存設定</button>
+            </form>
+        </div>
+    </div>
+
     <!-- TRANSACTION MODAL -->
     <div id="transactionModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 m-4 overflow-y-auto max-h-[90vh]">
@@ -643,8 +724,22 @@
                     <div class="col-span-2">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">商店/對象 (選填)</label>
                         <div class="relative">
-                            <input type="text" id="tMerchant" list="merchantDatalist" placeholder="輸入或選擇..." class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm">
-                            <datalist id="merchantDatalist"></datalist>
+                            <!-- 修改：移除原生的 list="merchantDatalist"，改用自訂事件 -->
+                            <input type="text" id="tMerchant" autocomplete="off" placeholder="輸入或選擇..." 
+                                   class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                   onfocus="ui.showMerchantList()" 
+                                   oninput="ui.filterMerchantList(this.value)"
+                                   onblur="setTimeout(()=>document.getElementById('customMerchantList').classList.add('hidden'), 200)">
+                            
+                            <!-- 新增：右側下拉箭頭圖示 (視覺提示) -->
+                            <div class="absolute right-3 top-2.5 text-gray-400 pointer-events-none">
+                                <i class="fa-solid fa-chevron-down text-xs"></i>
+                            </div>
+
+                            <!-- 新增：自訂下拉選單容器 (預設隱藏) -->
+                            <div id="customMerchantList" class="hidden absolute top-full left-0 w-full max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-xl z-50 mt-1">
+                                <!-- JavaScript 會將選項填入此處 -->
+                            </div>
                         </div>
                     </div>
                     <div id="groupPayerField" class="hidden col-span-2 md:col-span-2"><label class="block text-xs font-bold text-yellow-700 uppercase mb-1">先墊錢的人</label><select id="tPaidBy" class="w-full p-2 bg-white border border-yellow-200 rounded-lg text-sm"></select></div>
@@ -903,72 +998,67 @@
             },
             
             unarchiveLedger: async (id, name) => {
-                if(!confirm(`確定要取消「${name}」的結算狀態並還原為一般帳本嗎？`)) return;
-                try {
-                    await updateDoc(doc(state.db, "ledgers", id), { status: 'active' });
-                    alert("帳本已還原");
-                    if (state.currentLedger?.id === id) {
-                        // Refresh view state if needed, though listener handles list
-                        document.getElementById('addTxBtn').classList.remove('hidden');
-                        document.getElementById('ledgerStatusBadge').classList.add('hidden');
+                ui.showConfirm('還原帳本', `確定要取消「${name}」的結算狀態並還原為一般帳本嗎？`, async () => {
+                    try {
+                        await updateDoc(doc(state.db, "ledgers", id), { status: 'active' });
+                        alert("帳本已還原");
+                        if (state.currentLedger?.id === id) {
+                            // Refresh view state if needed, though listener handles list
+                            document.getElementById('addTxBtn').classList.remove('hidden');
+                            document.getElementById('ledgerStatusBadge').classList.add('hidden');
+                        }
+                    } catch (e) {
+                        alert("還原失敗: " + e.message);
                     }
-                } catch (e) {
-                    alert("還原失敗: " + e.message);
-                }
+                });
             },
 
             deleteLedger: async (id, name) => {
-                // Confirmation 1
-                if (!confirm(`確定要刪除帳本「${name}」嗎？`)) return;
-                
-                // Confirmation 2 (Double Check)
-                if (!confirm(`⚠️ 警告：此動作無法復原！\n\n帳本「${name}」及其所有交易紀錄、固定收支設定都將被永久刪除。\n\n請再次確認是否執行刪除？`)) return;
+                ui.showConfirm('刪除帳本', `⚠️ 警告：此動作無法復原！\n\n確定要永久刪除帳本「${name}」及其所有交易紀錄嗎？`, async () => {
+                    try {
+                        // 1. Delete transactions
+                        const q = query(collection(state.db, "transactions"), where("ledgerId", "==", id));
+                        const snapshot = await getDocs(q);
+                        
+                        // Batch delete (chunking just in case, though 500 is limit)
+                        const chunks = [];
+                        let batch = writeBatch(state.db);
+                        let count = 0;
+                        
+                        snapshot.forEach(doc => {
+                            batch.delete(doc.ref);
+                            count++;
+                            if (count >= 400) {
+                                chunks.push(batch.commit());
+                                batch = writeBatch(state.db);
+                                count = 0;
+                            }
+                        });
+                        if (count > 0) chunks.push(batch.commit());
+                        await Promise.all(chunks);
 
-                try {
-                    // 1. Delete transactions
-                    const q = query(collection(state.db, "transactions"), where("ledgerId", "==", id));
-                    const snapshot = await getDocs(q);
-                    
-                    // Batch delete (chunking just in case, though 500 is limit)
-                    const chunks = [];
-                    let batch = writeBatch(state.db);
-                    let count = 0;
-                    
-                    snapshot.forEach(doc => {
-                        batch.delete(doc.ref);
-                        count++;
-                        if (count >= 400) {
-                            chunks.push(batch.commit());
-                            batch = writeBatch(state.db);
-                            count = 0;
+                        // 2. Delete recurring rules
+                        const qRules = query(collection(state.db, "recurring_rules"), where("ledgerId", "==", id));
+                        const snapRules = await getDocs(qRules);
+                        const batchRules = writeBatch(state.db);
+                        snapRules.forEach(d => batchRules.delete(d.ref));
+                        await batchRules.commit();
+
+                        // 3. Delete ledger document
+                        await deleteDoc(doc(state.db, "ledgers", id));
+
+                        // Switch to another ledger if current was deleted
+                        if (state.currentLedger && state.currentLedger.id === id) {
+                            const next = state.ledgers.find(l => l.id !== id);
+                            if (next) ui.switchLedger(next.id);
+                            else location.reload(); 
                         }
-                    });
-                    if (count > 0) chunks.push(batch.commit());
-                    await Promise.all(chunks);
 
-                    // 2. Delete recurring rules
-                    const qRules = query(collection(state.db, "recurring_rules"), where("ledgerId", "==", id));
-                    const snapRules = await getDocs(qRules);
-                    const batchRules = writeBatch(state.db);
-                    snapRules.forEach(d => batchRules.delete(d.ref));
-                    await batchRules.commit();
-
-                    // 3. Delete ledger document
-                    await deleteDoc(doc(state.db, "ledgers", id));
-
-                    alert("帳本已成功刪除");
-                    
-                    // Switch to another ledger if current was deleted
-                    if (state.currentLedger && state.currentLedger.id === id) {
-                        const next = state.ledgers.find(l => l.id !== id);
-                        if (next) ui.switchLedger(next.id);
-                        else location.reload(); 
+                    } catch (e) {
+                        console.error(e);
+                        alert("刪除失敗: " + e.message);
                     }
-
-                } catch (e) {
-                    console.error(e);
-                    alert("刪除失敗: " + e.message);
-                }
+                });
             },
 
             // --- AUTO CATEGORIZE LOGIC ---
@@ -1057,51 +1147,51 @@
             },
 
             deleteRecurringRule: async (id) => {
-                if(confirm("確定刪除此固定收支規則？")) {
+                ui.showConfirm('刪除固定收支', '確定要刪除此固定收支規則嗎？', async () => {
                     await deleteDoc(doc(state.db, "recurring_rules", id));
-                }
+                });
             },
 
             executeRecurring: async (ruleId) => {
                 const rule = state.recurringRules.find(r => r.id === ruleId);
                 if(!rule) return;
 
-                if(!confirm(`確認將「${rule.name}」($${rule.amount}) 加入今日帳本？`)) return;
+                ui.showConfirm('執行入帳', `確認將「${rule.name}」($${rule.amount}) 加入今日帳本？`, async () => {
+                    const batch = writeBatch(state.db);
+                    const txRef = doc(collection(state.db, "transactions"));
+                    batch.set(txRef, {
+                        ledgerId: state.currentLedger.id,
+                        type: rule.type,
+                        date: rule.nextDueDate, 
+                        amount: rule.amount,
+                        originalAmount: rule.amount,
+                        currency: 'TWD',
+                        exchangeRate: 1,
+                        paidBy: state.userName,
+                        name: rule.name,
+                        category: rule.category,
+                        merchant: '',
+                        groupId: Date.now().toString(),
+                        createdAt: new Date().toISOString(),
+                        lastEditedBy: state.userName,
+                        lastEditedAt: new Date().toISOString()
+                    });
 
-                const batch = writeBatch(state.db);
-                const txRef = doc(collection(state.db, "transactions"));
-                batch.set(txRef, {
-                    ledgerId: state.currentLedger.id,
-                    type: rule.type,
-                    date: rule.nextDueDate, 
-                    amount: rule.amount,
-                    originalAmount: rule.amount,
-                    currency: 'TWD',
-                    exchangeRate: 1,
-                    paidBy: state.userName,
-                    name: rule.name,
-                    category: rule.category,
-                    merchant: '',
-                    groupId: Date.now().toString(),
-                    createdAt: new Date().toISOString(),
-                    lastEditedBy: state.userName,
-                    lastEditedAt: new Date().toISOString()
+                    const currentDue = new Date(rule.nextDueDate);
+                    let nextDue = new Date(currentDue);
+                    if(rule.frequency === 'monthly') {
+                        nextDue.setMonth(nextDue.getMonth() + 1);
+                    } else if (rule.frequency === 'yearly') {
+                        nextDue.setFullYear(nextDue.getFullYear() + 1);
+                    }
+                    
+                    batch.update(doc(state.db, "recurring_rules", ruleId), {
+                        nextDueDate: nextDue.toISOString().split('T')[0]
+                    });
+
+                    await batch.commit();
+                    alert("已成功記帳，並更新下次到期日！");
                 });
-
-                const currentDue = new Date(rule.nextDueDate);
-                let nextDue = new Date(currentDue);
-                if(rule.frequency === 'monthly') {
-                    nextDue.setMonth(nextDue.getMonth() + 1);
-                } else if (rule.frequency === 'yearly') {
-                    nextDue.setFullYear(nextDue.getFullYear() + 1);
-                }
-                
-                batch.update(doc(state.db, "recurring_rules", ruleId), {
-                    nextDueDate: nextDue.toISOString().split('T')[0]
-                });
-
-                await batch.commit();
-                alert("已成功記帳，並更新下次到期日！");
             },
 
             // --- EXCEL IMPORT LOGIC ---
@@ -1410,9 +1500,21 @@
             deleteSelected: async () => {
                 const checked = document.querySelectorAll('.tx-checkbox:checked');
                 if(checked.length === 0) return;
-                if(!confirm(`確定要刪除選取的 ${checked.length} 筆/組交易紀錄嗎？`)) return;
-                const btn = document.getElementById('bulkDeleteBtn'); btn.disabled = true; btn.innerHTML = '<div class="loader w-3 h-3 border-red-200 border-t-red-600 mr-2"></div> 刪除中...';
-                try { const batch = writeBatch(state.db); checked.forEach(cb => { cb.getAttribute('data-ids').split(',').forEach(id => batch.delete(doc(state.db, "transactions", id))); }); await batch.commit(); document.getElementById('selectAllTx').checked = false; ui.updateBulkActionState(); } catch (e) { alert("刪除失敗"); console.error(e); } finally { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-trash-can"></i> <span class="hidden md:inline">刪除選取</span> (<span id="selectedCount">0</span>)`; }
+                
+                ui.showConfirm('刪除選取項目', `確定要刪除選取的 ${checked.length} 筆/組交易紀錄嗎？`, async () => {
+                    const btn = document.getElementById('bulkDeleteBtn'); btn.disabled = true; btn.innerHTML = '<div class="loader w-3 h-3 border-red-200 border-t-red-600 mr-2"></div> 刪除中...';
+                    try { 
+                        const batch = writeBatch(state.db); 
+                        checked.forEach(cb => { cb.getAttribute('data-ids').split(',').forEach(id => batch.delete(doc(state.db, "transactions", id))); }); 
+                        await batch.commit(); 
+                        document.getElementById('selectAllTx').checked = false; 
+                        ui.updateBulkActionState(); 
+                    } catch (e) { 
+                        alert("刪除失敗"); console.error(e); 
+                    } finally { 
+                        btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-trash-can"></i> <span class="hidden md:inline">刪除選取</span> (<span id="selectedCount">0</span>)`; 
+                    }
+                });
             },
 
             archiveLedger: async () => { if(!state.currentLedger) return; const p=document.getElementById('targetPersonalLedger').value; if(!p)return alert("選帳本"); const a=parseInt(document.getElementById('settleShareAmount').innerText.replace(/,/g,''))||0; const b=writeBatch(state.db); b.update(doc(state.db,"ledgers",state.currentLedger.id),{status:'archived'}); if(a>0) b.set(doc(collection(state.db,"transactions")),{ledgerId:p,type:'expense',date:new Date().toISOString().split('T')[0],amount:a,originalAmount:a,currency:'TWD',exchangeRate:1,name:`${state.currentLedger.name}(分帳)`,category:'娛樂',createdAt:new Date().toISOString(),lastEditedBy:state.userName}); await b.commit(); alert("歸檔成功"); ui.closeModal('settleModal'); },
@@ -1421,9 +1523,19 @@
             loadGlobalSettings: async()=>{if(!state.db)return;try{const d=await getDoc(doc(state.db,"settings","global"));if(d.exists()&&d.data().gemini_api_key){state.geminiKey=d.data().gemini_api_key;document.getElementById('geminiKeyInput').value=state.geminiKey;document.getElementById('apiKeyLabel').innerHTML+='(雲端)';}}catch{}},
             saveSettings: async()=>{const k=document.getElementById('geminiKeyInput').value.trim(),s=document.getElementById('scriptUrlInput').value.trim(),p=document.getElementById('aiPromptInput').value.trim();if(!k)return alert("API Key Empty");try{localStorage.setItem('acc_script_url',s);localStorage.setItem('acc_ai_prompt', p);state.customAiPrompt = p;await setDoc(doc(state.db,"settings","global"),{gemini_api_key:k,updatedAt:new Date().toISOString(),updatedBy:state.userName},{merge:true});localStorage.setItem('acc_gemini_key',k);alert("設定已儲存！");location.reload();}catch{alert("Err");}},
             setLedgerPassword: async() => { const p = prompt("請輸入新密碼 (空白則為無密碼):"); if(p !== null) { await updateDoc(doc(state.db, "ledgers", state.currentLedger.id), { password: p }); alert("密碼已更新"); } },
-            removeLedgerPassword: async()=>{if(!confirm("確定要移除密碼保護嗎?"))return;await updateDoc(doc(state.db,"ledgers",state.currentLedger.id),{password:""});alert("已移除");ui.closeModal('settingsModal');},
+            removeLedgerPassword: async()=>{
+                ui.showConfirm('移除密碼', '確定要移除密碼保護嗎?', async () => {
+                    await updateDoc(doc(state.db,"ledgers",state.currentLedger.id),{password:""});
+                    alert("已移除");
+                    ui.closeModal('settingsModal');
+                });
+            },
             addCategory: ()=>{const t=document.getElementById('newCatType').value,n=document.getElementById('newCatName').value.trim();if(!n)return;state.categories[t].push(n);app.saveCategories();ui.renderSettings();},
-            removeCategory: (t,n)=>{if(confirm("Del?")){state.categories[t]=state.categories[t].filter(c=>c!==n);app.saveCategories();ui.renderSettings();}},
+            removeCategory: (t,n)=>{
+                ui.showConfirm('刪除類別', `確定刪除分類「${n}」？`, () => {
+                    state.categories[t]=state.categories[t].filter(c=>c!==n);app.saveCategories();ui.renderSettings();
+                });
+            },
             
             // --- NEW: Merchant Management ---
             addMerchant: () => {
@@ -1437,11 +1549,11 @@
                 document.getElementById('newMerchantName').value = '';
             },
             removeMerchant: (n) => {
-                if (confirm(`確定要刪除「${n}」嗎？`)) {
+                ui.showConfirm('刪除商店', `確定要刪除「${n}」嗎？`, () => {
                     state.merchants = state.merchants.filter(m => m !== n);
                     app.saveMerchants();
                     ui.renderSettings();
-                }
+                });
             },
             saveMerchants: () => localStorage.setItem('acc_custom_merchants', JSON.stringify(state.merchants)),
 
@@ -1601,9 +1713,9 @@
                 }
             },
             deleteAsset: async (id) => {
-                if(confirm("確定刪除此資產紀錄？")) {
+                ui.showConfirm('刪除資產', '確定要刪除此資產紀錄？', async () => {
                     await deleteDoc(doc(state.db, "user_assets", id));
-                }
+                });
             },
             editAsset: (name, balance) => {
                 // Populate input fields
@@ -1810,7 +1922,11 @@
                 ui.addItemRow(t.name,t.category,t.currency!=='TWD'?t.originalAmount:t.amount, t.note);
                 ui.updateTotal();
             },
-            deleteTransaction: async(id)=>{if(confirm("Del?"))await deleteDoc(doc(state.db,"transactions",id));},
+            deleteTransaction: async(id)=>{
+                ui.showConfirm('刪除交易', '確定要刪除這筆紀錄嗎？', async () => {
+                    await deleteDoc(doc(state.db, "transactions", id));
+                });
+            },
             updateRate: (r=true)=>{
                 const c=document.getElementById('tCurrency').value;
                 // 確保預設匯率只有小數點4位數
@@ -2094,6 +2210,62 @@
         };
 
         const ui = {
+            confirmAction: null,
+            showConfirm: (title, msg, callback) => {
+                document.getElementById('confirmTitle').innerText = title || '確認動作';
+                document.getElementById('confirmMessage').innerText = msg || '確定要執行嗎？';
+                ui.confirmAction = callback;
+                document.getElementById('confirmBtnAction').onclick = () => {
+                    if(ui.confirmAction) ui.confirmAction();
+                    ui.closeModal('confirmModal');
+                };
+                ui.openModal('confirmModal');
+            },
+            
+            // --- NEW: Custom Merchant Dropdown Logic ---
+            showMerchantList: () => {
+                const input = document.getElementById('tMerchant');
+                ui.filterMerchantList(input.value);
+                document.getElementById('customMerchantList').classList.remove('hidden');
+            },
+            
+            filterMerchantList: (val) => {
+                const list = document.getElementById('customMerchantList');
+                list.innerHTML = '';
+                
+                // 過濾符合的商店
+                const filtered = state.merchants.filter(m => m.toLowerCase().includes(val.toLowerCase()));
+                
+                // 如果沒有符合的，且輸入框不為空，提示將會建立新商店
+                if(filtered.length === 0 && val.trim() !== '') {
+                    list.innerHTML = `<div class="p-3 text-xs text-gray-400 text-center border-t border-gray-100">
+                        <i class="fa-solid fa-plus-circle mr-1"></i> 將自動新增 "${val}"
+                    </div>`;
+                    return;
+                }
+                
+                // 如果完全沒輸入，顯示所有商店；否則顯示過濾結果
+                const displayList = (val.trim() === '') ? state.merchants : filtered;
+
+                displayList.forEach(m => {
+                    const div = document.createElement('div');
+                    div.className = 'p-3 text-sm text-gray-700 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-0 transition-colors flex justify-between items-center';
+                    div.innerHTML = `<span>${m}</span>`;
+                    // 點擊選項時的動作
+                    div.onmousedown = (e) => { // 使用 onmousedown 優先於 onblur 觸發
+                        e.preventDefault(); // 防止 input 失去焦點導致視窗關閉
+                        document.getElementById('tMerchant').value = m;
+                        document.getElementById('customMerchantList').classList.add('hidden');
+                    };
+                    list.appendChild(div);
+                });
+
+                if (displayList.length === 0) {
+                     list.innerHTML = '<div class="p-3 text-xs text-gray-400 text-center">無常用商店紀錄</div>';
+                }
+            },
+            // ------------------------------------------
+
             toggleCurrencyEdit: (show) => {
                 const view = document.getElementById('currencyViewMode');
                 const edit = document.getElementById('currencyEditMode');
@@ -2686,14 +2858,8 @@
                     });
                 }
                 
-                // 6. Populate Merchant Datalist
-                const merchantDatalist = document.getElementById('merchantDatalist');
-                merchantDatalist.innerHTML = '';
-                state.merchants.forEach(m => {
-                    const option = document.createElement('option');
-                    option.value = m;
-                    merchantDatalist.appendChild(option);
-                });
+                // 6. (舊邏輯移除) Merchant Datalist 不再需要在此初始化，因為改用動態渲染
+                // const merchantDatalist = document.getElementById('merchantDatalist'); ...
 
                 ui.openModal('transactionModal'); 
             },
