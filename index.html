@@ -63,6 +63,9 @@
         /* Chart Mode Buttons */
         .chart-mode-btn { transition: all 0.2s; }
         .chart-mode-btn.active { background-color: #4f46e5; color: white; }
+
+        /* Icon Selector Radio */
+        .icon-radio:checked + label { background-color: #dbeafe; border-color: #3b82f6; }
     </style>
 </head>
 <body class="text-gray-800 h-screen flex overflow-hidden">
@@ -90,7 +93,7 @@
         <div class="p-4 flex-1 overflow-y-auto">
             <div class="flex justify-between items-center mb-4 text-slate-400 text-sm font-bold uppercase">
                 <span>我的帳本</span>
-                <button onclick="ui.openModal('ledgerModal')" class="hover:text-white transition"><i class="fa-solid fa-plus"></i></button>
+                <button onclick="ui.openLedgerModal('create')" class="hover:text-white transition"><i class="fa-solid fa-plus"></i></button>
             </div>
             <ul id="ledgerList" class="space-y-2"></ul>
             
@@ -260,86 +263,21 @@
         </div>
     </main>
 
-    <!-- Modal: Recurring Transactions -->
-    <div id="recurringModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto flex flex-col">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
-                    <i class="fa-solid fa-calendar-check text-purple-500"></i> 固定收支設定
-                </h3>
-                <button onclick="ui.closeModal('recurringModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
-            </div>
-            
-            <!-- List of Rules -->
-            <div id="recurringListSection" class="flex-1 overflow-y-auto mb-4">
-                <div id="recurringRulesList" class="space-y-3">
-                    <div class="text-center text-gray-400 py-8">載入中...</div>
-                </div>
-            </div>
-
-            <!-- Add/Edit Form (Hidden by default) -->
-            <div id="recurringFormSection" class="hidden bg-gray-50 p-4 rounded-xl border border-gray-200">
-                <h4 class="font-bold text-gray-700 mb-3 text-sm" id="recurringFormTitle">新增規則</h4>
-                <form onsubmit="app.saveRecurringRule(event)" class="space-y-3">
-                    <input type="hidden" id="recRuleId">
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">類型</label>
-                            <select id="recType" class="w-full p-2 border border-gray-300 rounded text-sm bg-white" onchange="ui.updateCategoriesForRecurring()">
-                                <option value="expense">支出</option>
-                                <option value="income">收入</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">週期</label>
-                            <select id="recFreq" class="w-full p-2 border border-gray-300 rounded text-sm bg-white">
-                                <option value="monthly">每月一次</option>
-                                <option value="yearly">每年一次</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">項目名稱</label>
-                            <input type="text" id="recName" required placeholder="例如：Netflix" class="w-full p-2 border border-gray-300 rounded text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">金額</label>
-                            <input type="number" id="recAmount" required placeholder="0" class="w-full p-2 border border-gray-300 rounded text-sm">
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">分類</label>
-                            <select id="recCategory" class="w-full p-2 border border-gray-300 rounded text-sm bg-white"></select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">下次到期日</label>
-                            <input type="date" id="recNextDate" required class="w-full p-2 border border-gray-300 rounded text-sm">
-                        </div>
-                    </div>
-                    
-                    <div class="flex gap-2 pt-2">
-                        <button type="button" onclick="ui.toggleRecurringForm(false)" class="flex-1 py-2 text-gray-500 hover:bg-gray-200 rounded text-sm font-bold">取消</button>
-                        <button type="submit" class="flex-1 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm font-bold shadow">儲存設定</button>
-                    </div>
-                </form>
-            </div>
-
-            <button id="btnAddRecurring" onclick="ui.toggleRecurringForm(true)" class="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-purple-400 hover:text-purple-600 transition font-bold flex items-center justify-center gap-2">
-                <i class="fa-solid fa-plus"></i> 新增固定收支規則
-            </button>
-        </div>
-    </div>
-
-    <!-- Modal: Create Ledger (Fixed) -->
+    <!-- Modal: Create/Edit Ledger -->
     <div id="ledgerModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 m-4 animate-fade-in">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-gray-800">📘 建立新帳本</h3>
+                <h3 class="text-xl font-bold text-gray-800" id="ledgerModalTitle">📘 建立新帳本</h3>
                 <button onclick="ui.closeModal('ledgerModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
             <div class="space-y-4">
+                <input type="hidden" id="editingLedgerId">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">選擇圖示</label>
+                    <div class="flex gap-2 overflow-x-auto pb-2" id="iconSelector">
+                        <!-- Icons will be injected here -->
+                    </div>
+                </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">帳本名稱</label>
                     <input type="text" id="newLedgerName" placeholder="例如：2024日本遊、公司報帳..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
@@ -369,10 +307,10 @@
                     <div id="memberSelectionList" class="max-h-32 overflow-y-auto border border-gray-300 rounded p-2 bg-gray-50 grid grid-cols-2 gap-2 text-sm">
                         <!-- Checkboxes will be injected here -->
                     </div>
-                    <p class="text-[10px] text-gray-500 mt-1"><i class="fa-solid fa-circle-info"></i> 僅顯示已建立的使用者。若找不到成員，請先登出並建立新角色。</p>
+                    <p class="text-[10px] text-gray-500 mt-1"><i class="fa-solid fa-circle-info"></i> 僅顯示已建立的使用者。</p>
                 </div>
                 <!-- 移除帳本密碼欄位 -->
-                <button onclick="app.createLedger()" class="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-lg mt-2">立即建立</button>
+                <button onclick="app.saveLedger()" id="btnSaveLedger" class="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-lg mt-2">建立/儲存</button>
             </div>
         </div>
     </div>
@@ -749,7 +687,7 @@
                     <div id="transactionItemsList" class="max-h-60 overflow-y-auto"></div>
                     <div class="p-2 bg-gray-50 border-t border-gray-200"><button type="button" id="btnAddItem" onclick="ui.addItemRow()" class="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-emerald-400 hover:text-emerald-500 transition text-sm font-bold"><i class="fa-solid fa-plus"></i> 新增品項</button></div>
                 </div>
-                <div class="flex justify-between items-center px-2"><div class="text-sm text-gray-500">共 <span id="itemCount">1</span> 筆項目</div><div class="text-right"><p class="text-xs text-gray-400 mb-1" id="totalLabel">總金額 (TWD)</p><p class="text-3xl font-bold text-emerald-600" id="displayTotal">$0</p><p id="twdPreview" class="text-xs text-emerald-600 font-bold hidden">= NT$ <span>0</span></p></div></div>
+                <div class="flex justify-between items-center px-2"><div class="text-sm text-gray-500">共 <span id="itemCount">1</span> 筆項目</div><div class="text-right"><p class="text-xs text-gray-400 mb-1" id="totalLabel">總金額 (TWD)</p><p class="text-3xl font-bold text-emerald-600" id="displayTotal">$0</p><p id="twdPreview" class="text-xs text-gray-400 font-bold hidden">= NT$ <span>0</span></p></div></div>
                 <input type="hidden" id="hiddenImageUrl"><input type="hidden" id="editingTxId">
                 <div class="pt-2"><button type="submit" id="submitBtn" class="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold shadow-md hover:shadow-lg transition">確認儲存</button></div>
             </form>
@@ -801,6 +739,8 @@
             "麥當勞", "肯德基", "摩斯漢堡", "星巴克", 
             "路易莎", "50嵐", "清心福全", "台灣中油"
         ];
+
+        const ICONS = ["🏠", "🏢", "🍽️", "✈️", "🎮", "💰", "🎁", "🛒", "🏥", "👶", "🚗", "📚", "🐶", "💑", "🌏"];
 
         // --- NEW: Local Keyword Mapping for Auto-Categorization ---
         const CATEGORY_KEYWORDS = {
@@ -956,16 +896,10 @@
                 (await getDocs(query(collection(state.db, "ledgers"), where("members", "array-contains", o)))).forEach(d => { const m = d.data().members.map(x => x === o ? n : x); bat.update(d.ref, { members: m, ...(d.data().createdBy === o && { createdBy: n }) }); }); (await getDocs(query(collection(state.db, "transactions"), where("paidBy", "==", o)))).forEach(d => bat.update(d.ref, { paidBy: n })); (await getDocs(query(collection(state.db, "transactions"), where("lastEditedBy", "==", o)))).forEach(d => bat.update(d.ref, { lastEditedBy: n })); bat.delete(doc(state.db, "users", o)); await bat.commit(); alert("更名成功"); app.performLogin(n); location.reload(); } catch (e) { alert("更名失敗:" + e.message); b.disabled = false; b.innerText = '確認'; } },
             
             // --- NEW: Ledger Management Functions ---
-            editLedger: async (id, oldName) => {
-                const newName = prompt("請輸入新的帳本名稱：", oldName);
-                if (newName && newName.trim() !== "" && newName !== oldName) {
-                    try {
-                        await updateDoc(doc(state.db, "ledgers", id), { name: newName.trim() });
-                        // UI updates via snapshot listener automatically
-                    } catch (e) {
-                        alert("修改失敗: " + e.message);
-                    }
-                }
+            // Upgraded to use modal
+            editLedger: (id, name, type, currency, icon) => {
+                const l = state.ledgers.find(x => x.id === id);
+                if(l) ui.openLedgerModal('edit', l);
             },
             
             unarchiveLedger: async (id, name) => {
@@ -1373,13 +1307,36 @@
                 // Save list data for Export
                 state.currentListData = listData;
 
-                // Render List
+                // Render List & Dashboard Cards
                 let inc = 0, exp = 0;
-                listData.forEach(t => { if (t.type === 'expense') exp += t.amount; else inc += t.amount; });
+                // Foreign currency totals (only sum if matches default currency to avoid mixed currency nonsense)
+                let fInc = 0, fExp = 0;
+                const defCurr = state.currentLedger.defaultCurrency || 'TWD';
+                const hasForeign = defCurr !== 'TWD';
+
+                listData.forEach(t => { 
+                    if (t.type === 'expense') {
+                        exp += t.amount; 
+                        if(hasForeign && t.currency === defCurr) fExp += (t.originalAmount || 0);
+                    } else {
+                        inc += t.amount;
+                        if(hasForeign && t.currency === defCurr) fInc += (t.originalAmount || 0);
+                    }
+                });
                 
-                document.getElementById('totalIncome').innerText = '$' + Math.round(inc).toLocaleString(); 
-                document.getElementById('totalExpense').innerText = '$' + Math.round(exp).toLocaleString(); 
-                document.getElementById('totalBalance').innerText = '$' + Math.round(inc - exp).toLocaleString();
+                // Helper to render dual currency cards
+                const renderCard = (elId, twdVal, foreignVal, colorClass) => {
+                    let html = `<span class="${colorClass}">$${Math.round(twdVal).toLocaleString()}</span>`;
+                    if (hasForeign) {
+                        html += `<div class="text-xs text-gray-400 font-medium mt-1 tracking-wider">${defCurr} ${Math.round(foreignVal).toLocaleString()}</div>`;
+                    }
+                    document.getElementById(elId).innerHTML = html;
+                };
+
+                renderCard('totalIncome', inc, fInc, 'text-base md:text-3xl font-bold text-emerald-600');
+                renderCard('totalExpense', exp, fExp, 'text-base md:text-3xl font-bold text-rose-600');
+                renderCard('totalBalance', inc - exp, fInc - fExp, 'text-base md:text-3xl font-bold text-blue-600');
+
                 ui.renderTransactionListHTML(listData);
             },
             
@@ -1489,8 +1446,115 @@
             saveMerchants: () => localStorage.setItem('acc_custom_merchants', JSON.stringify(state.merchants)),
 
             saveCategories: ()=>localStorage.setItem('acc_custom_categories',JSON.stringify(state.categories)),
-            listenLedgers: ()=>{if(state.unsubscribeLedgers)state.unsubscribeLedgers();state.unsubscribeLedgers=onSnapshot(query(collection(state.db,"ledgers")),s=>{state.ledgers=[];s.forEach(d=>state.ledgers.push({id:d.id,...d.data()}));state.ledgers=state.ledgers.filter(l=>l.type==='personal'?l.createdBy===state.userName:l.members&&l.members.includes(state.userName)).sort((a,b)=>(a.status==='archived'?1:0)-(b.status==='archived'?1:0));if(!state.currentLedger&&state.ledgers.length>0)ui.switchLedger(localStorage.getItem('acc_current_ledger')||state.ledgers[0].id);ui.renderLedgerList();});},
+            listenLedgers: ()=>{if(state.unsubscribeLedgers)state.unsubscribeLedgers();state.unsubscribeLedgers=onSnapshot(query(collection(state.db,"ledgers")),s=>{state.ledgers=[];s.forEach(d=>state.ledgers.push({id:d.id,...d.data()}));
+                // Sorting logic: Favorites first, then by 'order', then fallback
+                state.ledgers=state.ledgers.filter(l=>l.type==='personal'?l.createdBy===state.userName:l.members&&l.members.includes(state.userName))
+                .sort((a,b) => {
+                    // 1. Archived at bottom
+                    if (a.status === 'archived' && b.status !== 'archived') return 1;
+                    if (a.status !== 'archived' && b.status === 'archived') return -1;
+                    // 2. Favorite at top
+                    if (a.isFavorite && !b.isFavorite) return -1;
+                    if (!a.isFavorite && b.isFavorite) return 1;
+                    // 3. Custom Order (descending order number puts it higher, or simple creation fallback)
+                    return (b.order || 0) - (a.order || 0) || new Date(b.createdAt) - new Date(a.createdAt);
+                });
+                
+                if(!state.currentLedger&&state.ledgers.length>0)ui.switchLedger(localStorage.getItem('acc_current_ledger')||state.ledgers[0].id);ui.renderLedgerList();});
+            },
             
+            // Ledger Ordering Functions
+            toggleFavorite: async (id, currentVal) => {
+                // Prevent bubbling if called from icon click
+                try {
+                    await updateDoc(doc(state.db, "ledgers", id), { isFavorite: !currentVal });
+                } catch(e) { console.error(e); }
+            },
+            
+            moveLedger: async (id, direction) => {
+                // Direction: -1 (Up), 1 (Down)
+                // Note: Our list is sorted by 'order' DESCending in my logic above (b.order - a.order).
+                // So higher order = top. 
+                // Move Up (-1 in visual list) means we want a HIGHER order value.
+                // Move Down (1 in visual list) means we want a LOWER order value.
+                
+                const index = state.ledgers.findIndex(l => l.id === id);
+                if (index === -1) return;
+                
+                const targetIndex = index + direction;
+                if (targetIndex < 0 || targetIndex >= state.ledgers.length) return;
+                
+                const current = state.ledgers[index];
+                const neighbor = state.ledgers[targetIndex];
+                
+                // Only swap if they have same favorite status and archive status (visual grouping)
+                if ((current.isFavorite !== neighbor.isFavorite) || (current.status !== neighbor.status)) return;
+
+                // Simple swap logic for order
+                const currentOrder = current.order || Date.now();
+                const neighborOrder = neighbor.order || (Date.now() - 1000);
+                
+                // Swap values
+                const batch = writeBatch(state.db);
+                batch.update(doc(state.db, "ledgers", current.id), { order: neighborOrder });
+                batch.update(doc(state.db, "ledgers", neighbor.id), { order: currentOrder });
+                
+                await batch.commit();
+            },
+            
+            saveLedger: async () => {
+                const id = document.getElementById('editingLedgerId').value;
+                const n = document.getElementById('newLedgerName').value.trim();
+                const t = document.getElementById('newLedgerType').value;
+                const c = document.getElementById('newLedgerCurrency').value;
+                const iconRadio = document.querySelector('input[name="ledgerIcon"]:checked');
+                const icon = iconRadio ? iconRadio.value : "";
+                
+                if(!n) return alert("請輸入帳本名稱！");
+                if(!state.userName) return alert("請先登入！");
+                
+                try {
+                    if (id) {
+                        // Edit Mode
+                         await updateDoc(doc(state.db, "ledgers", id), { 
+                             name: n, 
+                             type: t, 
+                             defaultCurrency: c,
+                             icon: icon
+                         });
+                    } else {
+                        // Create Mode
+                        let mem = [];
+                        if(t === 'group'){
+                            const checkboxes = document.querySelectorAll('.member-checkbox:checked');
+                            mem = Array.from(checkboxes).map(cb => cb.value);
+                            if(!mem.includes(state.userName)) mem.push(state.userName);
+                        } else {
+                            mem = [state.userName];
+                        }
+                        
+                        await addDoc(collection(state.db, "ledgers"), {
+                            name: n, 
+                            type: t, 
+                            members: mem, 
+                            defaultCurrency: c, 
+                            createdBy: state.userName, 
+                            status: 'active', 
+                            createdAt: new Date().toISOString(),
+                            icon: icon,
+                            isFavorite: false,
+                            order: Date.now()
+                        });
+                    }
+                    ui.closeModal('ledgerModal');
+                    // Reset
+                    document.getElementById('newLedgerName').value='';
+                    document.querySelectorAll('.member-checkbox').forEach(cb => cb.checked = false);
+                } catch(e) {
+                    alert("儲存失敗: " + e.message);
+                }
+            },
+
             // Assets Functions
             listenAssets: () => {
                 if(!state.userName) return;
@@ -1554,39 +1618,8 @@
                 document.getElementById('assetBalanceInput').focus();
             },
 
-            createLedger: async()=>{
-                const n=document.getElementById('newLedgerName').value.trim();
-                const t=document.getElementById('newLedgerType').value;
-                const c=document.getElementById('newLedgerCurrency').value;
-                const p=document.getElementById('newLedgerPassword').value;
-                
-                if(!n)return alert("請輸入帳本名稱！");
-                if(!state.userName)return alert("請先登入！");
-                
-                let mem=[];
-                if(t==='group'){
-                    // Get checked members
-                    const checkboxes = document.querySelectorAll('.member-checkbox:checked');
-                    mem = Array.from(checkboxes).map(cb => cb.value);
-                    if(!mem.includes(state.userName)) mem.push(state.userName);
-                }else{
-                    mem=[state.userName];
-                }
-                
-                try{
-                    const r=await addDoc(collection(state.db,"ledgers"),{name:n,type:t,members:mem,defaultCurrency:c,password:p,createdBy:state.userName,status:'active',createdAt:new Date().toISOString()});
-                    if(p)state.unlockedLedgers.push(r.id);
-                    ui.closeModal('ledgerModal');
-                    ui.switchLedger(r.id);
-                    document.getElementById('newLedgerName').value='';
-                    // Clear members selection
-                    document.querySelectorAll('.member-checkbox').forEach(cb => cb.checked = false);
-                    document.getElementById('newLedgerPassword').value='';
-                }catch(e){
-                    alert("建立失敗");
-                    console.error(e);
-                }
-            },
+            // createLedger removed in favor of saveLedger above
+            
             verifyPassword: ()=>{
                 const i = document.getElementById('unlockPasswordInput').value;
                 const l = state.ledgers.find(x => x.id === state.pendingLedgerId);
@@ -1761,7 +1794,8 @@
                 document.getElementById('uploadContainer').classList.add('hidden');
                 if(state.currentLedger.type==='group'){
                     document.getElementById('tCurrency').value=t.currency||'TWD';
-                    document.getElementById('tRate').value=t.exchangeRate||1;
+                    // 強制格式化為 4 位小數，避免 input step 驗證錯誤
+                    document.getElementById('tRate').value = t.exchangeRate ? parseFloat(t.exchangeRate).toFixed(4) : 1;
                     document.getElementById('tPaidBy').value=t.paidBy||state.userName;
                     
                     // Set Split Selection
@@ -1779,10 +1813,15 @@
             deleteTransaction: async(id)=>{if(confirm("Del?"))await deleteDoc(doc(state.db,"transactions",id));},
             updateRate: (r=true)=>{
                 const c=document.getElementById('tCurrency').value;
-                if(r) document.getElementById('tRate').value=state.rates[c]?.toFixed(4)||1;
+                // 確保預設匯率只有小數點4位數
+                if(r) {
+                    const rate = state.rates[c] || 1;
+                    document.getElementById('tRate').value = rate.toFixed(4);
+                }
                 // Update View Text
                 const rateVal = document.getElementById('tRate').value;
                 document.getElementById('currencyViewText').innerText = `${c} (匯率: ${rateVal})`;
+                // 自動觸發計算，無需額外按鈕
                 app.calcTwd();
             },
             calcTwd: ()=>ui.updateTotal(),
@@ -1911,6 +1950,28 @@
                 // Find my share to update the Archive section placeholder
                 const myShare = details[state.userName] ? Math.round(details[state.userName].share) : 0;
                 document.getElementById('settleShareAmount').innerText = myShare.toLocaleString();
+
+                // --- 修復：載入個人的帳本列表供選擇 ---
+                const targetSelect = document.getElementById('targetPersonalLedger');
+                targetSelect.innerHTML = '<option value="">(僅歸檔，不記錄支出)</option>';
+                
+                // 篩選出：類型是個人帳本 且 狀態不是歸檔 且 是我建立的
+                const myPersonalLedgers = state.ledgers.filter(l => l.type === 'personal' && l.status !== 'archived');
+                
+                if (myPersonalLedgers.length === 0) {
+                     const opt = document.createElement('option');
+                     opt.innerText = "無可用的個人帳本";
+                     opt.disabled = true;
+                     targetSelect.appendChild(opt);
+                } else {
+                    myPersonalLedgers.forEach(l => {
+                        const opt = document.createElement('option');
+                        opt.value = l.id;
+                        opt.innerText = l.name;
+                        targetSelect.appendChild(opt);
+                    });
+                }
+                // ------------------------------------
 
                 // Combine and render
                 document.getElementById('settleContent').innerHTML = detailHtml + transferHtml;
@@ -2088,7 +2149,7 @@
                 
                 // Add "Create New" button at the top of mobile list for visibility
                 ml.innerHTML += `
-                    <button onclick="ui.openModal('ledgerModal'); ui.toggleMobileMenu()" class="w-full py-3 border-2 border-dashed border-slate-600 text-slate-400 rounded-lg mb-4 hover:border-emerald-500 hover:text-emerald-500 transition">
+                    <button onclick="ui.openLedgerModal('create'); ui.toggleMobileMenu()" class="w-full py-3 border-2 border-dashed border-slate-600 text-slate-400 rounded-lg mb-4 hover:border-emerald-500 hover:text-emerald-500 transition">
                         <i class="fa-solid fa-plus"></i> 建立新帳本
                     </button>
                 `;
@@ -2097,20 +2158,31 @@
                     const isActive = x.id === state.currentLedger?.id;
                     const activeClass = isActive ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700';
                     
+                    // Icon logic
+                    const iconDisplay = x.icon ? `<span class="mr-1">${x.icon}</span>` : `<i class="fa-solid ${x.type==='group'?'fa-users':'fa-book'} mr-1"></i>`;
+
+                    // Favorite Logic
+                    const starIcon = x.isFavorite 
+                        ? `<button onclick="event.stopPropagation(); app.toggleFavorite('${x.id}', true)" class="text-yellow-400 hover:text-yellow-200 transition"><i class="fa-solid fa-star"></i></button>`
+                        : `<button onclick="event.stopPropagation(); app.toggleFavorite('${x.id}', false)" class="text-slate-500 hover:text-yellow-400 transition opacity-0 group-hover:opacity-100"><i class="fa-regular fa-star"></i></button>`;
+
                     // Logic for actions based on status
                     let actionButtons = '';
                     
                     if (x.status === 'archived') {
                         actionButtons = `
-                            <div class="hidden group-hover:flex gap-1 items-center">
+                            <div class="hidden group-hover:flex gap-1 items-center ml-2">
                                 <button onclick="app.unarchiveLedger('${x.id}', '${x.name}')" class="p-1.5 hover:text-yellow-300 transition" title="取消結算/還原"><i class="fa-solid fa-box-open text-xs"></i></button>
                                 <button onclick="app.deleteLedger('${x.id}', '${x.name}')" class="p-1.5 hover:text-red-300 transition" title="刪除帳本"><i class="fa-solid fa-trash text-xs"></i></button>
                             </div>
                         `;
                     } else {
                         actionButtons = `
-                            <div class="hidden group-hover:flex gap-1 items-center">
-                                <button onclick="app.editLedger('${x.id}', '${x.name}')" class="p-1.5 hover:text-blue-300 transition" title="編輯名稱"><i class="fa-solid fa-pen text-xs"></i></button>
+                            <div class="hidden group-hover:flex gap-1 items-center ml-1">
+                                <button onclick="event.stopPropagation(); app.moveLedger('${x.id}', -1)" class="p-1 hover:text-white transition" title="上移"><i class="fa-solid fa-arrow-up text-[10px]"></i></button>
+                                <button onclick="event.stopPropagation(); app.moveLedger('${x.id}', 1)" class="p-1 hover:text-white transition" title="下移"><i class="fa-solid fa-arrow-down text-[10px]"></i></button>
+                                <div class="w-[1px] h-3 bg-slate-500 mx-1"></div>
+                                <button onclick="app.editLedger('${x.id}')" class="p-1.5 hover:text-blue-300 transition" title="編輯設定"><i class="fa-solid fa-gear text-xs"></i></button>
                                 <button onclick="app.deleteLedger('${x.id}', '${x.name}')" class="p-1.5 hover:text-red-300 transition" title="刪除帳本"><i class="fa-solid fa-trash text-xs"></i></button>
                             </div>
                         `;
@@ -2118,13 +2190,14 @@
 
                     const h = `
                     <li class="group relative">
-                        <div class="w-full flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer ${activeClass}" onclick="ui.switchLedger('${x.id}')">
-                            <span class="flex items-center gap-2 truncate">
-                                <i class="fa-solid ${x.type==='group'?'fa-users':'fa-book'}"></i>
-                                ${x.name}
-                            </span>
-                            <div class="flex items-center gap-2" onclick="event.stopPropagation()">
-                                ${x.password ? '<i class="fa-solid fa-lock text-xs opacity-70"></i>' : ''}
+                        <div class="w-full flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer ${activeClass}" onclick="ui.switchLedger('${x.id}')">
+                            <div class="flex items-center gap-2 truncate flex-1">
+                                ${starIcon}
+                                ${iconDisplay}
+                                <span class="truncate">${x.name}</span>
+                            </div>
+                            <div class="flex items-center" onclick="event.stopPropagation()">
+                                ${x.password ? '<i class="fa-solid fa-lock text-xs opacity-70 mr-1"></i>' : ''}
                                 ${actionButtons}
                             </div>
                         </div>
@@ -2142,13 +2215,13 @@
                     const mActionButtons = x.status === 'archived' ? 
                         `<button onclick="event.stopPropagation(); app.unarchiveLedger('${x.id}', '${x.name}')" class="p-2 bg-yellow-600/30 text-yellow-300 rounded"><i class="fa-solid fa-box-open"></i></button>
                          <button onclick="event.stopPropagation(); app.deleteLedger('${x.id}', '${x.name}')" class="p-2 bg-red-600/30 text-red-300 rounded"><i class="fa-solid fa-trash"></i></button>` :
-                        `<button onclick="event.stopPropagation(); app.editLedger('${x.id}', '${x.name}')" class="p-2 bg-blue-600/30 text-blue-300 rounded"><i class="fa-solid fa-pen"></i></button>
+                        `<button onclick="event.stopPropagation(); app.editLedger('${x.id}')" class="p-2 bg-blue-600/30 text-blue-300 rounded"><i class="fa-solid fa-gear"></i></button>
                          <button onclick="event.stopPropagation(); app.deleteLedger('${x.id}', '${x.name}')" class="p-2 bg-red-600/30 text-red-300 rounded"><i class="fa-solid fa-trash"></i></button>`;
 
                     const mh = `
                         <div class="w-full flex items-center justify-between p-3 rounded-lg border ${mActiveClass} mb-2 shadow-sm" onclick="ui.switchLedger('${x.id}'); ui.toggleMobileMenu()">
                             <div class="flex items-center gap-3 overflow-hidden">
-                                <i class="fa-solid ${x.type==='group'?'fa-users':'fa-book'}"></i>
+                                ${x.icon ? `<span>${x.icon}</span>` : `<i class="fa-solid ${x.type==='group'?'fa-users':'fa-book'}"></i>`}
                                 <span class="truncate font-bold ${x.status==='archived'?'line-through opacity-70':''}">${x.name}</span>
                                 ${x.status === 'archived' ? '<span class="text-[10px] bg-slate-900/50 px-2 py-0.5 rounded ml-2">歸檔</span>' : ''}
                             </div>
@@ -2161,6 +2234,68 @@
                 }); 
                 document.getElementById('archivedSection').className = hasArc ? 'mt-6' : 'hidden'; 
             },
+            
+            openLedgerModal: (mode, data = null) => {
+                const title = document.getElementById('ledgerModalTitle');
+                const btn = document.getElementById('btnSaveLedger');
+                const idInput = document.getElementById('editingLedgerId');
+                const nameInput = document.getElementById('newLedgerName');
+                const typeSelect = document.getElementById('newLedgerType');
+                const currSelect = document.getElementById('newLedgerCurrency');
+                const iconContainer = document.getElementById('iconSelector');
+                
+                // Generate Icon Radio Buttons
+                iconContainer.innerHTML = '';
+                // Add "No Icon" option
+                iconContainer.innerHTML += `
+                    <div>
+                        <input type="radio" name="ledgerIcon" id="icon-none" value="" class="icon-radio hidden" checked>
+                        <label for="icon-none" class="flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 cursor-pointer hover:bg-gray-100 text-xs text-gray-500"><i class="fa-solid fa-ban"></i></label>
+                    </div>
+                `;
+                ICONS.forEach((icon, idx) => {
+                    const checked = (data && data.icon === icon) ? 'checked' : '';
+                    iconContainer.innerHTML += `
+                        <div>
+                            <input type="radio" name="ledgerIcon" id="icon-${idx}" value="${icon}" class="icon-radio hidden" ${checked}>
+                            <label for="icon-${idx}" class="flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 cursor-pointer hover:bg-gray-100 text-lg">${icon}</label>
+                        </div>
+                    `;
+                });
+
+                if (mode === 'create') {
+                    title.innerText = '📘 建立新帳本';
+                    btn.innerText = '立即建立';
+                    idInput.value = '';
+                    nameInput.value = '';
+                    typeSelect.value = 'personal';
+                    currSelect.value = 'TWD';
+                    typeSelect.disabled = false; // Allow type selection on create
+                    ui.toggleMemberInput();
+                    document.querySelectorAll('.member-checkbox').forEach(cb => cb.checked = false);
+                } else if (mode === 'edit' && data) {
+                    title.innerText = '⚙️ 編輯帳本設定';
+                    btn.innerText = '儲存變更';
+                    idInput.value = data.id;
+                    nameInput.value = data.name;
+                    typeSelect.value = data.type;
+                    currSelect.value = data.defaultCurrency || 'TWD';
+                    typeSelect.disabled = true; // Disable type change on edit to prevent logic break
+                    ui.toggleMemberInput(); // Update UI visibility, though type is locked
+                    
+                    // Pre-check members if group
+                    if(data.type === 'group' && data.members) {
+                        data.members.forEach(m => {
+                            const cb = document.getElementById(`member-${m}`);
+                            if(cb) cb.checked = true;
+                        });
+                    }
+                }
+                
+                ui.openModal('ledgerModal');
+            },
+
+            // switchLedger function remains same
             switchLedger: (id) => { const l=state.ledgers.find(x=>x.id===id); if(!l)return; 
                 // Removed password check logic here as we rely on user login
                 state.currentLedger=l; localStorage.setItem('acc_current_ledger',id); document.getElementById('currentLedgerTitle').innerText=l.name; const isG=l.type==='group'; document.getElementById('ledgerTypeBadge').className=isG?'block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded':'hidden'; document.getElementById('ledgerMembers').innerText=isG?l.members.join(','):''; document.getElementById('ledgerMembers').className=isG?'block text-sm text-gray-500':'hidden'; document.getElementById('groupPayerField').className=isG?'col-span-2':'hidden'; document.getElementById('settleBtn').className=isG?'bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg shadow transition flex items-center gap-1 font-medium text-xs md:text-sm':'hidden'; 
@@ -2175,7 +2310,15 @@
                 const tb=document.getElementById('transactionTableBody');
                 if(list.length===0) { tb.innerHTML='<tr><td colspan="5" class="p-8 text-center text-gray-400">此區間無交易資料</td></tr>'; return; }
                 const groups = {};
-                list.forEach(t => { const gid = t.groupId || t.id; if(!groups[gid]) { groups[gid] = { ...t, items: [], totalAmount: 0 }; } groups[gid].items.push(t); groups[gid].totalAmount += t.amount; });
+                list.forEach(t => { 
+                    const gid = t.groupId || t.id; 
+                    if(!groups[gid]) { 
+                        groups[gid] = { ...t, items: [], totalAmount: 0, totalOriginalAmount: 0 }; 
+                    } 
+                    groups[gid].items.push(t); 
+                    groups[gid].totalAmount += t.amount;
+                    groups[gid].totalOriginalAmount += (t.originalAmount || 0); // Sum foreign currency
+                });
 
                 tb.innerHTML = Object.values(groups).sort((a,b) => new Date(b.date) - new Date(a.date)).map(g => {
                     const isGroup = g.items.length > 1; const isE = g.type === 'expense'; const mainColor = isE ? 'text-rose-600' : 'text-emerald-600'; const icon = isGroup ? '<i class="fa-solid fa-layer-group text-gray-400 mr-1"></i>' : '';
@@ -2187,7 +2330,6 @@
                     const displayItems = topCats + suffix;
 
                     // Add Image Icon logic for Header
-                    // 修改：確保傳遞給 viewImage 的是原始 Drive URL (方便轉換) 或已經轉換好的
                     const hasImage = g.items.some(i => i.imageUrl);
                     const imageItem = g.items.find(i=>i.imageUrl);
                     const imageIcon = hasImage ? `<button onclick="event.stopPropagation(); ui.viewImage('${imageItem.imageUrl}')" class="text-indigo-500 hover:text-indigo-700 ml-2" title="查看收據"><i class="fa-solid fa-paperclip"></i></button>` : '';
@@ -2197,11 +2339,23 @@
 
                     const detailId = `detail-${g.id}`; const allIds = g.items.map(i => i.id).join(',');
 
+                    // 外幣顯示邏輯
+                    const isForeign = g.currency && g.currency !== 'TWD';
+                    const displayTotalTwd = isGroup ? g.totalAmount : g.amount;
+                    const displayTotalForeign = isGroup ? g.totalOriginalAmount : g.originalAmount;
+                    
+                    const foreignHtml = isForeign ? `<div class="text-[10px] text-gray-400 font-medium mt-0.5">${g.currency} ${Math.round(displayTotalForeign).toLocaleString()}</div>` : '';
+
                     return `<tr class="border-b hover:bg-gray-50 tx-group-header">
                         <td class="hidden md:table-cell p-2 md:p-4 w-10 text-center" onclick="event.stopPropagation()"><input type="checkbox" class="tx-checkbox w-4 h-4 cursor-pointer" data-ids="${allIds}" onchange="ui.updateBulkActionState()"></td>
                         <td class="p-2 md:p-4 text-xs md:text-sm whitespace-nowrap" onclick="ui.toggleDetail('${detailId}')">${g.date.slice(5)}</td>
                         <td class="p-2 md:p-4" onclick="ui.toggleDetail('${detailId}')"><div class="flex items-center">${icon}<div class="flex flex-col">${titleHtml}<span class="text-[10px] md:text-xs text-gray-400 mt-0.5">${g.category} ${g.paidBy?`(${g.paidBy})`:''}</span></div></div></td>
-                        <td class="p-2 md:p-4 text-right font-bold ${mainColor} text-sm md:text-base" onclick="ui.toggleDetail('${detailId}')">${isE?'-':'+'}${(isGroup ? g.totalAmount : g.amount).toLocaleString()}</td>
+                        <td class="p-2 md:p-4 text-right" onclick="ui.toggleDetail('${detailId}')">
+                            <div class="flex flex-col items-end">
+                                <span class="font-bold ${mainColor} text-sm md:text-base">${isE?'-':'+'}${displayTotalTwd.toLocaleString()}</span>
+                                ${foreignHtml}
+                            </div>
+                        </td>
                         <td class="p-2 md:p-4 text-center" onclick="ui.toggleDetail('${detailId}')"><i class="fa-solid fa-chevron-down text-gray-300 transition text-xs md:text-sm" id="arrow-${detailId}"></i></td>
                     </tr>
                     <tr id="${detailId}" class="hidden tx-detail-row"><td colspan="5" class="p-0"><div class="p-4 pl-4 md:pl-16 bg-slate-50 border-b border-gray-100 shadow-inner"><p class="text-xs text-gray-400 mb-2 font-bold uppercase">細項明細</p>${g.items.map(item => `
@@ -2211,7 +2365,11 @@
                                 ${item.name} <span class="text-xs text-gray-400 ml-2">${item.category}</span>
                                 ${item.imageUrl ? `<button onclick="ui.viewImage('${item.imageUrl}')" class="text-indigo-400 hover:text-indigo-600 ml-2"><i class="fa-solid fa-image"></i></button>` : ''}
                             </span>
-                            <div class="flex items-center gap-4"><span class="font-mono text-gray-600">$${item.amount.toLocaleString()}</span>
+                            <div class="flex items-center gap-4">
+                                <div class="text-right">
+                                    <span class="font-mono text-gray-600 block">$${item.amount.toLocaleString()}</span>
+                                    ${item.currency !== 'TWD' ? `<span class="text-[10px] text-gray-400 font-mono">${item.currency} ${item.originalAmount.toLocaleString()}</span>` : ''}
+                                </div>
                                 <div class="flex gap-2">
                                     <button onclick="app.editTransaction('${item.id}')" class="text-blue-400 hover:text-blue-600"><i class="fa-solid fa-pen"></i></button>
                                     <button onclick="app.deleteTransaction('${item.id}')" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
@@ -2503,7 +2661,8 @@
                 document.getElementById('tCurrency').value = defCurr;
                 // Set initial rate based on default currency
                 if(state.rates[defCurr]) {
-                    document.getElementById('tRate').value = state.rates[defCurr];
+                    // 修正：強制只取小數點後 4 位，解決 float 精度過長導致無法送出的問題
+                    document.getElementById('tRate').value = state.rates[defCurr].toFixed(4);
                 } else {
                     document.getElementById('tRate').value = 1;
                 }
@@ -2559,7 +2718,38 @@
                 document.getElementById('transactionItemsList').appendChild(div); 
             },
             updateCategoriesForRows: () => { document.querySelectorAll('.item-cat').forEach(s=>s.innerHTML=state.categories[document.getElementById('tType').value].map(c=>`<option>${c}</option>`).join('')); },
-            updateTotal: () => { let t=0; document.querySelectorAll('.item-amount').forEach(i=>t+=parseFloat(i.value)||0); document.getElementById('displayTotal').innerText='$'+t.toLocaleString(); },
+            updateTotal: () => { 
+                let sum = 0; 
+                document.querySelectorAll('.item-amount').forEach(i => sum += parseFloat(i.value) || 0); 
+                
+                // 取得當前幣別與匯率
+                let cur = 'TWD';
+                let rate = 1;
+                if(state.currentLedger && state.currentLedger.type === 'group') {
+                    cur = document.getElementById('tCurrency').value;
+                    rate = parseFloat(document.getElementById('tRate').value) || 1;
+                }
+
+                const displayTotalEl = document.getElementById('displayTotal');
+                const twdPreviewEl = document.getElementById('twdPreview');
+                const labelEl = document.getElementById('totalLabel');
+
+                labelEl.innerText = `總金額 (${cur})`;
+
+                // 顯示邏輯：主要顯示選定幣別，次要顯示台幣(灰色)
+                if (cur !== 'TWD') {
+                    displayTotalEl.innerText = `${cur} ${sum.toLocaleString()}`;
+                    const twdVal = Math.round(sum * rate);
+                    twdPreviewEl.classList.remove('hidden');
+                    twdPreviewEl.className = "text-xs text-gray-400 font-bold block mt-1"; // 灰色樣式
+                    twdPreviewEl.innerHTML = `≈ NT$ ${twdVal.toLocaleString()}`;
+                } else {
+                    displayTotalEl.innerText = `$${sum.toLocaleString()}`;
+                    twdPreviewEl.classList.add('hidden');
+                }
+                
+                document.getElementById('itemCount').innerText = document.querySelectorAll('.item-row').length;
+            },
             toggleMemberInput: () => { 
                 const isGroup = document.getElementById('newLedgerType').value === 'group';
                 document.getElementById('memberInputDiv').classList.toggle('hidden', !isGroup); 
@@ -2593,13 +2783,10 @@
             closeModal: (id) => document.getElementById(id).classList.add('hidden'),
             toggleMobileMenu: () => document.getElementById('mobileMenu').classList.toggle('hidden'),
             viewImage: (u) => { 
-                // Convert to thumbnail URL for display inside the modal (fixes broken image)
+                // Convert before displaying just in case
                 const directUrl = app.getDirectDriveUrl(u);
                 document.getElementById('imageViewerSrc').src = directUrl; 
-                
-                // Keep the original link for "Open Original" in case user wants full res/download
-                // If the original URL was already a direct link, use it, otherwise use the converted one
-                document.getElementById('imageViewerLink').href = u.includes('drive.google.com') ? u : directUrl; 
+                document.getElementById('imageViewerLink').href = directUrl; 
                 ui.openModal('imageViewerModal'); 
             },
             closeImageModal: () => ui.closeModal('imageViewerModal'),
