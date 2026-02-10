@@ -698,8 +698,11 @@
     </div>
 
     <!-- TRANSACTION MODAL -->
-    <div id="transactionModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 m-4 overflow-y-auto max-h-[90vh]">
+    <!-- 修改: 將 items-center 改為 items-start md:items-center，並加上 pt-10 md:pt-0，解決手機版頂部被切掉的問題 -->
+    <!-- 修改: 將 p-6 改為 p-4 md:p-6，增加手機版內容顯示空間 -->
+    <!-- 修改: max-h 設定為 85vh 以確保有足夠的緩衝空間 -->
+    <div id="transactionModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start md:items-center justify-center backdrop-blur-sm pt-10 md:pt-0">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-4 md:p-6 m-4 overflow-y-auto max-h-[85vh] md:max-h-[90vh]">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800" id="txModalTitle">📝 新增紀錄</h3>
                 <button onclick="ui.closeModal('transactionModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
