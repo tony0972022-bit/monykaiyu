@@ -912,6 +912,7 @@
                 } else { 
                     document.getElementById('sidebarUserName').innerText = state.userName; 
                     document.getElementById('renameInput').value = state.userName; 
+                    await app.loadUserSettings(); // 載入使用者雲端設定
                     app.listenLedgers(); 
                     app.listenAssets();
                     // Always ensure user list is loaded for group ledger creation
@@ -967,7 +968,7 @@
                     alert("註冊失敗: " + e.message); 
                 } 
             },
-            performLogin: (n) => { state.userName = n; localStorage.setItem('acc_username', n); document.getElementById('sidebarUserName').innerText = n; document.getElementById('renameInput').value = n; document.getElementById('loginModal').classList.add('hidden'); app.listenLedgers(); app.listenAssets(); },
+            performLogin: (n) => { state.userName = n; localStorage.setItem('acc_username', n); document.getElementById('sidebarUserName').innerText = n; document.getElementById('renameInput').value = n; document.getElementById('loginModal').classList.add('hidden'); app.loadUserSettings(); app.listenLedgers(); app.listenAssets(); },
             
             changeUserPassword: async () => {
                 const newPw = prompt("請輸入新密碼:");
@@ -1555,7 +1556,39 @@
                     ui.renderSettings();
                 });
             },
-            saveMerchants: () => localStorage.setItem('acc_custom_merchants', JSON.stringify(state.merchants)),
+            // 新增: 讀取雲端設定 (商店列表)
+            loadUserSettings: async () => {
+                if (!state.userName || !state.db) return;
+                try {
+                    const docRef = doc(state.db, "users", state.userName);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        if (data.customMerchants && Array.isArray(data.customMerchants)) {
+                            state.merchants = data.customMerchants;
+                            // 同步回 LocalStorage 確保離線可用
+                            localStorage.setItem('acc_custom_merchants', JSON.stringify(state.merchants));
+                        }
+                    }
+                } catch (e) {
+                    console.error("無法載入使用者設定:", e);
+                }
+            },
+            // 修改: 儲存商店列表時同步至雲端
+            saveMerchants: async () => {
+                localStorage.setItem('acc_custom_merchants', JSON.stringify(state.merchants));
+                if (state.userName && state.isOnline) {
+                    try {
+                        // 使用 merge: true 避免覆蓋使用者的其他資料 (如密碼、建立時間)
+                        await setDoc(doc(state.db, "users", state.userName), { 
+                            customMerchants: state.merchants,
+                            updatedAt: new Date().toISOString() 
+                        }, { merge: true });
+                    } catch (e) {
+                        console.error("雲端同步失敗:", e);
+                    }
+                }
+            },
 
             saveCategories: ()=>localStorage.setItem('acc_custom_categories',JSON.stringify(state.categories)),
             listenLedgers: ()=>{if(state.unsubscribeLedgers)state.unsubscribeLedgers();state.unsubscribeLedgers=onSnapshot(query(collection(state.db,"ledgers")),s=>{state.ledgers=[];s.forEach(d=>state.ledgers.push({id:d.id,...d.data()}));
@@ -1585,7 +1618,7 @@
             
             moveLedger: async (id, direction) => {
                 // Direction: -1 (Up), 1 (Down)
-                // Note: Our list is sorted by 'order' DESCending in my logic above (b.order - a.order).
+                // Note: Our list is sorted by 'order', DESCending in my logic above (b.order - a.order).
                 // So higher order = top. 
                 // Move Up (-1 in visual list) means we want a HIGHER order value.
                 // Move Down (1 in visual list) means we want a LOWER order value.
