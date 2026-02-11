@@ -141,17 +141,37 @@
 
             <!-- Right Side: Actions (Wrapped for mobile) -->
             <div class="flex flex-wrap items-center gap-2 justify-end">
-                <!-- Date Filters -->
-                <div class="flex bg-gray-100 rounded-lg p-1" id="globalDateFilter">
-                    <select id="ledgerYear" class="bg-transparent text-sm font-bold text-gray-700 p-1 outline-none max-w-[70px]" onchange="app.updateLedgerView()"></select>
-                    <div class="w-[1px] bg-gray-300 my-1"></div>
-                    <select id="ledgerMonth" class="bg-transparent text-sm font-bold text-gray-700 p-1 outline-none" onchange="app.updateLedgerView()">
-                        <option value="all">全年</option>
-                        <option value="01">1月</option><option value="02">2月</option><option value="03">3月</option>
-                        <option value="04">4月</option><option value="05">5月</option><option value="06">6月</option>
-                        <option value="07">7月</option><option value="08">8月</option><option value="09">9月</option>
-                        <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
-                    </select>
+                <!-- Date Filters (Modified for Day Selection) -->
+                <div class="flex bg-gray-100 rounded-lg p-1 items-center gap-1" id="globalDateFilter">
+                    <!-- Year/Month Mode -->
+                    <div id="ymFilter" class="flex items-center">
+                        <select id="ledgerYear" class="bg-transparent text-sm font-bold text-gray-700 p-1 outline-none max-w-[70px]" onchange="app.updateLedgerView()"></select>
+                        <div class="w-[1px] bg-gray-300 my-1 h-4 mx-1"></div>
+                        <select id="ledgerMonth" class="bg-transparent text-sm font-bold text-gray-700 p-1 outline-none" onchange="app.updateLedgerView()">
+                            <option value="all">全年</option>
+                            <option value="01">1月</option><option value="02">2月</option><option value="03">3月</option>
+                            <option value="04">4月</option><option value="05">5月</option><option value="06">6月</option>
+                            <option value="07">7月</option><option value="08">8月</option><option value="09">9月</option>
+                            <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Specific Day Mode (Hidden by default) -->
+                    <div id="dayFilter" class="hidden flex items-center bg-white rounded px-2 py-0.5 border border-blue-200">
+                        <span id="displayDayFilter" class="text-xs font-bold text-blue-600 mr-2">2024-02-01</span>
+                        <button onclick="app.clearDateFilter()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times"></i></button>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="w-[1px] bg-gray-300 my-1 h-4 mx-1"></div>
+
+                    <!-- Date Picker Trigger -->
+                    <div class="relative group">
+                        <input type="date" id="filterDateInput" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10" onchange="app.setSpecificDate(this.value)">
+                        <button class="p-1 px-2 text-gray-500 hover:text-blue-600 transition" title="依特定日期查詢">
+                            <i class="fa-solid fa-calendar-day"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="flex gap-2">
@@ -235,6 +255,7 @@
                              <i class="fa-solid fa-file-export"></i> <span class="hidden md:inline">匯出</span>
                           </button>
 
+                          <!-- Clear Filter Button (Enhanced Logic) -->
                           <button id="clearFilterBtn" onclick="app.clearDateFilter()" class="hidden text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-gray-600"><i class="fa-solid fa-filter-circle-xmark"></i></button>
                         <div id="loadingIndicator" class="hidden flex items-center gap-1 text-xs text-gray-500">
                             <div class="loader w-4 h-4"></div> <span class="hidden md:inline">同步中...</span>
@@ -262,6 +283,7 @@
         </div>
     </main>
 
+    <!-- ... (Modals remain unchanged until script) ... -->
     <!-- Generic Confirmation Modal (NEW) -->
     <div id="confirmModal" class="fixed inset-0 bg-black/50 z-[100] hidden flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm m-4 animate-fade-in text-center">
@@ -511,6 +533,7 @@
         </div>
     </div>
 
+    <!-- ... (Modals remain unchanged) ... -->
     <!-- Modal: Settlement & Archive -->
     <div id="settleModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto">
@@ -808,6 +831,7 @@
 
         const FIREBASE_CONFIG = { apiKey: "AIzaSyDqFr0ZkTb9ZdYFaf8S95pjJLEezTF4QwQ", authDomain: "mony-a292c.firebaseapp.com", projectId: "mony-a292c", storageBucket: "mony-a292c.firebasestorage.app", messagingSenderId: "1012872104399", appId: "1:1012872104399:web:8289e7b26d846246fdaaba", measurementId: "G-N5RQB4GCZD" };
         
+        // ... (Categories and Merchants constants remain unchanged)
         const DEFAULT_CATEGORIES = { 
             expense: [
                 '早餐', '午餐', '晚餐', '飲料', '點心', '食材', 
@@ -905,8 +929,8 @@
                     await app.loadUserSettings(); app.listenLedgers(); app.listenAssets(); app.loadUsersList();
                 }
             },
+            // ... (Previous helper functions remain unchanged) ...
             loadUsersList: async () => { try { const q = query(collection(state.db, "users")); const s = await getDocs(q); state.usersList = []; const sl = document.getElementById('loginUserSelect'); sl.innerHTML = '<option value="">請選擇角色...</option>'; s.forEach(d => { state.usersList.push(d.id); sl.innerHTML += `<option value="${d.id}">${d.id}</option>`; }); if (state.usersList.length === 0) document.getElementById('existingUserSection').classList.add('hidden'); } catch (e) { console.error("Login List Error", e); } },
-            
             loginExistingUser: async () => { 
                 const n = document.getElementById('loginUserSelect').value;
                 const p = document.getElementById('loginPasswordInput').value.trim();
@@ -999,7 +1023,6 @@
                     state.recurringRules = []; 
                     snapshot.forEach(doc => state.recurringRules.push({ id: doc.id, ...doc.data() })); 
                     ui.renderRecurringList();
-                    // Check for auto-recurring tasks after loading
                     app.processAutoRecurringRules(state.recurringRules);
                 });
             },
@@ -1043,12 +1066,9 @@
 
             executeRecurring: async (ruleId) => {
                 const rule = state.recurringRules.find(r => r.id === ruleId); if(!rule) return;
-                
-                // End date check
                 if (rule.endDate && new Date(rule.nextDueDate) > new Date(rule.endDate)) {
                     return alert("此規則已超過結束日期。");
                 }
-
                 ui.showConfirm('執行入帳', `確認將「${rule.name}」($${rule.amount}) 加入今日帳本？`, async () => {
                     const batch = writeBatch(state.db);
                     const txRef = doc(collection(state.db, "transactions"));
@@ -1061,7 +1081,6 @@
                 });
             },
             
-            // New Function: Process Auto-Recurring Rules
             processAutoRecurringRules: async (rules) => {
                 const today = new Date();
                 today.setHours(0,0,0,0);
@@ -1070,23 +1089,14 @@
                 let addedCount = 0;
 
                 rules.forEach(rule => {
-                    if (!rule.isAuto) return; // Only process auto rules
-                    
+                    if (!rule.isAuto) return; 
                     let due = new Date(rule.nextDueDate);
                     let nextDue = new Date(due);
                     let ruleModified = false;
-                    
-                    // Safety limit: max 36 iterations (3 years of monthly) to prevent infinite loops
                     let loopSafety = 0;
                     
-                    // Loop to catch up all missed payments
                     while (nextDue <= today && loopSafety < 36) {
-                         // Check end date strictly
-                         if (rule.endDate && new Date(rule.endDate) < nextDue) {
-                             break; // Stop if we passed the end date
-                         }
-
-                         // Create Transaction
+                         if (rule.endDate && new Date(rule.endDate) < nextDue) { break; }
                          const txRef = doc(collection(state.db, "transactions"));
                          batch.set(txRef, { 
                              ledgerId: state.currentLedger.id, 
@@ -1106,16 +1116,11 @@
                              lastEditedAt: new Date().toISOString() 
                          });
                          addedCount++;
-
-                         // Calculate next date
                          if(rule.frequency === 'monthly') nextDue.setMonth(nextDue.getMonth() + 1);
                          else if(rule.frequency === 'yearly') nextDue.setFullYear(nextDue.getFullYear() + 1);
-                         
                          ruleModified = true;
                          loopSafety++;
                     }
-
-                    // Update the rule if we advanced the date
                     if (ruleModified) {
                         const ruleRef = doc(state.db, "recurring_rules", rule.id);
                         batch.update(ruleRef, { nextDueDate: nextDue.toISOString().split('T')[0] });
@@ -1127,7 +1132,6 @@
                     try {
                         await batch.commit();
                         if(addedCount > 0) {
-                            // Show a small notification toast instead of alert to be less intrusive
                             const toast = document.createElement('div');
                             toast.className = 'fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg z-50 animate-fade-in text-sm font-bold flex items-center gap-2';
                             toast.innerHTML = `<i class="fa-solid fa-robot text-indigo-400"></i> 已自動補記 ${addedCount} 筆固定帳務`;
@@ -1190,14 +1194,24 @@
                 let listData = [];
                 const y = document.getElementById('ledgerYear').value; const m = document.getElementById('ledgerMonth').value;
                 const mSel = document.getElementById('ledgerMonth');
-                if (y === 'all' || y === 'last3') { mSel.disabled = true; mSel.classList.add('text-gray-400', 'cursor-not-allowed'); }
-                else { mSel.disabled = false; mSel.classList.remove('text-gray-400', 'cursor-not-allowed'); }
-                listData = state.transactions.filter(t => { 
-                    if (y === 'all') return true;
-                    const d = new Date(t.date);
-                    if (y === 'last3') { return d.getFullYear() >= new Date().getFullYear() - 2; }
-                    return d.getFullYear().toString() === y && (m === 'all' || (d.getMonth() + 1).toString().padStart(2, '0') === m); 
-                });
+                
+                // Specific Date Filter Logic
+                if (state.filterDay) {
+                    listData = state.transactions.filter(t => t.date === state.filterDay);
+                    // Disable Year/Month selectors visually when Day mode is active
+                    document.getElementById('ymFilter').classList.add('opacity-50', 'pointer-events-none');
+                } else {
+                    document.getElementById('ymFilter').classList.remove('opacity-50', 'pointer-events-none');
+                    if (y === 'all' || y === 'last3') { mSel.disabled = true; mSel.classList.add('text-gray-400', 'cursor-not-allowed'); }
+                    else { mSel.disabled = false; mSel.classList.remove('text-gray-400', 'cursor-not-allowed'); }
+                    listData = state.transactions.filter(t => { 
+                        if (y === 'all') return true;
+                        const d = new Date(t.date);
+                        if (y === 'last3') { return d.getFullYear() >= new Date().getFullYear() - 2; }
+                        return d.getFullYear().toString() === y && (m === 'all' || (d.getMonth() + 1).toString().padStart(2, '0') === m); 
+                    });
+                }
+
                 ui.renderTopStats(listData); state.currentListData = listData;
                 let inc = 0, exp = 0; let fInc = 0, fExp = 0;
                 const defCurr = state.currentLedger.defaultCurrency || 'TWD';
@@ -1216,7 +1230,25 @@
                 ui.renderTransactionListHTML(listData);
             },
             
-            clearDateFilter: () => { state.filterDay = null; app.updateLedgerView(); },
+            setSpecificDate: (val) => {
+                if(!val) return;
+                state.filterDay = val;
+                document.getElementById('ymFilter').classList.add('hidden');
+                document.getElementById('dayFilter').classList.remove('hidden');
+                document.getElementById('displayDayFilter').innerText = val;
+                document.getElementById('clearFilterBtn').classList.remove('hidden');
+                app.updateLedgerView();
+            },
+
+            clearDateFilter: () => { 
+                state.filterDay = null; 
+                document.getElementById('filterDateInput').value = '';
+                document.getElementById('ymFilter').classList.remove('hidden');
+                document.getElementById('dayFilter').classList.add('hidden');
+                document.getElementById('clearFilterBtn').classList.add('hidden');
+                app.updateLedgerView(); 
+            },
+
             exportToExcel: () => { if (!state.allTransactionsCache.length) return alert("無資料"); const d = state.allTransactionsCache.map(t => ({ 日期: t.date, 帳本: t.ledgerName, 類型: t.type, 金額: t.amount, 項目: t.name, 分類: t.category, 商店: t.merchant || '' })); const w = XLSX.utils.json_to_sheet(d), b = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(b, w, "Data"); XLSX.writeFile(b, `帳本匯出.xlsx`); },
             exportCurrentList: () => { if (state.currentListData.length === 0) return alert("無資料"); const exportData = state.currentListData.map(t => ({ '日期': t.date, '商店/對象': t.merchant || '', '項目名稱': t.name, '類別': t.category, '類型': t.type === 'expense' ? '支出' : '收入', '金額': t.amount, '幣別': t.currency, '付款人': t.paidBy || '' })); const ws = XLSX.utils.json_to_sheet(exportData); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Transactions"); XLSX.writeFile(wb, `交易明細_${new Date().toISOString().slice(0,10)}.xlsx`); },
 
@@ -1379,13 +1411,30 @@
             deleteAsset: async (id) => { ui.showConfirm('刪除資產', '確定要刪除此資產紀錄？', async () => { await deleteDoc(doc(state.db, "user_assets", id)); }); },
             editAsset: (name, balance) => { document.getElementById('assetNameInput').value = name; document.getElementById('assetBalanceInput').value = balance; document.getElementById('assetBalanceInput').focus(); },
 
-            listenTransactions: () => { if (!state.currentLedger) return; if (state.unsubscribeTrans) state.unsubscribeTrans(); document.getElementById('loadingIndicator').classList.remove('hidden'); state.unsubscribeTrans = onSnapshot(query(collection(state.db, "transactions"), where("ledgerId", "==", state.currentLedger.id)), snap => { state.transactions = []; snap.forEach(d => state.transactions.push({ id: d.id, ...d.data() })); state.transactions.sort((a, b) => new Date(b.date) - new Date(a.date)); app.updateLedgerView(); document.getElementById('loadingIndicator').classList.add('hidden'); }); },
+            listenTransactions: () => { 
+                if (!state.currentLedger) return; 
+                if (state.unsubscribeTrans) state.unsubscribeTrans(); 
+                document.getElementById('loadingIndicator').classList.remove('hidden'); 
+                state.unsubscribeTrans = onSnapshot(query(collection(state.db, "transactions"), where("ledgerId", "==", state.currentLedger.id)), snap => { 
+                    state.transactions = []; 
+                    snap.forEach(d => state.transactions.push({ id: d.id, ...d.data() })); 
+                    // Enhanced sorting: Date descending, then Created At descending
+                    state.transactions.sort((a, b) => {
+                        const dateDiff = new Date(b.date) - new Date(a.date);
+                        if (dateDiff !== 0) return dateDiff;
+                        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+                    }); 
+                    app.updateLedgerView(); 
+                    document.getElementById('loadingIndicator').classList.add('hidden'); 
+                }); 
+            },
+            
             addTransaction: async(e)=>{
                 e.preventDefault(); 
                 const b=document.getElementById('submitBtn'); 
-                const originalBtnText = b.innerHTML; // 暫存原本的按鈕文字
+                const originalBtnText = b.innerHTML; 
                 b.disabled=true;
-                b.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> 處理中...'; // 顯示讀取中狀態
+                b.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> 處理中...';
 
                 let u=document.getElementById('hiddenImageUrl').value;
                 const merch=document.getElementById('tMerchant').value.trim();
@@ -1398,7 +1447,6 @@
                     const eid=document.getElementById('editingTxId').value; const typ=document.getElementById('tType').value; const dat=document.getElementById('tDate').value;
                     const isG=state.currentLedger.type==='group'; let cur='TWD',rate=1,pb='',splitAmong=[];
                     
-                    // Enable Currency Logic for All Ledgers
                     cur=document.getElementById('tCurrency').value; 
                     rate=parseFloat(document.getElementById('tRate').value)||1;
                     
@@ -1412,21 +1460,21 @@
                         const r=rows[0]; if(r){
                             const n=r.querySelector('.item-name').value,c=r.querySelector('.item-cat').value,nt=r.querySelector('.item-note').value;
                             let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a; 
-                            if(cur!=='TWD') a=Math.round(oa*rate); // Calculate TWD amount for storage
+                            if(cur!=='TWD') a=Math.round(oa*rate); 
                             bat.update(doc(state.db,"transactions",eid),{ ledgerId:state.currentLedger.id, type:typ, date:dat, amount:a, originalAmount:oa, currency:cur, exchangeRate:rate, paidBy:pb, splitAmong, name:n, category:c, imageUrl:u, merchant:merch, lastEditedBy:state.userName, lastEditedAt:new Date().toISOString(), note: nt });
                         }
                     } else {
                         rows.forEach((r,idx)=>{
                             const n=r.querySelector('.item-name').value.trim(),c=r.querySelector('.item-cat').value,nt=r.querySelector('.item-note').value.trim();
                             let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a; if(!n&&a===0)return; 
-                            if(cur!=='TWD') a=Math.round(oa*rate); // Calculate TWD amount for storage
+                            if(cur!=='TWD') a=Math.round(oa*rate); 
                             bat.set(doc(collection(state.db,"transactions")),{ ledgerId:state.currentLedger.id, type:typ, date:dat, amount:a, originalAmount:oa, currency:cur, exchangeRate:rate, paidBy:pb, splitAmong, name:n, category:c, imageUrl:u, merchant:merch, groupId, createdAt:new Date().toISOString(), lastEditedBy:state.userName, lastEditedAt:new Date().toISOString(), note: nt });
                         });
                     }
                     await bat.commit(); ui.closeModal('transactionModal'); ai.clearImage();
                 } catch(e) { alert("儲存失敗: "+e.message); } finally { 
                     b.disabled=false; 
-                    b.innerHTML = originalBtnText; // 恢復原本的按鈕文字
+                    b.innerHTML = originalBtnText; 
                 }
             },
             
@@ -1445,7 +1493,6 @@
                 document.getElementById('hiddenImageUrl').value=t.imageUrl||''; document.getElementById('tMerchant').value=t.merchant||'';
                 document.getElementById('btnAddItem').classList.add('hidden'); document.getElementById('uploadContainer').classList.add('hidden');
                 
-                // Set currency for all types
                 document.getElementById('tCurrency').value=t.currency||'TWD'; document.getElementById('tRate').value = t.exchangeRate ? parseFloat(t.exchangeRate).toFixed(4) : 1;
                 app.updateRate(false);
 
@@ -1531,7 +1578,6 @@
                     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${state.geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: p }, { inlineData: { mimeType: state.currentImage.mimeType, data: state.currentImage.base64 } }] }] }) });
                     const d = await r.json(); if (d.error) throw new Error(d.error.message);
                     
-                    // Improved JSON extraction logic
                     let rawText = d.candidates[0].content.parts[0].text;
                     const firstOpen = rawText.indexOf('{');
                     const lastClose = rawText.lastIndexOf('}');
@@ -1620,10 +1666,18 @@
             renderTransactionListHTML: (list) => { 
                 const tb=document.getElementById('transactionTableBody'); if(!list.length) { tb.innerHTML='<tr><td colspan="5" class="p-8 text-center text-gray-400">無資料</td></tr>'; return; }
                 const groups = {}; list.forEach(t => { const gid = t.groupId || t.id; if(!groups[gid]) groups[gid] = { ...t, items: [], totalAmount: 0, totalOriginalAmount: 0 }; groups[gid].items.push(t); groups[gid].totalAmount += t.amount; groups[gid].totalOriginalAmount += (t.originalAmount || 0); });
-                tb.innerHTML = Object.values(groups).sort((a,b) => new Date(b.date) - new Date(a.date)).map(g => {
+                
+                // Enhanced Sort for Grouped Items: Date Desc -> CreatedAt Desc
+                const sortedGroups = Object.values(groups).sort((a,b) => {
+                    const dateDiff = new Date(b.date) - new Date(a.date);
+                    if (dateDiff !== 0) return dateDiff;
+                    // For groups, use the createdAt of the primary item (the group representative)
+                    return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+                });
+
+                tb.innerHTML = sortedGroups.map(g => {
                     const isG = g.items.length > 1; const detailId = `detail-${g.id}`;
                     
-                    // Fix: Find the image URL and create a clickable button
                     const imgItem = g.items.find(i => i.imageUrl);
                     const paperclipHtml = imgItem 
                         ? `<button onclick="event.stopPropagation(); ui.viewImage('${imgItem.imageUrl}')" class="ml-1 text-indigo-500 hover:text-indigo-700 transition" title="查看收據"><i class="fa-solid fa-paperclip"></i></button>` 
