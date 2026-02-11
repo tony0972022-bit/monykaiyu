@@ -121,10 +121,17 @@
     <main class="flex-1 flex flex-col h-full relative overflow-y-auto">
         <header class="bg-white p-4 shadow-sm flex justify-between items-center md:hidden sticky top-0 z-30">
             <h1 class="font-bold text-lg"><i class="fa-solid fa-wallet text-emerald-500"></i> 記帳本</h1>
-            <button onclick="ui.toggleMobileMenu()" class="text-gray-600"><i class="fa-solid fa-bars text-xl"></i></button>
+            <div class="flex items-center gap-4">
+                <button onclick="window.location.reload()" class="text-gray-500 hover:text-blue-600 transition" title="重新整理">
+                    <i class="fa-solid fa-rotate-right text-lg"></i>
+                </button>
+                <button onclick="ui.toggleMobileMenu()" class="text-gray-600">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+            </div>
         </header>
 
-        <!-- Top Control Bar: Optimized for Mobile -->
+        <!-- Top Control Bar: Optimized for Mobile UI -->
         <div class="bg-white border-b border-gray-200 p-4 md:p-6 flex flex-col md:flex-row md:justify-between md:items-center gap-4 sticky top-0 z-20 shadow-sm md:static">
             
             <!-- Left Side: Title & Info -->
@@ -139,15 +146,15 @@
                 </div>
             </div>
 
-            <!-- Right Side: Actions (Wrapped for mobile) -->
-            <div class="flex flex-wrap items-center gap-2 justify-end">
-                <!-- Date Filters (Modified for Day Selection) -->
-                <div class="flex bg-gray-100 rounded-lg p-1 items-center gap-1" id="globalDateFilter">
+            <!-- Right Side: Actions (Mobile Optimized) -->
+            <div class="w-full md:w-auto flex flex-col md:flex-row gap-2 mt-1 md:mt-0">
+                <!-- Date Filters: Full width bar on mobile -->
+                <div class="flex bg-slate-50 border border-slate-100 rounded-xl p-1.5 items-center justify-between w-full md:w-auto shadow-sm md:shadow-none">
                     <!-- Year/Month Mode -->
-                    <div id="ymFilter" class="flex items-center">
-                        <select id="ledgerYear" class="bg-transparent text-sm font-bold text-gray-700 p-1 outline-none max-w-[70px]" onchange="app.updateLedgerView()"></select>
-                        <div class="w-[1px] bg-gray-300 my-1 h-4 mx-1"></div>
-                        <select id="ledgerMonth" class="bg-transparent text-sm font-bold text-gray-700 p-1 outline-none" onchange="app.updateLedgerView()">
+                    <div id="ymFilter" class="flex items-center flex-1 justify-center md:justify-start px-2">
+                        <select id="ledgerYear" class="bg-transparent text-sm font-bold text-slate-700 p-1 outline-none text-center" onchange="app.updateLedgerView()"></select>
+                        <span class="text-slate-300 mx-2">/</span>
+                        <select id="ledgerMonth" class="bg-transparent text-sm font-bold text-slate-700 p-1 outline-none text-center" onchange="app.updateLedgerView()">
                             <option value="all">全年</option>
                             <option value="01">1月</option><option value="02">2月</option><option value="03">3月</option>
                             <option value="04">4月</option><option value="05">5月</option><option value="06">6月</option>
@@ -157,33 +164,34 @@
                     </div>
                     
                     <!-- Specific Day Mode (Hidden by default) -->
-                    <div id="dayFilter" class="hidden flex items-center bg-white rounded px-2 py-0.5 border border-blue-200">
-                        <span id="displayDayFilter" class="text-xs font-bold text-blue-600 mr-2">2024-02-01</span>
-                        <button onclick="app.clearDateFilter()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times"></i></button>
+                    <div id="dayFilter" class="hidden flex items-center bg-blue-50 rounded px-3 py-1 border border-blue-200 flex-1 justify-center">
+                        <span id="displayDayFilter" class="text-sm font-bold text-blue-600 mr-2"></span>
+                        <button onclick="app.clearDateFilter()" class="text-blue-400 hover:text-red-500"><i class="fa-solid fa-times"></i></button>
                     </div>
 
-                    <!-- Divider -->
-                    <div class="w-[1px] bg-gray-300 my-1 h-4 mx-1"></div>
-
-                    <!-- Date Picker Trigger -->
-                    <div class="relative group">
+                    <!-- Divider & Calendar Icon -->
+                    <div class="w-[1px] bg-slate-200 h-5 mx-1"></div>
+                    <div class="relative group px-1">
                         <input type="date" id="filterDateInput" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10" onchange="app.setSpecificDate(this.value)">
-                        <button class="p-1 px-2 text-gray-500 hover:text-blue-600 transition" title="依特定日期查詢">
+                        <button class="p-2 text-slate-400 hover:text-blue-600 transition" title="依特定日期查詢">
                             <i class="fa-solid fa-calendar-day"></i>
                         </button>
                     </div>
                 </div>
 
-                <div class="flex gap-2">
-                    <button id="settleBtn" onclick="app.calculateDebt()" class="hidden bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg shadow transition flex items-center gap-1 font-medium text-xs md:text-sm">
+                <!-- Action Buttons: Row on mobile, evenly spaced -->
+                <div class="flex gap-2 w-full md:w-auto">
+                    <!-- Secondary Buttons (Flex 1 to share space) -->
+                    <button id="settleBtn" onclick="app.calculateDebt()" class="hidden flex-1 md:flex-none bg-white border border-indigo-100 hover:bg-indigo-50 text-indigo-600 px-3 py-2.5 rounded-xl shadow-sm transition flex items-center justify-center gap-1 font-bold text-xs md:text-sm">
                         <i class="fa-solid fa-calculator"></i> <span class="hidden sm:inline">分帳</span>
                     </button>
                     
-                    <button onclick="ui.openRecurringModal()" class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg shadow transition flex items-center gap-1 font-medium text-xs md:text-sm">
-                        <i class="fa-solid fa-calendar-check"></i> <span class="hidden sm:inline">固定</span>
+                    <button onclick="ui.openRecurringModal()" class="flex-1 md:flex-none bg-white border border-purple-100 hover:bg-purple-50 text-purple-600 px-3 py-2.5 rounded-xl shadow-sm transition flex items-center justify-center gap-1 font-bold text-xs md:text-sm">
+                        <i class="fa-solid fa-calendar-check"></i> <span class="md:hidden">固定</span><span class="hidden md:inline">固定收支</span>
                     </button>
 
-                    <button id="addTxBtn" onclick="ui.openTransactionModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg shadow transition flex items-center gap-1 font-medium text-xs md:text-sm">
+                    <!-- Primary Button (Flex 2 or just prominent color) -->
+                    <button id="addTxBtn" onclick="ui.openTransactionModal()" class="flex-[1.5] md:flex-none bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-1 font-bold text-sm whitespace-nowrap">
                         <i class="fa-solid fa-plus"></i> 記一筆
                     </button>
                 </div>
@@ -1675,6 +1683,8 @@
                     return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
                 });
 
+                const isGroupLedger = state.currentLedger && state.currentLedger.type === 'group';
+
                 tb.innerHTML = sortedGroups.map(g => {
                     const isG = g.items.length > 1; const detailId = `detail-${g.id}`;
                     
@@ -1683,7 +1693,83 @@
                         ? `<button onclick="event.stopPropagation(); ui.viewImage('${imgItem.imageUrl}')" class="ml-1 text-indigo-500 hover:text-indigo-700 transition" title="查看收據"><i class="fa-solid fa-paperclip"></i></button>` 
                         : '';
 
-                    return `<tr class="border-b hover:bg-gray-50 tx-group-header" onclick="ui.toggleDetail('${detailId}')"><td class="hidden md:table-cell p-2 text-center" onclick="event.stopPropagation()"><input type="checkbox" class="tx-checkbox" data-ids="${g.items.map(i=>i.id).join(',')}" onchange="ui.updateBulkActionState()"></td><td class="p-2 text-xs">${g.date.slice(5)}</td><td class="p-2"><div class="flex flex-col"><span class="font-bold">${g.merchant || g.items[0].name}${paperclipHtml}</span><span class="text-[10px] text-gray-400">${g.items.map(i=>i.category).join(', ')}</span></div></td><td class="p-2 text-right"><span class="font-bold ${g.type==='expense'?'text-rose-600':'text-emerald-600'}">${g.type==='expense'?'-':'+'}${g.totalAmount.toLocaleString()}</span>${g.currency!=='TWD'?`<div class="text-[10px] text-gray-400">${g.currency} ${g.totalOriginalAmount.toLocaleString()}</div>`:''}</td><td class="p-2 text-center"><i class="fa-solid fa-chevron-down text-gray-300" id="arrow-${detailId}"></i></td></tr><tr id="${detailId}" class="hidden bg-slate-50"><td colspan="5" class="p-4">${g.items.map(i=>`<div class="flex justify-between py-1 border-b last:border-0"><span>${i.name} (${i.category})</span><div class="flex gap-2"><span>$${i.amount.toLocaleString()}</span><button onclick="app.editTransaction('${i.id}')" class="text-blue-400"><i class="fa-solid fa-pen"></i></button><button onclick="app.deleteTransaction('${i.id}')" class="text-red-400"><i class="fa-solid fa-trash"></i></button></div></div>`).join('')}</td></tr>`;
+                    // Group Ledger Badges Logic
+                    let groupBadges = '';
+                    if (isGroupLedger && g.type === 'expense') {
+                        const payer = g.paidBy || '?';
+                        const splits = Array.isArray(g.splitAmong) ? g.splitAmong : [];
+                        const memberCount = state.currentLedger.members ? state.currentLedger.members.length : 0;
+                        
+                        let splitText = '全員';
+                        if (splits.length > 0 && splits.length < memberCount) {
+                            splitText = splits.length <= 2 ? splits.join(', ') : `${splits.length}人分攤`;
+                        }
+
+                        groupBadges = `
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800 border border-yellow-200" title="付款人">
+                                    <i class="fa-solid fa-wallet mr-1"></i>${payer}
+                                </span>
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100" title="分攤對象">
+                                    <i class="fa-solid fa-users mr-1"></i>${splitText}
+                                </span>
+                            </div>
+                        `;
+                    }
+
+                    return `<tr class="border-b hover:bg-gray-50 tx-group-header" onclick="ui.toggleDetail('${detailId}')">
+                        <td class="hidden md:table-cell p-2 text-center" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="tx-checkbox" data-ids="${g.items.map(i=>i.id).join(',')}" onchange="ui.updateBulkActionState()">
+                        </td>
+                        <td class="p-2 text-xs w-16 md:w-24 align-top pt-3 text-gray-500 font-mono">${g.date.slice(5)}</td>
+                        <td class="p-2">
+                            <div class="flex flex-col">
+                                <span class="font-bold text-gray-800 text-sm leading-tight mb-1">${g.merchant || g.items[0].name}${paperclipHtml}</span>
+                                <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    <span class="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">${g.items.map(i=>i.category).join(', ')}</span>
+                                    ${groupBadges}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-2 text-right align-top pt-3">
+                            <span class="font-bold font-mono ${g.type==='expense'?'text-rose-600':'text-emerald-600'}">${g.type==='expense'?'-':'+'}${g.totalAmount.toLocaleString()}</span>
+                            ${g.currency!=='TWD'?`<div class="text-[10px] text-gray-400 font-mono">${g.currency} ${g.totalOriginalAmount.toLocaleString()}</div>`:''}
+                        </td>
+                        <td class="p-2 text-center w-8 align-middle">
+                            <i class="fa-solid fa-chevron-down text-gray-300 transition-transform duration-200" id="arrow-${detailId}"></i>
+                        </td>
+                    </tr>
+                    <tr id="${detailId}" class="hidden bg-slate-50 border-b border-slate-100 shadow-inner">
+                        <td colspan="5" class="p-3 md:p-4">
+                            <div class="space-y-2">
+                                ${g.items.map(i=>`
+                                    <div class="flex justify-between items-center text-sm p-2 bg-white rounded border border-gray-100 shadow-sm">
+                                        <div class="flex flex-col">
+                                            <span class="font-medium text-gray-700">${i.name}</span>
+                                            <span class="text-[10px] text-gray-400">${i.category} ${i.note ? `• ${i.note}` : ''}</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span class="font-mono text-gray-600 font-bold">$${i.amount.toLocaleString()}</span>
+                                            <div class="flex gap-2 border-l pl-2 border-gray-200">
+                                                <button onclick="app.editTransaction('${i.id}')" class="text-blue-400 hover:text-blue-600 p-1" title="編輯"><i class="fa-solid fa-pen"></i></button>
+                                                <button onclick="app.deleteTransaction('${i.id}')" class="text-red-400 hover:text-red-600 p-1" title="刪除"><i class="fa-solid fa-trash"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                                
+                                ${isGroupLedger && g.type === 'expense' ? `
+                                    <div class="mt-3 text-xs text-gray-500 bg-white/50 border border-gray-200 p-2 rounded flex items-start gap-2">
+                                        <i class="fa-solid fa-circle-info text-indigo-400 mt-0.5"></i>
+                                        <div>
+                                            <div><span class="font-bold text-gray-600">付款人：</span>${g.paidBy || '?'}</div>
+                                            <div class="mt-0.5"><span class="font-bold text-gray-600">分攤成員：</span>${(g.splitAmong && g.splitAmong.length) ? g.splitAmong.join('、') : '全體成員'}</div>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>`;
                 }).join('');
             },
             renderTopStats: (list) => {
