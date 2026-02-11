@@ -1381,7 +1381,12 @@
 
             listenTransactions: () => { if (!state.currentLedger) return; if (state.unsubscribeTrans) state.unsubscribeTrans(); document.getElementById('loadingIndicator').classList.remove('hidden'); state.unsubscribeTrans = onSnapshot(query(collection(state.db, "transactions"), where("ledgerId", "==", state.currentLedger.id)), snap => { state.transactions = []; snap.forEach(d => state.transactions.push({ id: d.id, ...d.data() })); state.transactions.sort((a, b) => new Date(b.date) - new Date(a.date)); app.updateLedgerView(); document.getElementById('loadingIndicator').classList.add('hidden'); }); },
             addTransaction: async(e)=>{
-                e.preventDefault(); const b=document.getElementById('submitBtn'); b.disabled=true;
+                e.preventDefault(); 
+                const b=document.getElementById('submitBtn'); 
+                const originalBtnText = b.innerHTML; // 暫存原本的按鈕文字
+                b.disabled=true;
+                b.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> 處理中...'; // 顯示讀取中狀態
+
                 let u=document.getElementById('hiddenImageUrl').value;
                 const merch=document.getElementById('tMerchant').value.trim();
                 const groupId=Date.now().toString();
@@ -1419,7 +1424,10 @@
                         });
                     }
                     await bat.commit(); ui.closeModal('transactionModal'); ai.clearImage();
-                } catch(e) { alert("儲存失敗: "+e.message); } finally { b.disabled=false; }
+                } catch(e) { alert("儲存失敗: "+e.message); } finally { 
+                    b.disabled=false; 
+                    b.innerHTML = originalBtnText; // 恢復原本的按鈕文字
+                }
             },
             
             getDirectDriveUrl: (url) => {
