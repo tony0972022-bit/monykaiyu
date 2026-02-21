@@ -291,7 +291,6 @@
         </div>
     </main>
 
-    <!-- ... (Modals remain unchanged until script) ... -->
     <!-- Generic Confirmation Modal (NEW) -->
     <div id="confirmModal" class="fixed inset-0 bg-black/50 z-[100] hidden flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm m-4 animate-fade-in text-center">
@@ -541,7 +540,6 @@
         </div>
     </div>
 
-    <!-- ... (Modals remain unchanged) ... -->
     <!-- Modal: Settlement & Archive -->
     <div id="settleModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto">
@@ -761,6 +759,23 @@
                 <div id="aiLoading" class="hidden relative z-20 mt-2 py-4"><div class="loader mx-auto mb-2 border-indigo-500 border-t-transparent"></div><p class="text-sm font-bold text-indigo-600 animate-pulse" id="aiStatusText">AI 正在辨識收據內容...</p></div>
                 <div id="imagePreviewContainer" class="hidden mt-2 relative z-10"><img id="imagePreview" class="h-32 mx-auto rounded object-contain mb-2 border border-gray-200 shadow"><button type="button" onclick="ai.clearImage()" class="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-600 text-xs rounded-full font-bold transition">清除重選</button></div>
             </div>
+
+            <!-- AI Note Input (筆記快速記帳區) -->
+            <div id="noteInputContainer" class="mb-4 bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center relative group">
+                <h4 class="text-sm font-bold text-emerald-800 mb-2 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-pen-to-square"></i> AI 筆記快速記帳
+                </h4>
+                <!-- 更新 Placeholder -->
+                <textarea id="aiNoteInput" rows="2" placeholder="記帳筆記例如：&#10;好市多 牛肉 羊肉 2000 鞋1900 東 西雞肉700" class="w-full p-2 bg-white border border-emerald-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 mb-2 outline-none resize-y"></textarea>
+                <button type="button" onclick="ai.runNoteAnalysis()" id="btnAiNote" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-bold shadow transition flex items-center justify-center gap-2 mx-auto">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> AI 自動解析填入
+                </button>
+                <div id="aiNoteLoading" class="hidden relative z-20 py-2">
+                    <div class="loader mx-auto mb-2 border-emerald-500 border-t-transparent"></div>
+                    <p class="text-sm font-bold text-emerald-600 animate-pulse">AI 正在解析筆記內容...</p>
+                </div>
+            </div>
+
             <div id="editHistoryBox" class="hidden mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500"><p class="font-bold mb-1">修訂紀錄：</p><ul id="editHistoryList" class="list-disc pl-4 space-y-1"></ul></div>
             <form id="transactionForm" onsubmit="app.addTransaction(event)" class="space-y-4">
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
@@ -893,7 +908,7 @@
         };
 
         const state = {
-            db: null, geminiKey: localStorage.getItem('acc_gemini_key') || 'AIzaSyA2WZwhP-dG_37EEW9MDrlUQ_TG-d1TAdY', scriptUrl: localStorage.getItem('acc_script_url') || 'https://script.google.com/macros/s/AKfycbwNIaGFsgcePv5Sp3jLNZHYMGPDxroDjAez_K2r0L5WihkcC2waA6J5-LwBLjg1gz7Img/exec',
+            db: null, geminiKey: localStorage.getItem('acc_gemini_key') || 'AIzaSyDSnuxqBR0ywRX4zm1hR2Aknnoy0quS0wo', scriptUrl: localStorage.getItem('acc_script_url') || 'https://script.google.com/macros/s/AKfycbwNIaGFsgcePv5Sp3jLNZHYMGPDxroDjAez_K2r0L5WihkcC2waA6J5-LwBLjg1gz7Img/exec',
             userName: localStorage.getItem('acc_username') || '', 
             ledgers: [], rawLedgers: [], userPrefs: { favorites: [], orders: {} }, 
             currentLedger: null, transactions: [], allTransactionsCache: [], usersList: [], unsubscribeTrans: null, unsubscribeLedgers: null, isOnline: false, currentImage: null, lastQrData: null, rates: { TWD: 1, JPY: 0.22, USD: 31.5, KRW: 0.024, EUR: 34.5, CNY: 4.4 }, unlockedLedgers: [], pendingLedgerId: null, categories: JSON.parse(localStorage.getItem('acc_custom_categories')) || DEFAULT_CATEGORIES,
@@ -909,7 +924,7 @@
         const app = {
             init: async () => {
                 const k = localStorage.getItem('acc_gemini_key');
-                if (k && k.endsWith('SW8o')) { localStorage.setItem('acc_gemini_key', 'AIzaSyA2WZwhP-dG_37EEW9MDrlUQ_TG-d1TAdY'); state.geminiKey = 'AIzaSyA2WZwhP-dG_37EEW9MDrlUQ_TG-d1TAdY'; }
+                if (!k || k === 'AIzaSyA2WZwhP-dG_37EEW9MDrlUQ_TG-d1TAdY' || k.endsWith('SW8o')) { localStorage.setItem('acc_gemini_key', 'AIzaSyDSnuxqBR0ywRX4zm1hR2Aknnoy0quS0wo'); state.geminiKey = 'AIzaSyDSnuxqBR0ywRX4zm1hR2Aknnoy0quS0wo'; }
                 document.getElementById('geminiKeyInput').value = state.geminiKey; document.getElementById('scriptUrlInput').value = state.scriptUrl; document.getElementById('firebaseConfigInput').value = JSON.stringify(FIREBASE_CONFIG, null, 2);
                 document.getElementById('aiPromptInput').value = state.customAiPrompt; 
                 app.fetchRates(); await app.connectFirebase(FIREBASE_CONFIG); await app.loadGlobalSettings();
@@ -937,7 +952,6 @@
                     await app.loadUserSettings(); app.listenLedgers(); app.listenAssets(); app.loadUsersList();
                 }
             },
-            // ... (Previous helper functions remain unchanged) ...
             loadUsersList: async () => { try { const q = query(collection(state.db, "users")); const s = await getDocs(q); state.usersList = []; const sl = document.getElementById('loginUserSelect'); sl.innerHTML = '<option value="">請選擇角色...</option>'; s.forEach(d => { state.usersList.push(d.id); sl.innerHTML += `<option value="${d.id}">${d.id}</option>`; }); if (state.usersList.length === 0) document.getElementById('existingUserSection').classList.add('hidden'); } catch (e) { console.error("Login List Error", e); } },
             loginExistingUser: async () => { 
                 const n = document.getElementById('loginUserSelect').value;
@@ -1260,7 +1274,26 @@
             exportToExcel: () => { if (!state.allTransactionsCache.length) return alert("無資料"); const d = state.allTransactionsCache.map(t => ({ 日期: t.date, 帳本: t.ledgerName, 類型: t.type, 金額: t.amount, 項目: t.name, 分類: t.category, 商店: t.merchant || '' })); const w = XLSX.utils.json_to_sheet(d), b = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(b, w, "Data"); XLSX.writeFile(b, `帳本匯出.xlsx`); },
             exportCurrentList: () => { if (state.currentListData.length === 0) return alert("無資料"); const exportData = state.currentListData.map(t => ({ '日期': t.date, '商店/對象': t.merchant || '', '項目名稱': t.name, '類別': t.category, '類型': t.type === 'expense' ? '支出' : '收入', '金額': t.amount, '幣別': t.currency, '付款人': t.paidBy || '' })); const ws = XLSX.utils.json_to_sheet(exportData); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Transactions"); XLSX.writeFile(wb, `交易明細_${new Date().toISOString().slice(0,10)}.xlsx`); },
 
-            askAI: async () => { const i = document.getElementById('aiChatInput'), h = document.getElementById('aiChatHistory'), b = document.getElementById('btnAiSend'), q = i.value.trim(); if (!q || !state.geminiKey) return; h.innerHTML += `<div class="bg-indigo-100 p-2 rounded-lg ml-auto w-fit mb-2 text-sm text-indigo-900">${q}</div>`; b.disabled = true; i.value = ''; try { const p = `Role: Financial Assistant. Context JSON: ${JSON.stringify(state.allTransactionsCache.slice(0, 50).map(t => ({ d: t.date, a: t.amount, c: t.category, i: t.name })))}. Question: "${q}". Answer in Traditional Chinese, concise.`; const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${state.geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: p }] }] }) }); const d = await r.json(); h.innerHTML += `<div class="bg-white border p-2 rounded-lg w-fit mb-2 text-sm text-gray-700">${marked.parse(d.candidates[0].content.parts[0].text)}</div>`; } catch (e) { h.innerHTML += `<div class="text-red-500 text-xs">Error</div>`; } b.disabled = false; h.scrollTop = h.scrollHeight; },
+            askAI: async () => { 
+                const i = document.getElementById('aiChatInput'), h = document.getElementById('aiChatHistory'), b = document.getElementById('btnAiSend'), q = i.value.trim(); 
+                if (!q || !state.geminiKey) return; 
+                h.innerHTML += `<div class="bg-indigo-100 p-2 rounded-lg ml-auto w-fit mb-2 text-sm text-indigo-900">${q}</div>`; 
+                b.disabled = true; i.value = ''; 
+                try { 
+                    const p = `Role: Financial Assistant. Context JSON: ${JSON.stringify(state.allTransactionsCache.slice(0, 50).map(t => ({ d: t.date, a: t.amount, c: t.category, i: t.name })))}. Question: "${q}". Answer in Traditional Chinese, concise.`; 
+                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ contents: [{ parts: [{ text: p }] }] }) 
+                    }); 
+                    const d = await r.json(); 
+                    if (d.error) throw new Error(d.error.message);
+                    h.innerHTML += `<div class="bg-white border p-2 rounded-lg w-fit mb-2 text-sm text-gray-700">${marked.parse(d.candidates[0].content.parts[0].text)}</div>`; 
+                } catch (e) { 
+                    h.innerHTML += `<div class="text-red-500 text-xs">Error: ${e.message} <br> (請至系統設定檢查 API Key 是否有效)</div>`; 
+                } 
+                b.disabled = false; h.scrollTop = h.scrollHeight; 
+            },
             
             deleteSelected: async () => {
                 const checked = document.querySelectorAll('.tx-checkbox:checked'); if(checked.length === 0) return;
@@ -1583,8 +1616,14 @@
                     const existingCats = state.categories.expense.join(', ');
                     let p = `Analyze this receipt. 1. Identify items & prices. 2. Distribute service charges/taxes/discounts proportionally. 3. Return ONLY valid JSON: {"merchant":"...", "items":[{"name":"...", "amount":number, "category":"...", "note":"..."}]}. Do not include markdown formatting or explanations. Category map to: [${existingCats}].`;
                     if (state.customAiPrompt) { p += ` User Instruction: ${state.customAiPrompt}`; }
-                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${state.geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: p }, { inlineData: { mimeType: state.currentImage.mimeType, data: state.currentImage.base64 } }] }] }) });
-                    const d = await r.json(); if (d.error) throw new Error(d.error.message);
+                    
+                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: p }, { inlineData: { mimeType: state.currentImage.mimeType, data: state.currentImage.base64 } }] }] }) 
+                    });
+                    const d = await r.json(); 
+                    if (d.error) throw new Error(d.error.message);
                     
                     let rawText = d.candidates[0].content.parts[0].text;
                     const firstOpen = rawText.indexOf('{');
@@ -1599,7 +1638,78 @@
                     document.getElementById('transactionItemsList').innerHTML=''; 
                     (j.items||[]).forEach(i => { if (!state.categories.expense.includes(i.category)) { state.categories.expense.push(i.category); app.saveCategories(); ui.renderSettings(); } ui.addItemRow(i.name, i.category, i.amount, i.note); }); 
                     if(j.merchant) document.getElementById('tMerchant').value = j.merchant; ui.updateTotal(); document.getElementById('aiStatusText').innerText = "辨識完成！"; setTimeout(() => l.classList.add('hidden'), 1500); 
-                } catch(e){ alert("辨識錯誤: " + e.message); l.classList.add('hidden'); } 
+                } catch(e){ alert("辨識錯誤: " + e.message + "\n(請至系統設定檢查 API Key 是否有效)"); l.classList.add('hidden'); } 
+            },
+            runNoteAnalysis: async () => {
+                const noteText = document.getElementById('aiNoteInput').value.trim();
+                if(!noteText) return alert("請先輸入筆記內容");
+                if(!state.geminiKey) return alert("請先設定 API Key");
+                
+                const btn = document.getElementById('btnAiNote');
+                const loader = document.getElementById('aiNoteLoading');
+                btn.classList.add('hidden');
+                loader.classList.remove('hidden');
+                
+                try {
+                    const tType = document.getElementById('tType').value;
+                    const existingCats = state.categories[tType].join(', ');
+                    let p = `請將以下使用者的隨手記帳筆記，解析為具體的記帳項目。
+使用者輸入：「${noteText}」
+
+請提取出商店名稱(merchant)、項目名稱(name)、金額(amount，必須是數字)，並從以下現有分類中選擇最適合的分類(category)：[${existingCats}]。如果沒有適合的分類，請填入"其他"。
+如果使用者輸入包含多個項目與金額（例如：好市多 牛肉 羊肉 2000 鞋1900 東 西雞肉700），請將其拆分為多個獨立的項目，並將最前面的「好市多」判斷為商店名稱。
+
+請「只」回傳合法的 JSON 格式，不要包含任何 markdown 語法或說明文字。
+格式範例：
+{"merchant":"好市多","items":[{"name":"牛肉 羊肉","amount":2000,"category":"食材","note":""},{"name":"鞋","amount":1900,"category":"服飾","note":""},{"name":"東 西雞肉","amount":700,"category":"食材","note":""}]}
+`;
+                    if (state.customAiPrompt) { p += `\n使用者額外指示：${state.customAiPrompt}`; }
+
+                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: p }] }] }) 
+                    });
+                    const d = await r.json(); 
+                    if (d.error) throw new Error(d.error.message);
+                    
+                    let rawText = d.candidates[0].content.parts[0].text;
+                    const firstOpen = rawText.indexOf('{');
+                    const lastClose = rawText.lastIndexOf('}');
+                    if (firstOpen !== -1 && lastClose !== -1) {
+                        rawText = rawText.substring(firstOpen, lastClose + 1);
+                    }
+                    
+                    const j = JSON.parse(rawText);
+                    
+                    // 如果原本只有一行空的預設項目，就先清空
+                    const existingRows = document.querySelectorAll('.item-row');
+                    if(existingRows.length === 1 && !existingRows[0].querySelector('.item-name').value && (parseFloat(existingRows[0].querySelector('.item-amount').value)||0) === 0) {
+                        document.getElementById('transactionItemsList').innerHTML = '';
+                    }
+                    
+                    if(j.merchant) {
+                        document.getElementById('tMerchant').value = j.merchant;
+                    }
+                    
+                    (j.items || []).forEach(i => { 
+                        if (!state.categories[tType].includes(i.category)) { 
+                            state.categories[tType].push(i.category); 
+                            app.saveCategories(); 
+                            ui.renderSettings(); 
+                            ui.updateCategoriesForRows();
+                        } 
+                        ui.addItemRow(i.name, i.category, i.amount, i.note); 
+                    });
+                    
+                    ui.updateTotal();
+                    document.getElementById('aiNoteInput').value = ''; // 解析成功後清空輸入框
+                } catch(e) {
+                    alert("解析錯誤: " + e.message + "\n(請至系統設定檢查 API Key 是否有效或重新申請一組)");
+                } finally {
+                    btn.classList.remove('hidden');
+                    loader.classList.add('hidden');
+                }
             }
         };
 
