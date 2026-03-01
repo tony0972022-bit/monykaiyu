@@ -340,6 +340,17 @@
                         </select>
                     </div>
                 </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">預設顯示區間</label>
+                    <select id="newLedgerDefaultMonth" class="w-full p-3 border border-gray-300 rounded-lg bg-white text-sm">
+                        <option value="current">當月 (自動跟隨系統)</option>
+                        <option value="all">全年</option>
+                        <option value="01">1月</option><option value="02">2月</option><option value="03">3月</option>
+                        <option value="04">4月</option><option value="05">5月</option><option value="06">6月</option>
+                        <option value="07">7月</option><option value="08">8月</option><option value="09">9月</option>
+                        <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+                    </select>
+                </div>
                 <div id="memberInputDiv" class="hidden">
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">選擇成員</label>
                     <div id="memberSelectionList" class="max-h-32 overflow-y-auto border border-gray-300 rounded p-2 bg-gray-50 grid grid-cols-2 gap-2 text-sm">
@@ -1418,13 +1429,15 @@
                 const c = document.getElementById('newLedgerCurrency').value;
                 const iconRadio = document.querySelector('input[name="ledgerIcon"]:checked');
                 const icon = iconRadio ? iconRadio.value : "";
+                const dMonth = document.getElementById('newLedgerDefaultMonth').value;
+                
                 if(!n || !state.userName) return alert("資料不全");
                 try {
-                    if (id) { await updateDoc(doc(state.db, "ledgers", id), { name: n, type: t, defaultCurrency: c, icon: icon }); }
+                    if (id) { await updateDoc(doc(state.db, "ledgers", id), { name: n, type: t, defaultCurrency: c, icon: icon, defaultMonth: dMonth }); }
                     else {
                         let mem = t === 'group' ? Array.from(document.querySelectorAll('.member-checkbox:checked')).map(cb => cb.value) : [state.userName];
                         if(t === 'group' && !mem.includes(state.userName)) mem.push(state.userName);
-                        await addDoc(collection(state.db, "ledgers"), { name: n, type: t, members: mem, defaultCurrency: c, createdBy: state.userName, status: 'active', createdAt: new Date().toISOString(), icon: icon, isFavorite: false, order: Date.now() });
+                        await addDoc(collection(state.db, "ledgers"), { name: n, type: t, members: mem, defaultCurrency: c, defaultMonth: dMonth, createdBy: state.userName, status: 'active', createdAt: new Date().toISOString(), icon: icon, isFavorite: false, order: Date.now() });
                     }
                     ui.closeModal('ledgerModal');
                 } catch(e) { alert("儲存失敗: " + e.message); }
@@ -1544,6 +1557,21 @@
                 document.getElementById('transactionItemsList').innerHTML=''; ui.addItemRow(t.name,t.category,t.currency!=='TWD'?t.originalAmount:t.amount, t.note); ui.updateTotal();
             },
             deleteTransaction: async(id)=>{ ui.showConfirm('刪除交易', '確定要刪除這筆紀錄嗎？', async () => { await deleteDoc(doc(state.db, "transactions", id)); }); },
+            
+            toggleGroupSettled: async (idsString, isSettled) => {
+                if (!idsString) return;
+                const ids = idsString.split(',');
+                try {
+                    const batch = writeBatch(state.db);
+                    ids.forEach(id => {
+                        batch.update(doc(state.db, "transactions", id), { isSettled: isSettled });
+                    });
+                    await batch.commit();
+                } catch (e) {
+                    alert("更新結清狀態失敗: " + e.message);
+                }
+            },
+
             updateRate: (r=true)=>{
                 const c=document.getElementById('tCurrency').value;
                 if(r) { document.getElementById('tRate').value = (state.rates[c] || 1).toFixed(4); }
@@ -1557,6 +1585,7 @@
                 members.forEach(m => { balances[m] = 0; details[m] = { paid: 0, share: 0 }; });
                 state.transactions.forEach(t => {
                     if (t.type !== 'expense') return;
+                    if (t.isSettled) return; // 略過已經標記結清的項目
                     const payer = t.paidBy; const amount = t.amount; const beneficiaries = t.splitAmong && t.splitAmong.length > 0 ? t.splitAmong : members;
                     if (balances[payer] !== undefined) { balances[payer] += amount; details[payer].paid += amount; }
                     const splitAmount = amount / beneficiaries.length;
@@ -1572,7 +1601,7 @@
                 });
                 detailHtml += `</tbody></table></div>`;
                 let transferHtml = `<h4 class="font-bold text-gray-700 mb-2 border-l-4 border-indigo-500 pl-2">建議轉帳方案</h4><ul class="space-y-2">`;
-                if (creditors.length === 0) { transferHtml += '<li class="text-center text-green-500 font-bold bg-green-50 p-2 rounded">目前帳目平衡</li>'; } 
+                if (creditors.length === 0) { transferHtml += '<li class="text-center text-green-500 font-bold bg-green-50 p-2 rounded">目前未結清的帳目皆已平衡</li>'; } 
                 else {
                     let c = 0, d = 0; while (c < creditors.length && d < debtors.length) {
                         let amount = Math.min(creditors[c].amount, Math.abs(debtors[d].amount));
@@ -1755,6 +1784,7 @@
                 
                 ui.renderCurrencyOptions(); // Populate currency
                 document.getElementById('newLedgerCurrency').value = data?.defaultCurrency || 'TWD';
+                document.getElementById('newLedgerDefaultMonth').value = data?.defaultMonth || 'current';
                 
                 const iconContainer = document.getElementById('iconSelector'); iconContainer.innerHTML = '<div><input type="radio" name="ledgerIcon" id="icon-none" value="" class="hidden" checked><label for="icon-none" class="w-8 h-8 flex items-center justify-center border rounded-full"><i class="fa-solid fa-ban"></i></label></div>';
                 ICONS.forEach((icon, idx) => { iconContainer.innerHTML += `<div><input type="radio" name="ledgerIcon" id="icon-${idx}" value="${icon}" class="hidden" ${data?.icon===icon?'checked':''}><label for="icon-${idx}" class="w-8 h-8 flex items-center justify-center border rounded-full text-lg">${icon}</label></div>`; });
@@ -1775,6 +1805,19 @@
                 document.getElementById('settleBtn').classList.toggle('hidden', l.type!=='group');
                 
                 document.getElementById('addTxBtn').classList.toggle('hidden', l.status==='archived'); 
+                
+                // 套用帳本預設顯示月份
+                const defMonth = l.defaultMonth || 'current';
+                document.getElementById('ledgerMonth').value = defMonth === 'current' ? (new Date().getMonth() + 1).toString().padStart(2, '0') : defMonth;
+                document.getElementById('ledgerYear').value = new Date().getFullYear().toString();
+                
+                // 清除特定日期篩選
+                state.filterDay = null; 
+                document.getElementById('filterDateInput').value = '';
+                document.getElementById('ymFilter').classList.remove('hidden');
+                document.getElementById('dayFilter').classList.add('hidden');
+                document.getElementById('clearFilterBtn').classList.add('hidden');
+                
                 ui.renderLedgerList(); 
                 app.listenTransactions(); 
                 app.listenRecurringRules(); 
@@ -1797,6 +1840,7 @@
 
                 tb.innerHTML = sortedGroups.map(g => {
                     const isG = g.items.length > 1; const detailId = `detail-${g.id}`;
+                    const isSettled = g.items.some(i => i.isSettled); // 檢查這組項目是否已結清
                     
                     const imgItem = g.items.find(i => i.imageUrl);
                     const paperclipHtml = imgItem 
@@ -1827,7 +1871,7 @@
                         `;
                     }
 
-                    return `<tr class="border-b hover:bg-gray-50 tx-group-header" onclick="ui.toggleDetail('${detailId}')">
+                    return `<tr class="border-b hover:bg-gray-50 tx-group-header ${isSettled ? 'opacity-50 bg-gray-100 grayscale-[50%]' : ''}" onclick="ui.toggleDetail('${detailId}')">
                         <td class="hidden md:table-cell p-2 text-center" onclick="event.stopPropagation()">
                             <input type="checkbox" class="tx-checkbox" data-ids="${g.items.map(i=>i.id).join(',')}" onchange="ui.updateBulkActionState()">
                         </td>
@@ -1837,6 +1881,7 @@
                                 <span class="font-bold text-gray-800 text-sm leading-tight mb-1">${g.merchant || g.items[0].name}${paperclipHtml}</span>
                                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                                     <span class="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">${g.items.map(i=>i.category).join(', ')}</span>
+                                    ${isSettled ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-300 text-gray-600 border border-gray-400"><i class="fa-solid fa-check-double mr-1"></i>已結清</span>' : ''}
                                     ${groupBadges}
                                 </div>
                             </div>
@@ -1869,12 +1914,17 @@
                                 `).join('')}
                                 
                                 ${isGroupLedger && g.type === 'expense' ? `
-                                    <div class="mt-3 text-xs text-gray-500 bg-white/50 border border-gray-200 p-2 rounded flex items-start gap-2">
-                                        <i class="fa-solid fa-circle-info text-indigo-400 mt-0.5"></i>
-                                        <div>
-                                            <div><span class="font-bold text-gray-600">付款人：</span>${g.paidBy || '?'}</div>
-                                            <div class="mt-0.5"><span class="font-bold text-gray-600">分攤成員：</span>${(g.splitAmong && g.splitAmong.length) ? g.splitAmong.join('、') : '全體成員'}</div>
+                                    <div class="mt-3 text-xs text-gray-500 bg-white/50 border border-gray-200 p-2 rounded flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
+                                        <div class="flex items-start gap-2">
+                                            <i class="fa-solid fa-circle-info text-indigo-400 mt-0.5"></i>
+                                            <div>
+                                                <div><span class="font-bold text-gray-600">付款人：</span>${g.paidBy || '?'}</div>
+                                                <div class="mt-0.5"><span class="font-bold text-gray-600">分攤成員：</span>${(g.splitAmong && g.splitAmong.length) ? g.splitAmong.join('、') : '全體成員'}</div>
+                                            </div>
                                         </div>
+                                        <button onclick="app.toggleGroupSettled('${g.items.map(i=>i.id).join(',')}', ${!isSettled})" class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors ${isSettled ? 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'}">
+                                            <i class="fa-solid ${isSettled ? 'fa-rotate-left' : 'fa-check-double'} mr-1"></i>${isSettled ? '取消結清' : '標記此筆已結清'}
+                                        </button>
                                     </div>
                                 ` : ''}
                             </div>
@@ -1884,10 +1934,76 @@
             },
             renderTopStats: (list) => {
                 const proc = (type) => {
-                    const f = list.filter(t => t.type === type); const tot = f.reduce((s, t) => s + t.amount, 0); const m = {}; f.forEach(t => m[t.category] = (m[t.category] || 0) + t.amount);
+                    const f = list.filter(t => t.type === type); const tot = f.reduce((s, t) => s + (Number(t.amount) || 0), 0); const m = {}; f.forEach(t => m[t.category] = (m[t.category] || 0) + (Number(t.amount) || 0));
                     return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([c, a]) => { const p = tot ? Math.round(a/tot*100) : 0; return `<div class="text-xs flex justify-between"><span>${c}</span><span>$${a.toLocaleString()} (${p}%)</span></div><div class="w-full bg-gray-100 h-1 rounded-full mb-2"><div class="bg-${type==='expense'?'rose':'emerald'}-400 h-1 rounded-full" style="width:${p}%"></div></div>`; }).join('') || '無資料';
                 };
-                document.getElementById('topExpenseList').innerHTML = proc('expense'); document.getElementById('topIncomeList').innerHTML = proc('income');
+                document.getElementById('topExpenseList').innerHTML = proc('expense'); 
+                document.getElementById('topIncomeList').innerHTML = proc('income');
+
+                // 商店/對象消費統計 (Top 20 + 展開全部)
+                const expList = list.filter(t => t.type === 'expense');
+                const totalExp = expList.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+                const merchantMap = {};
+                
+                expList.forEach(t => {
+                    // 確保 m 為安全字串，防呆處理
+                    let m = t.merchant ? String(t.merchant).trim() : '';
+                    
+                    if (!m) {
+                        // 如果沒有填寫商店，嘗試從名稱中比對預設商店
+                        if (t.name) {
+                            const lowerName = String(t.name).toLowerCase();
+                            const matched = (state.merchants || []).find(pm => pm && lowerName.includes(String(pm).toLowerCase()));
+                            if (matched) {
+                                m = String(matched);
+                            } else {
+                                // ★ 關鍵修改：如果沒有比對到，就直接拿「項目名稱」當作商店！
+                                // 這樣就能和明細列表上的顯示邏輯 (無商店則顯示項目) 完全一致，使用者就不會覺得資料不見了
+                                m = String(t.name).trim();
+                            }
+                        } else {
+                            m = '未填寫紀錄';
+                        }
+                    } else {
+                        // 統一大小寫比對：避免 "7-Eleven" 和 "7-ELEVEN" 被拆成兩筆
+                        const lowerM = m.toLowerCase();
+                        const presetMatch = (state.merchants || []).find(pm => pm && String(pm).toLowerCase() === lowerM);
+                        m = presetMatch ? String(presetMatch) : m;
+                    }
+                    
+                    // 確保金額為數字再相加
+                    merchantMap[m] = (merchantMap[m] || 0) + (Number(t.amount) || 0);
+                });
+                
+                const sortedMerchants = Object.entries(merchantMap).sort((a,b) => b[1] - a[1]);
+                
+                const generateHtml = (arr) => arr.map(([m, a]) => {
+                    const p = totalExp ? Math.round(a/totalExp*100) : 0;
+                    return `<div class="text-xs flex justify-between"><span>${m}</span><span>$${a.toLocaleString()} (${p}%)</span></div><div class="w-full bg-gray-100 h-1 rounded-full mb-2"><div class="bg-blue-400 h-1 rounded-full" style="width:${p}%"></div></div>`;
+                }).join('');
+
+                let topMerchantsHtml = '';
+                if (sortedMerchants.length === 0) {
+                    topMerchantsHtml = '<div class="text-xs text-gray-500">無資料</div>';
+                } else {
+                    const top20 = sortedMerchants.slice(0, 20);
+                    const rest = sortedMerchants.slice(20);
+                    
+                    topMerchantsHtml = generateHtml(top20);
+                    
+                    if (rest.length > 0) {
+                        topMerchantsHtml += `
+                            <div id="moreMerchantList" class="hidden mt-2 pt-2 border-t border-blue-100">
+                                ${generateHtml(rest)}
+                            </div>
+                            <button onclick="const el = document.getElementById('moreMerchantList'); el.classList.toggle('hidden'); this.innerHTML = el.classList.contains('hidden') ? '<i class=\\'fa-solid fa-chevron-down\\'></i> 展開顯示全部' : '<i class=\\'fa-solid fa-chevron-up\\'></i> 收起';" class="w-full text-center text-xs text-blue-500 hover:text-blue-700 mt-1 py-1 font-bold transition">
+                                <i class="fa-solid fa-chevron-down"></i> 展開顯示全部
+                            </button>
+                        `;
+                    }
+                }
+                
+                document.getElementById('topMerchantList').innerHTML = topMerchantsHtml;
             },
             renderAssets: () => {
                 const l = document.getElementById('assetsList'); l.innerHTML = ''; let t = 0;
