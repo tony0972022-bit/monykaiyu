@@ -104,10 +104,6 @@
         </div>
 
         <div class="p-4 border-t border-slate-700 space-y-2">
-            <!-- Import Excel Button (New) -->
-            <button onclick="ui.openModal('importModal')" class="flex items-center gap-3 w-full p-2 rounded hover:bg-slate-700 transition text-slate-300 hover:text-white">
-                <i class="fa-solid fa-file-import text-emerald-400"></i> 匯入 Excel
-            </button>
             <button onclick="ui.openSettings()" class="flex items-center gap-3 w-full p-2 rounded hover:bg-slate-700 transition text-slate-300 hover:text-white">
                 <i class="fa-solid fa-gear"></i> 系統設定
             </button>
@@ -185,6 +181,10 @@
                     <button id="settleBtn" onclick="app.calculateDebt()" class="hidden flex-1 md:flex-none bg-white border border-indigo-100 hover:bg-indigo-50 text-indigo-600 px-3 py-2.5 rounded-xl shadow-sm transition flex items-center justify-center gap-1 font-bold text-xs md:text-sm">
                         <i class="fa-solid fa-calculator"></i> <span class="hidden sm:inline">分帳</span>
                     </button>
+
+                    <button id="importLedgerBtn" onclick="ui.openModal('importModal')" class="flex-1 md:flex-none bg-white border border-emerald-100 hover:bg-emerald-50 text-emerald-600 px-3 py-2.5 rounded-xl shadow-sm transition flex items-center justify-center gap-1 font-bold text-xs md:text-sm">
+                        <i class="fa-solid fa-file-import"></i> <span class="hidden sm:inline">匯入</span>
+                    </button>
                     
                     <button onclick="ui.openRecurringModal()" class="flex-1 md:flex-none bg-white border border-purple-100 hover:bg-purple-50 text-purple-600 px-3 py-2.5 rounded-xl shadow-sm transition flex items-center justify-center gap-1 font-bold text-xs md:text-sm">
                         <i class="fa-solid fa-calendar-check"></i> <span class="md:hidden">固定</span><span class="hidden md:inline">固定收支</span>
@@ -211,6 +211,20 @@
             <div class="bg-white p-2 md:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
                 <p class="text-gray-500 text-[10px] md:text-xs font-bold uppercase mb-1">結餘</p>
                 <p id="totalBalance" class="text-base md:text-3xl font-bold text-blue-600">$0</p>
+            </div>
+        </div>
+
+        <!-- Today Reminder Banner -->
+        <div id="todayReminderBanner" class="hidden px-4 md:px-6 pb-2">
+            <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-bell text-amber-500"></i>
+                    <span class="text-sm text-amber-800 font-medium">今天（<span id="todayReminderDate"></span>）還沒有記帳哦！</span>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="ui.openTransactionModal()" class="text-xs bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg font-bold transition">記一筆</button>
+                    <button onclick="ui.dismissTodayReminder()" class="text-amber-400 hover:text-amber-600 transition"><i class="fa-solid fa-times"></i></button>
+                </div>
             </div>
         </div>
 
@@ -303,6 +317,11 @@
                              <i class="fa-solid fa-trash-can"></i> <span class="hidden md:inline">刪除</span>(<span id="selectedCount">0</span>)
                           </button>
                           
+                          <!-- Duplicate Check Button -->
+                          <button onclick="app.checkDuplicates()" class="text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 px-2 py-1 rounded font-bold transition flex items-center gap-1" title="掃描重複帳單">
+                             <i class="fa-solid fa-copy"></i> <span class="hidden md:inline">查重複</span>
+                          </button>
+
                           <!-- List Export Button -->
                           <button onclick="app.exportCurrentList()" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-1 rounded font-bold transition flex items-center gap-1">
                              <i class="fa-solid fa-file-export"></i> <span class="hidden md:inline">匯出</span>
@@ -619,18 +638,25 @@
     <!-- Modal: Import Excel -->
     <div id="importModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 m-4 animate-fade-in">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
                     <i class="fa-solid fa-file-import text-emerald-500"></i> 匯入 Excel 紀錄
                 </h3>
                 <button onclick="ui.closeModal('importModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
-            
+
+            <!-- Current Ledger Context -->
+            <div id="importLedgerInfo" class="mb-4 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-600 flex items-center gap-2">
+                <i class="fa-solid fa-book-open text-emerald-500"></i>
+                <span>匯入帳本：<strong id="importLedgerName" class="text-gray-800">—</strong></span>
+                <span id="importMemberBadges" class="ml-1 flex flex-wrap gap-1"></span>
+            </div>
+
             <div class="space-y-6">
                 <!-- Step 1: Download Template -->
                 <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <h4 class="font-bold text-blue-800 mb-2 text-sm">步驟 1：下載標準範本</h4>
-                    <p class="text-xs text-blue-600 mb-3">請先下載 Excel 範本，並依照格式填入您的舊帳本資料。</p>
+                    <h4 class="font-bold text-blue-800 mb-2 text-sm">步驟 1：下載此帳本專用範本</h4>
+                    <p class="text-xs text-blue-600 mb-3">範本已內建此帳本的成員名單與類別下拉選單，填完後直接匯入即可自動分類。</p>
                     <button onclick="app.downloadTemplate()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow transition flex items-center gap-2">
                         <i class="fa-solid fa-download"></i> 下載 Excel 範本 (.xlsx)
                     </button>
@@ -659,6 +685,55 @@
                         開始匯入
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Duplicate Check Results (Scan) -->
+    <div id="duplicateCheckModal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl m-4 animate-fade-in max-h-[90vh] flex flex-col">
+            <!-- Header -->
+            <div class="p-5 border-b border-gray-100 flex justify-between items-center shrink-0">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-copy text-orange-500"></i> 重複帳單掃描
+                </h3>
+                <button onclick="ui.closeModal('duplicateCheckModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <!-- Explanation -->
+            <div class="px-5 py-3 bg-orange-50 border-b border-orange-100 text-xs text-orange-800 shrink-0">
+                <p class="font-bold mb-1"><i class="fa-solid fa-circle-info mr-1"></i>判斷說明</p>
+                <div class="flex flex-wrap gap-x-4 gap-y-1">
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 mr-1"></span><b>確定重複</b>：同日期 ＋ 同金額 ＋ 同項目名稱</span>
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-orange-400 mr-1"></span><b>高度疑似</b>：同日期 ＋ 同金額 ＋ 同類別</span>
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-yellow-400 mr-1"></span><b>疑似</b>：同日期 ＋ 同金額</span>
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-300 mr-1"></span><b>同金額提示</b>：不同日期但金額相同</span>
+                </div>
+            </div>
+            <!-- Results -->
+            <div id="dupCheckResults" class="overflow-y-auto flex-1 p-5 space-y-4">
+                <p class="text-center text-gray-400 text-sm py-8">掃描中...</p>
+            </div>
+            <!-- Footer -->
+            <div class="p-4 border-t border-gray-100 flex justify-end gap-2 shrink-0">
+                <button onclick="ui.closeModal('duplicateCheckModal')" class="px-5 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Duplicate Warning (on Add) -->
+    <div id="dupWarnModal" class="fixed inset-0 bg-black/50 z-[80] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl m-4 animate-fade-in max-h-[90vh] flex flex-col">
+            <div class="p-5 border-b border-orange-100 flex items-center gap-3 shrink-0">
+                <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 shrink-0"><i class="fa-solid fa-triangle-exclamation text-lg"></i></div>
+                <div>
+                    <h3 class="font-bold text-gray-800">偵測到可能重複的帳單</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">以下是相似的既有紀錄，請確認是否繼續儲存</p>
+                </div>
+            </div>
+            <div id="dupWarnList" class="overflow-y-auto flex-1 p-5 space-y-2"></div>
+            <div class="p-4 border-t border-gray-100 flex gap-3 justify-end shrink-0">
+                <button onclick="ui.closeModal('dupWarnModal')" class="px-5 py-2.5 border border-gray-300 text-gray-600 rounded-lg font-bold text-sm hover:bg-gray-50">放棄，不儲存</button>
+                <button id="dupWarnContinueBtn" onclick="app.confirmPendingTx()" class="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-bold text-sm shadow">仍要繼續儲存</button>
             </div>
         </div>
     </div>
@@ -1223,11 +1298,75 @@
             },
 
             downloadTemplate: () => {
-                const headers = [['日期 (YYYY-MM-DD)', '收支類型 (支出/收入)', '類別', '項目名稱', '金額', '商店/對象 (選填)', '幣別 (選填)', '備註 (選填)', '付款人 (選填)', '分攤者 (選填，逗號分隔)']];
-                const example = [['2024-02-01', '支出', '飲食', '午餐便當', 120, '7-11', 'TWD', '公司聚餐', '小明', '小明,小華,小美']];
-                const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet([...headers, ...example]);
-                ws['!cols'] = [{wch:15}, {wch:15}, {wch:10}, {wch:20}, {wch:10}, {wch:15}, {wch:10}, {wch:20}, {wch:15}, {wch:25}];
-                XLSX.utils.book_append_sheet(wb, ws, "匯入範本"); XLSX.writeFile(wb, "記帳本匯入範本.xlsx");
+                const ledger = state.currentLedger;
+                const isGroup = ledger && ledger.type === 'group';
+                const members = (isGroup && ledger.members) ? ledger.members : [];
+                const currentUser = state.userName || '';
+
+                // 從 state.transactions 收集此帳本用過的類別（以實際資料為優先）
+                const usedExpCats = [...new Set(
+                    state.transactions.filter(t => t.type === 'expense' && t.category).map(t => t.category)
+                )];
+                const usedIncCats = [...new Set(
+                    state.transactions.filter(t => t.type === 'income' && t.category).map(t => t.category)
+                )];
+                // 補上預設類別
+                const expCats = [...new Set([...usedExpCats, ...state.categories.expense])];
+                const incCats = [...new Set([...usedIncCats, ...(state.categories.income || [])])];
+                const allCats = [...expCats, ...incCats];
+
+                // 決定範例付款人 / 分攤者
+                const exPaidBy = members.length > 0 ? members[0] : currentUser;
+                const exSplit = members.length >= 2 ? members.slice(0, 3).join(',') : (currentUser || '小明,小華');
+
+                // ─── 主工作表：匯入範本 ───
+                const headers = [['日期 (YYYY-MM-DD)', '收支類型', '類別', '項目名稱', '金額', '商店/對象 (選填)', '幣別 (選填)', '備註 (選填)', '付款人 (選填)', '分攤者 (選填，逗號分隔)']];
+                const example = [['2024-02-01', '支出', expCats[0] || '飲食', '午餐便當', 120, '7-11', 'TWD', '', exPaidBy, exSplit]];
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet([...headers, ...example]);
+                ws['!cols'] = [{wch:16},{wch:12},{wch:12},{wch:20},{wch:8},{wch:15},{wch:8},{wch:18},{wch:14},{wch:30}];
+
+                // ─── 輔助工作表：清單（供下拉參照用） ───
+                const listMax = Math.max(allCats.length, members.length, 2) + 1;
+                const listData = [['成員', '類別', '收支類型', '幣別']];
+                for (let i = 0; i < listMax - 1; i++) {
+                    listData.push([
+                        members[i] || '',
+                        allCats[i] || '',
+                        i === 0 ? '支出' : (i === 1 ? '收入' : ''),
+                        (state.currencies || ['TWD','JPY','USD','EUR'])[i] || ''
+                    ]);
+                }
+                const wsRef = XLSX.utils.aoa_to_sheet(listData);
+                wsRef['!cols'] = [{wch:12},{wch:12},{wch:10},{wch:8}];
+                XLSX.utils.book_append_sheet(wb, wsRef, '清單');
+
+                // ─── 資料驗證（下拉選單）───
+                // 共 500 列資料範圍；行從 1 開始（0-indexed）
+                const dataRows = 500;
+                const refSheet = '清單';
+                ws['!validations'] = [
+                    // B列：收支類型
+                    { sqref: `B2:B${dataRows}`, type: 'list', formula1: `${refSheet}!$C$2:$C$3`, showDropDown: false, showErrorMessage: true, error: '請選擇「支出」或「收入」' },
+                    // C列：類別
+                    { sqref: `C2:C${dataRows}`, type: 'list', formula1: `${refSheet}!$B$2:$B$${allCats.length + 1}`, showDropDown: false, showErrorMessage: false },
+                    // G列：幣別
+                    { sqref: `G2:G${dataRows}`, type: 'list', formula1: `${refSheet}!$D$2:$D$${(state.currencies||['TWD']).length + 1}`, showDropDown: false, showErrorMessage: false },
+                ];
+                // 付款人（I列）和分攤者（J列，只在多人帳本時加下拉）
+                if (members.length > 0) {
+                    ws['!validations'].push(
+                        { sqref: `I2:I${dataRows}`, type: 'list', formula1: `${refSheet}!$A$2:$A$${members.length + 1}`, showDropDown: false, showErrorMessage: false }
+                    );
+                    // J列分攤者：提示各成員名稱（因 Excel 不支援多選，顯示逗號分隔說明）
+                    ws['!validations'].push(
+                        { sqref: `J2:J${dataRows}`, type: 'custom', formula1: 'TRUE', promptTitle: '分攤者', prompt: `可填成員：${members.join('、')}（逗號分隔）`, showInputMessage: true }
+                    );
+                }
+
+                const ledgerName = ledger ? ledger.name.replace(/[\\/:*?"<>|]/g, '_') : 'default';
+                XLSX.utils.book_append_sheet(wb, ws, '匯入範本');
+                XLSX.writeFile(wb, `${ledgerName}_匯入範本.xlsx`);
             },
 
             handleFileSelect: (input) => {
@@ -1294,7 +1433,7 @@
                     });
                 }
 
-                ui.renderTopStats(listData); ui.renderSettledSection(listData); state.currentListData = listData;
+                ui.renderTopStats(listData); ui.renderSettledSection(listData); ui.renderTodayReminder(listData); state.currentListData = listData;
                 let inc = 0, exp = 0; let fInc = 0, fExp = 0;
                 const defCurr = state.currentLedger.defaultCurrency || 'TWD';
                 listData.forEach(t => { 
@@ -1567,12 +1706,25 @@
                             bat.update(doc(state.db,"transactions",eid),{ ledgerId:state.currentLedger.id, type:typ, date:dat, amount:a, originalAmount:oa, currency:cur, exchangeRate:rate, paidBy:pb, splitAmong, name:n, category:c, imageUrl:u, merchant:merch, lastEditedBy:state.userName, lastEditedAt:new Date().toISOString(), note: nt });
                         }
                     } else {
+                        // 收集新增項目（先不 commit，用於重複檢查）
+                        const newItems = [];
                         rows.forEach((r,idx)=>{
                             const n=r.querySelector('.item-name').value.trim(),c=r.querySelector('.item-cat').value,nt=r.querySelector('.item-note').value.trim();
-                            let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a; if(!n&&a===0)return; 
-                            if(cur!=='TWD') a=Math.round(oa*rate); 
+                            let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a; if(!n&&a===0)return;
+                            if(cur!=='TWD') a=Math.round(oa*rate);
+                            newItems.push({n,c,nt,a,oa});
+                        });
+                        // 建立 batch
+                        newItems.forEach(({n,c,nt,a,oa})=>{
                             bat.set(doc(collection(state.db,"transactions")),{ ledgerId:state.currentLedger.id, type:typ, date:dat, amount:a, originalAmount:oa, currency:cur, exchangeRate:rate, paidBy:pb, splitAmong, name:n, category:c, imageUrl:u, merchant:merch, groupId, createdAt:new Date().toISOString(), lastEditedBy:state.userName, lastEditedAt:new Date().toISOString(), note: nt });
                         });
+                        // 重複檢查
+                        const dupes = app.findDupesForItems(dat, typ, newItems);
+                        if (dupes.length > 0) {
+                            state._pendingTxData = { bat };
+                            ui.showDupWarnModal(dupes);
+                            return; // finally 會自動 re-enable 按鈕
+                        }
                     }
                     await bat.commit(); ui.closeModal('transactionModal'); ai.clearImage();
                 } catch(e) { alert("儲存失敗: "+e.message); } finally { 
@@ -1607,6 +1759,90 @@
             },
             deleteTransaction: async(id)=>{ ui.showConfirm('刪除交易', '確定要刪除這筆紀錄嗎？', async () => { await deleteDoc(doc(state.db, "transactions", id)); }); },
             
+            /* ── 重複帳單相關 ── */
+            findDupesForItems: (date, type, newItems) => {
+                const existing = state.transactions.filter(t => t.type === type);
+                const dupes = [];
+                newItems.forEach(item => {
+                    const { n: name, a: amount, c: category } = item;
+                    // Level 1: 確定重複 — 同日期 + 同金額 + 同名稱
+                    let matches = existing.filter(t => t.date === date && t.amount === amount && t.name && t.name.trim() === (name||'').trim());
+                    if (matches.length) { dupes.push({ level: 'danger', reason: `同日期、金額、項目名稱均相同`, matches }); return; }
+                    // Level 2: 高度疑似 — 同日期 + 同金額 + 同類別
+                    matches = existing.filter(t => t.date === date && t.amount === amount && t.category === category);
+                    if (matches.length) { dupes.push({ level: 'caution', reason: `同日期、金額且類別相同`, matches }); return; }
+                    // Level 3: 疑似 — 同日期 + 同金額
+                    matches = existing.filter(t => t.date === date && t.amount === amount);
+                    if (matches.length) { dupes.push({ level: 'warn', reason: `同日期且金額相同`, matches }); return; }
+                    // Level 4: 同金額提示
+                    matches = existing.filter(t => t.amount === amount && t.name && t.name.trim() === (name||'').trim());
+                    if (matches.length) { dupes.push({ level: 'sameamt', reason: `不同日期，但金額與項目名稱相同`, matches: matches.slice(0, 3) }); }
+                });
+                return dupes;
+            },
+
+            confirmPendingTx: async () => {
+                const pending = state._pendingTxData;
+                if (!pending) return;
+                const btn = document.getElementById('dupWarnContinueBtn');
+                btn.disabled = true; btn.textContent = '儲存中...';
+                try {
+                    await pending.bat.commit();
+                    ui.closeModal('dupWarnModal');
+                    ui.closeModal('transactionModal');
+                    if (window.ai && ai.clearImage) ai.clearImage();
+                } catch(e) { alert("儲存失敗: " + e.message); }
+                finally { btn.disabled = false; btn.textContent = '仍要繼續儲存'; state._pendingTxData = null; }
+            },
+
+            checkDuplicates: () => {
+                const txs = state.transactions;
+                if (!txs || txs.length === 0) { alert("目前帳本無資料可掃描"); return; }
+                const groups = [];
+                const seenIds = new Set();
+                txs.forEach((t, i) => {
+                    if (seenIds.has(t.id)) return;
+                    const peers = txs.filter((t2, j) => {
+                        if (j <= i || seenIds.has(t2.id) || t2.type !== t.type) return false;
+                        const sameAmt = t.amount === t2.amount;
+                        if (!sameAmt) return false;
+                        return true;
+                    });
+                    if (!peers.length) return;
+                    // Classify
+                    peers.forEach(p => {
+                        const sameDate = t.date === p.date;
+                        const sameName = t.name && p.name && t.name.trim() === p.name.trim();
+                        const sameCat = t.category === p.category;
+                        let level = 'sameamt', reason = '不同日期，相同金額';
+                        if (sameDate && sameName) { level = 'danger'; reason = '同日期、金額、項目名稱均相同'; }
+                        else if (sameDate && sameCat) { level = 'caution'; reason = '同日期、金額且類別相同'; }
+                        else if (sameDate) { level = 'warn'; reason = '同日期且金額相同'; }
+                        seenIds.add(t.id); seenIds.add(p.id);
+                        // Find if same group already exists
+                        const ex = groups.find(g => g.level === level && g.matches.some(m => m.id === t.id));
+                        if (ex) { if (!ex.matches.find(m => m.id === p.id)) ex.matches.push(p); }
+                        else groups.push({ level, reason, matches: [t, p] });
+                    });
+                });
+                const order = { danger: 0, caution: 1, warn: 2, sameamt: 3 };
+                groups.sort((a, b) => order[a.level] - order[b.level]);
+                // Render
+                const container = document.getElementById('dupCheckResults');
+                if (!groups.length) {
+                    container.innerHTML = `<div class="text-center py-10"><i class="fa-solid fa-circle-check text-5xl text-emerald-400 mb-3 block"></i><p class="font-bold text-emerald-700">太棒了！沒有發現重複帳單</p><p class="text-xs text-gray-400 mt-1">共掃描 ${txs.length} 筆交易</p></div>`;
+                } else {
+                    const levelColor = { danger: 'border-red-200 bg-red-50', caution: 'border-orange-200 bg-orange-50', warn: 'border-yellow-200 bg-yellow-50', sameamt: 'border-blue-200 bg-blue-50' };
+                    const levelTag = { danger: '<span class="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">確定重複</span>', caution: '<span class="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded">高度疑似</span>', warn: '<span class="text-[10px] font-bold text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded">疑似重複</span>', sameamt: '<span class="text-[10px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">同金額提示</span>' };
+                    container.innerHTML = `<p class="text-xs text-gray-500 mb-3">共掃描 ${txs.length} 筆，發現 <b class="text-orange-600">${groups.length}</b> 組可疑重複</p>` +
+                        groups.map(g => {
+                            const rows = g.matches.map(t => `<div class="flex items-center gap-2 text-xs py-1.5 border-b border-gray-100 last:border-0"><span class="text-gray-400 font-mono w-16 shrink-0">${t.date.slice(5)}</span><span class="flex-1 text-gray-700 truncate">${t.name||'-'}</span><span class="text-gray-400 shrink-0">${t.category||'-'}</span><span class="ml-2 font-bold shrink-0 ${t.type==='income'?'text-emerald-600':'text-rose-600'}">$${t.amount.toLocaleString()}</span><button onclick="app.deleteTransaction('${t.id}')" class="ml-1 text-gray-300 hover:text-red-500 transition shrink-0" title="刪除此筆"><i class="fa-solid fa-trash-can text-xs"></i></button></div>`).join('');
+                            return `<div class="border rounded-xl p-3 ${levelColor[g.level]}"><div class="flex items-center gap-2 mb-2">${levelTag[g.level]}<span class="text-xs text-gray-500 ml-1">${g.reason}</span></div>${rows}</div>`;
+                        }).join('');
+                }
+                document.getElementById('duplicateCheckModal').classList.remove('hidden');
+            },
+
             toggleGroupSettled: async (idsString, isSettled) => {
                 if (!idsString) return;
                 const ids = idsString.split(',');
@@ -1803,6 +2039,34 @@
             toggleCurrencyEdit: (show) => { document.getElementById('currencyViewMode').classList.toggle('hidden', show); document.getElementById('currencyEditMode').classList.toggle('hidden', !show); if(!show) ui.updateTotal(); },
             toggleStatsSection: () => { document.getElementById('statsContent').classList.toggle('hidden'); document.getElementById('statsToggleIcon').classList.toggle('rotate-180'); },
             toggleSettledSection: () => { document.getElementById('settledContent').classList.toggle('hidden'); document.getElementById('settledToggleIcon').classList.toggle('rotate-180'); },
+
+            /* ── 今日提醒 ── */
+            renderTodayReminder: (listData) => {
+                const banner = document.getElementById('todayReminderBanner');
+                if (!banner || !state.currentLedger || state._reminderDismissed) return;
+                const today = new Date().toISOString().split('T')[0];
+                const hasToday = listData.some(t => t.date === today);
+                if (hasToday) { banner.classList.add('hidden'); return; }
+                const dateEl = document.getElementById('todayReminderDate');
+                if (dateEl) dateEl.textContent = today.slice(5).replace('-', '/');
+                banner.classList.remove('hidden');
+            },
+            dismissTodayReminder: () => {
+                state._reminderDismissed = true;
+                document.getElementById('todayReminderBanner').classList.add('hidden');
+            },
+
+            /* ── 重複比對 - 新增時警告 ── */
+            showDupWarnModal: (dupes) => {
+                const list = document.getElementById('dupWarnList');
+                list.innerHTML = dupes.map(d => {
+                    const levelColor = d.level === 'danger' ? 'bg-red-50 border-red-200' : d.level === 'caution' ? 'bg-orange-50 border-orange-200' : d.level === 'sameamt' ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200';
+                    const levelTag = d.level === 'danger' ? '<span class="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">確定重複</span>' : d.level === 'caution' ? '<span class="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded">高度疑似</span>' : d.level === 'sameamt' ? '<span class="text-[10px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">同金額提示</span>' : '<span class="text-[10px] font-bold text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded">疑似重複</span>';
+                    const rows = d.matches.map(t => `<div class="flex justify-between items-center text-xs py-1 border-b border-gray-100 last:border-0"><span class="text-gray-500 font-mono">${t.date}</span><span class="flex-1 mx-2 text-gray-700 truncate">${t.name||'-'}</span><span class="text-gray-500">${t.category||'-'}</span><span class="ml-2 font-bold ${t.type==='income'?'text-emerald-600':'text-rose-600'}">$${t.amount.toLocaleString()}</span></div>`).join('');
+                    return `<div class="border rounded-xl p-3 ${levelColor}"><div class="flex items-center justify-between mb-2">${levelTag}<span class="text-xs text-gray-500">${d.reason}</span></div>${rows}</div>`;
+                }).join('');
+                document.getElementById('dupWarnModal').classList.remove('hidden');
+            },
             renderSettledSection: (listData) => {
                 const settled = listData.filter(t => t.isSettled === true);
                 const count = settled.length;
@@ -2163,7 +2427,29 @@
             },
             toggleMemberInput: () => { const isG = document.getElementById('newLedgerType').value === 'group'; document.getElementById('memberInputDiv').classList.toggle('hidden', !isG); if(isG) ui.renderMemberCheckboxes(); },
             renderMemberCheckboxes: () => { document.getElementById('memberSelectionList').innerHTML = state.usersList.filter(u=>u!==state.userName).map(u=>`<div class="flex items-center gap-2"><input type="checkbox" id="member-${u}" value="${u}" class="member-checkbox"><label for="member-${u}" class="truncate">${u}</label></div>`).join('') || '<div class="col-span-2 text-center text-gray-400">無其他使用者</div>'; },
-            openModal: (id) => document.getElementById(id).classList.remove('hidden'),
+            openModal: (id) => {
+                if (id === 'importModal') { ui.openImportModal(); return; }
+                document.getElementById(id).classList.remove('hidden');
+            },
+            openImportModal: () => {
+                // Fill ledger context info
+                const ledger = state.currentLedger;
+                const nameEl = document.getElementById('importLedgerName');
+                const badgesEl = document.getElementById('importMemberBadges');
+                if (nameEl) nameEl.textContent = ledger ? ledger.name : '（請先選擇帳本）';
+                if (badgesEl) {
+                    badgesEl.innerHTML = '';
+                    if (ledger && ledger.type === 'group' && ledger.members) {
+                        ledger.members.forEach(m => {
+                            const span = document.createElement('span');
+                            span.className = 'px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold';
+                            span.textContent = m;
+                            badgesEl.appendChild(span);
+                        });
+                    }
+                }
+                document.getElementById('importModal').classList.remove('hidden');
+            },
             closeModal: (id) => document.getElementById(id).classList.add('hidden'),
             toggleMobileMenu: () => document.getElementById('mobileMenu').classList.toggle('hidden'),
             viewImage: (u) => { const du = app.getDirectDriveUrl(u); document.getElementById('imageViewerSrc').src = du; document.getElementById('imageViewerLink').href = du; ui.openModal('imageViewerModal'); },
