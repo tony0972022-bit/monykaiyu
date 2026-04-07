@@ -248,6 +248,51 @@
             </div>
         </div>
 
+        <!-- Settled Summary Section -->
+        <div class="px-4 md:px-6 pb-2">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="p-4 bg-gray-50 cursor-pointer flex justify-between items-center hover:bg-gray-100 transition" onclick="ui.toggleSettledSection()">
+                    <h3 class="font-bold text-gray-700 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-check-double text-emerald-500"></i> 已結清統計
+                        <span id="settledTotalBadge" class="ml-2 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700 hidden"></span>
+                    </h3>
+                    <i id="settledToggleIcon" class="fa-solid fa-chevron-down text-gray-400 transition-transform"></i>
+                </div>
+                <div id="settledContent" class="hidden border-t border-gray-100">
+                    <!-- Summary Row -->
+                    <div class="p-4 flex flex-wrap gap-4 bg-emerald-50 border-b border-emerald-100">
+                        <div class="flex flex-col items-center bg-white rounded-lg px-4 py-2 shadow-sm border border-emerald-100 min-w-[100px]">
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">已結清筆數</p>
+                            <p id="settledCount" class="text-xl font-bold text-emerald-600">0</p>
+                        </div>
+                        <div class="flex flex-col items-center bg-white rounded-lg px-4 py-2 shadow-sm border border-emerald-100 min-w-[100px]">
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">已結清金額</p>
+                            <p id="settledAmount" class="text-xl font-bold text-emerald-600">$0</p>
+                        </div>
+                    </div>
+                    <!-- Settled List -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-gray-50 text-gray-500 text-xs border-b border-gray-100">
+                                <tr>
+                                    <th class="px-4 py-2 font-medium">日期</th>
+                                    <th class="px-4 py-2 font-medium">項目</th>
+                                    <th class="px-4 py-2 font-medium">類別</th>
+                                    <th class="px-4 py-2 font-medium text-right">金額</th>
+                                    <th class="px-4 py-2 font-medium hidden md:table-cell">付款人</th>
+                                    <th class="px-4 py-2 font-medium hidden md:table-cell">分攤者</th>
+                                    <th class="px-4 py-2 font-medium text-center w-20">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="settledListBody">
+                                <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400 text-xs">目前沒有已結清的項目</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- List -->
         <div class="flex-1 p-4 md:p-6 pt-0">
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[500px] md:h-[600px]">
@@ -1178,10 +1223,10 @@
             },
 
             downloadTemplate: () => {
-                const headers = [['日期 (YYYY-MM-DD)', '收支類型 (支出/收入)', '類別', '項目名稱', '金額', '商店/對象 (選填)', '幣別 (選填)', '備註 (選填)']];
-                const example = [['2024-02-01', '支出', '飲食', '午餐便當', 120, '7-11', 'TWD', '公司聚餐']];
+                const headers = [['日期 (YYYY-MM-DD)', '收支類型 (支出/收入)', '類別', '項目名稱', '金額', '商店/對象 (選填)', '幣別 (選填)', '備註 (選填)', '付款人 (選填)', '分攤者 (選填，逗號分隔)']];
+                const example = [['2024-02-01', '支出', '飲食', '午餐便當', 120, '7-11', 'TWD', '公司聚餐', '小明', '小明,小華,小美']];
                 const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet([...headers, ...example]);
-                ws['!cols'] = [{wch:15}, {wch:15}, {wch:10}, {wch:20}, {wch:10}, {wch:15}, {wch:10}, {wch:20}];
+                ws['!cols'] = [{wch:15}, {wch:15}, {wch:10}, {wch:20}, {wch:10}, {wch:15}, {wch:10}, {wch:20}, {wch:15}, {wch:25}];
                 XLSX.utils.book_append_sheet(wb, ws, "匯入範本"); XLSX.writeFile(wb, "記帳本匯入範本.xlsx");
             },
 
@@ -1212,8 +1257,12 @@
                             let dateStr = (row[0] instanceof Date) ? row[0].toISOString().split('T')[0] : (new Date(row[0]).toISOString().split('T')[0] || new Date().toISOString().split('T')[0]);
                             const type = getVal(1).includes('收') ? 'income' : 'expense';
                             const amount = parseFloat(row[4]);
+                            // 欄位 8：付款人；欄位 9：分攤者（逗號分隔）
+                            const paidByVal = getVal(8) || state.userName;
+                            const splitRaw = getVal(9);
+                            const splitAmong = splitRaw ? splitRaw.split(',').map(s => s.trim()).filter(s => s) : [];
                             const docRef = doc(collection(state.db, "transactions"));
-                            batch.set(docRef, { ledgerId: state.currentLedger.id, type, date: dateStr, amount, originalAmount: amount, currency: getVal(6) || state.currentLedger.defaultCurrency || 'TWD', exchangeRate: 1, paidBy: state.userName, name: getVal(7) ? `${getVal(3)} (${getVal(7)})` : getVal(3), category: getVal(2) || '其他', merchant: getVal(5), groupId: groupIdBase + index, createdAt: new Date().toISOString(), lastEditedBy: state.userName, lastEditedAt: new Date().toISOString() });
+                            batch.set(docRef, { ledgerId: state.currentLedger.id, type, date: dateStr, amount, originalAmount: amount, currency: getVal(6) || state.currentLedger.defaultCurrency || 'TWD', exchangeRate: 1, paidBy: paidByVal, splitAmong, name: getVal(7) ? `${getVal(3)} (${getVal(7)})` : getVal(3), category: getVal(2) || '其他', merchant: getVal(5), groupId: groupIdBase + index, createdAt: new Date().toISOString(), lastEditedBy: state.userName, lastEditedAt: new Date().toISOString() });
                             count++;
                         });
                         if (count > 0) { await batch.commit(); alert(`成功匯入 ${count} 筆資料！`); ui.closeModal('importModal'); }
@@ -1245,7 +1294,7 @@
                     });
                 }
 
-                ui.renderTopStats(listData); state.currentListData = listData;
+                ui.renderTopStats(listData); ui.renderSettledSection(listData); state.currentListData = listData;
                 let inc = 0, exp = 0; let fInc = 0, fExp = 0;
                 const defCurr = state.currentLedger.defaultCurrency || 'TWD';
                 listData.forEach(t => { 
@@ -1753,6 +1802,32 @@
             },
             toggleCurrencyEdit: (show) => { document.getElementById('currencyViewMode').classList.toggle('hidden', show); document.getElementById('currencyEditMode').classList.toggle('hidden', !show); if(!show) ui.updateTotal(); },
             toggleStatsSection: () => { document.getElementById('statsContent').classList.toggle('hidden'); document.getElementById('statsToggleIcon').classList.toggle('rotate-180'); },
+            toggleSettledSection: () => { document.getElementById('settledContent').classList.toggle('hidden'); document.getElementById('settledToggleIcon').classList.toggle('rotate-180'); },
+            renderSettledSection: (listData) => {
+                const settled = listData.filter(t => t.isSettled === true);
+                const count = settled.length;
+                const total = settled.reduce((s, t) => s + t.amount, 0);
+                const badge = document.getElementById('settledTotalBadge');
+                const countEl = document.getElementById('settledCount');
+                const amountEl = document.getElementById('settledAmount');
+                const tbody = document.getElementById('settledListBody');
+                if (count > 0) { badge.textContent = count + ' 筆'; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); }
+                if (countEl) countEl.textContent = count;
+                if (amountEl) amountEl.textContent = '$' + total.toLocaleString();
+                if (!tbody) return;
+                if (!count) { tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-6 text-center text-gray-400 text-xs">目前沒有已結清的項目</td></tr>'; return; }
+                const isGroup = state.currentLedger && state.currentLedger.type === 'group';
+                tbody.innerHTML = settled.sort((a,b) => b.date.localeCompare(a.date)).map(t => `
+                    <tr class="border-b hover:bg-gray-50 text-xs">
+                        <td class="px-4 py-2 text-gray-500 font-mono whitespace-nowrap">${t.date}</td>
+                        <td class="px-4 py-2 text-gray-800 font-medium">${t.name || '-'}</td>
+                        <td class="px-4 py-2"><span class="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">${t.category || '-'}</span></td>
+                        <td class="px-4 py-2 text-right font-bold ${t.type==='income' ? 'text-emerald-600' : 'text-rose-600'}">${t.type==='income'?'+':'-'}$${t.amount.toLocaleString()}</td>
+                        <td class="px-4 py-2 hidden md:table-cell text-gray-500">${isGroup ? (t.paidBy || '-') : '-'}</td>
+                        <td class="px-4 py-2 hidden md:table-cell text-gray-500">${isGroup && t.splitAmong && t.splitAmong.length ? t.splitAmong.join('、') : (isGroup ? '全體' : '-')}</td>
+                        <td class="px-4 py-2 text-center"><button onclick="app.toggleGroupSettled('${t.id}', false)" class="text-[10px] bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 px-2 py-1 rounded font-bold transition"><i class="fa-solid fa-rotate-left mr-1"></i>取消</button></td>
+                    </tr>`).join('');
+            },
             toggleAllSplit: (checked) => { document.querySelectorAll('.split-checkbox').forEach(cb => cb.checked = checked); },
             renderSplitCheckboxes: () => { const container = document.getElementById('splitUserContainer'); container.innerHTML = ''; if(!state.currentLedger?.members) return; state.currentLedger.members.forEach(m => { container.innerHTML += `<div class="flex items-center gap-1.5"><input type="checkbox" id="split-${m}" value="${m}" class="split-checkbox w-3.5 h-3.5" checked><label for="split-${m}" class="text-xs">${m}</label></div>`; }); },
             renderLedgerList: () => { 
