@@ -1867,10 +1867,12 @@
                     progressText.textContent = `辨識中 ${i + 1} / ${total} 張...`;
                     progressFill.style.width = `${((i) / total) * 100}%`;
                     try {
-                        const base64 = await app._fileToBase64(files[i]);
-                        const result = await app._analyzeOneBatchImage(base64, files[i].type, mode);
+                        const imgData = await app._fileToBase64(files[i]);
+                        const result = await app._analyzeOneBatchImage(imgData, files[i].type, mode);
                         result.fileName = files[i].name;
                         result.mode = mode;
+                        result.imageBase64 = imgData.base64;      // 壓縮後圖片 base64
+                        result.imageMimeType = imgData.mimeType;   // 通常為 image/jpeg
                         state._batchResults.push(result);
                     } catch (e) {
                         state._batchResults.push({ fileName: files[i].name, mode, error: e.message, transactions: [] });
@@ -2069,22 +2071,28 @@
                 const txt = document.getElementById('batchSaveBtnText');
                 btn.disabled = true; txt.textContent = '存入中...';
                 try {
-                    const batch = writeBatch(state.db);
+                    const firestoreBatch = writeBatch(state.db);
                     const isGroup = state.currentLedger && state.currentLedger.type === 'group';
                     const members = isGroup && state.currentLedger.members ? state.currentLedger.members : [];
                     let count = 0;
+                    const imageUrlCache = {}; // ri -> imageUrl，同一張圖只上傳一次
 
-                    document.querySelectorAll('.batch-row-check:checked').forEach(cb => {
+                    const checkedRows = Array.from(document.querySelectorAll('.batch-row-check:checked'));
+                    for (const cb of checkedRows) {
                         const idx = cb.getAttribute('data-idx');
+                        const rowEl = document.querySelector(`.batch-row[data-idx="${idx}"]`);
+                        const ri = parseInt(rowEl?.getAttribute('data-ri') ?? 0);
+                        const ti = parseInt(rowEl?.getAttribute('data-ti') ?? 0);
+
                         const dateEl = document.querySelector(`.batch-date-${idx}`);
                         const merchantEl = document.querySelector(`.batch-merchant-${idx}`);
                         const amtEl = document.querySelector(`.batch-amt-${idx}`);
                         const catEl = document.querySelector(`.batch-cat-${idx}`);
                         const date = dateEl ? dateEl.value : new Date().toISOString().split('T')[0];
                         const merchant = merchantEl ? merchantEl.value.trim() : '';
-                        const amount = parseFloat(amtEl ? amtEl.value : 0) || 0;
+                        const totalAmount = parseFloat(amtEl ? amtEl.value : 0) || 0;
                         const category = catEl ? catEl.value : '其他';
-                        if (amount <= 0) return;
+                        if (totalAmount <= 0) continue;
 
                         let paidBy = state.userName;
                         let splitAmong = [];
@@ -2095,19 +2103,70 @@
                             if (splitAmong.length === 0) splitAmong = members;
                         }
 
-                        const docRef = doc(collection(state.db, 'transactions'));
-                        batch.set(docRef, {
-                            ledgerId: state.currentLedger.id, type: 'expense',
-                            date, amount, originalAmount: amount, currency: state.currentLedger.defaultCurrency || 'TWD',
-                            exchangeRate: 1, paidBy, splitAmong, name: merchant || '消費', category,
-                            merchant, groupId: Date.now().toString() + idx,
-                            createdAt: new Date().toISOString(), lastEditedBy: state.userName, lastEditedAt: new Date().toISOString()
-                        });
-                        count++;
-                    });
+                        // 取得圖片 URL：同一張來源圖只上傳一次
+                        let imageUrl = '';
+                        const resultData = state._batchResults[ri];
+                        if (resultData?.imageBase64) {
+                            if (!(ri in imageUrlCache)) {
+                                if (state.scriptUrl) {
+                                    try {
+                                        txt.textContent = `上傳圖片 (${ri + 1}/${state._batchResults.length})...`;
+                                        const r = await fetch(state.scriptUrl, { method: 'POST', body: JSON.stringify({ image: resultData.imageBase64, mimeType: resultData.imageMimeType || 'image/jpeg', filename: `batch_${Date.now()}_${ri}.jpg` }) });
+                                        const d = await r.json();
+                                        imageUrlCache[ri] = d.status === 'success' ? app.getDirectDriveUrl(d.url) : `data:${resultData.imageMimeType || 'image/jpeg'};base64,${resultData.imageBase64}`;
+                                    } catch { imageUrlCache[ri] = `data:${resultData.imageMimeType || 'image/jpeg'};base64,${resultData.imageBase64}`; }
+                                } else {
+                                    // 無 Drive 設定：直接存 base64 data URL
+                                    imageUrlCache[ri] = `data:${resultData.imageMimeType || 'image/jpeg'};base64,${resultData.imageBase64}`;
+                                }
+                            }
+                            imageUrl = imageUrlCache[ri];
+                        }
 
-                    if (count === 0) return alert("沒有勾選任何項目");
-                    await batch.commit();
+                        const groupId = Date.now().toString() + idx;
+                        const origTx = resultData?.transactions?.[ti] || {};
+                        const origItems = origTx.items || [];
+                        const checkedItemEls = Array.from(document.querySelectorAll(`.batch-item-check-${idx}:checked`));
+
+                        const baseDoc = {
+                            ledgerId: state.currentLedger.id, type: 'expense',
+                            date, currency: state.currentLedger.defaultCurrency || 'TWD',
+                            exchangeRate: 1, paidBy, splitAmong, merchant, groupId, imageUrl,
+                            createdAt: new Date().toISOString(),
+                            lastEditedBy: state.userName, lastEditedAt: new Date().toISOString()
+                        };
+
+                        if (checkedItemEls.length > 0) {
+                            // 收據模式：每個品項存成一筆獨立交易（同 groupId 歸為一組）
+                            checkedItemEls.forEach(itemCb => {
+                                const ii = parseInt(itemCb.getAttribute('data-item'));
+                                const origItem = origItems[ii] || {};
+                                const amtItemEl = document.querySelector(`.batch-item-amt-${idx}[data-item="${ii}"]`);
+                                const itemAmt = parseFloat(amtItemEl?.value || 0) || 0;
+                                if (itemAmt <= 0) return;
+                                firestoreBatch.set(doc(collection(state.db, 'transactions')), {
+                                    ...baseDoc,
+                                    amount: itemAmt, originalAmount: itemAmt,
+                                    name: origItem.name || merchant || '消費',
+                                    category: origItem.category || category,
+                                    note: origItem.note || ''
+                                });
+                                count++;
+                            });
+                        } else {
+                            // 清單模式（或單品項收據）：存一筆
+                            firestoreBatch.set(doc(collection(state.db, 'transactions')), {
+                                ...baseDoc,
+                                amount: totalAmount, originalAmount: totalAmount,
+                                name: merchant || '消費', category, note: ''
+                            });
+                            count++;
+                        }
+                    }
+
+                    if (count === 0) { btn.disabled = false; app.updateBatchSaveBtn(); return alert("沒有勾選任何項目"); }
+                    txt.textContent = '儲存中...';
+                    await firestoreBatch.commit();
                     app.closeBatchModal();
                     const toast = document.createElement('div');
                     toast.className = 'fixed bottom-4 right-4 bg-violet-700 text-white px-4 py-3 rounded-xl shadow-xl z-[200] animate-fade-in text-sm font-bold flex items-center gap-2';
@@ -2581,8 +2640,8 @@
                     const isSettled = g.items.some(i => i.isSettled); // 檢查這組項目是否已結清
                     
                     const imgItem = g.items.find(i => i.imageUrl);
-                    const paperclipHtml = imgItem 
-                        ? `<button onclick="event.stopPropagation(); ui.viewImage('${imgItem.imageUrl}')" class="ml-1 text-indigo-500 hover:text-indigo-700 transition" title="查看收據"><i class="fa-solid fa-paperclip"></i></button>` 
+                    const paperclipHtml = imgItem
+                        ? `<button onclick="event.stopPropagation(); ui.viewImageById('${imgItem.id}')" class="ml-1 text-indigo-500 hover:text-indigo-700 transition" title="查看收據"><i class="fa-solid fa-paperclip"></i></button>`
                         : '';
 
                     // Group Ledger Badges Logic
@@ -2852,6 +2911,7 @@
             closeModal: (id) => document.getElementById(id).classList.add('hidden'),
             toggleMobileMenu: () => document.getElementById('mobileMenu').classList.toggle('hidden'),
             viewImage: (u) => { const du = app.getDirectDriveUrl(u); document.getElementById('imageViewerSrc').src = du; document.getElementById('imageViewerLink').href = du; ui.openModal('imageViewerModal'); },
+            viewImageById: (id) => { const t = state.transactions.find(x => x.id === id); if (t?.imageUrl) ui.viewImage(t.imageUrl); },
             closeImageModal: () => ui.closeModal('imageViewerModal'),
             
             // Updated Render Settings to include Currency List
