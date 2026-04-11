@@ -190,6 +190,27 @@
                         <i class="fa-solid fa-calendar-check"></i> <span class="md:hidden">固定</span><span class="hidden md:inline">固定收支</span>
                     </button>
 
+                    <!-- Batch AI Scan Dropdown -->
+                    <div class="relative flex-1 md:flex-none" id="batchDropdownWrapper">
+                        <button onclick="ui.toggleBatchDropdown()" class="w-full bg-white border border-violet-100 hover:bg-violet-50 text-violet-600 px-3 py-2.5 rounded-xl shadow-sm transition flex items-center justify-center gap-1 font-bold text-xs md:text-sm">
+                            <i class="fa-solid fa-images"></i> <span class="hidden sm:inline">批次辨識</span><i class="fa-solid fa-chevron-down text-[10px] ml-0.5"></i>
+                        </button>
+                        <div id="batchDropdownMenu" class="hidden absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 z-50 w-48 overflow-hidden">
+                            <button onclick="ui.openBatchMode('list')" class="w-full text-left px-4 py-3 hover:bg-violet-50 transition text-sm flex items-center gap-3">
+                                <i class="fa-solid fa-list text-violet-500 w-5"></i>
+                                <div><div class="font-bold text-gray-800">清單截圖</div><div class="text-[10px] text-gray-400">電子發票、消費記錄列表</div></div>
+                            </button>
+                            <div class="border-t border-gray-100"></div>
+                            <button onclick="ui.openBatchMode('receipt')" class="w-full text-left px-4 py-3 hover:bg-violet-50 transition text-sm flex items-center gap-3">
+                                <i class="fa-solid fa-receipt text-violet-500 w-5"></i>
+                                <div><div class="font-bold text-gray-800">多張收據</div><div class="text-[10px] text-gray-400">實體發票、購物收據照片</div></div>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Hidden batch file inputs -->
+                    <input type="file" id="batchListInput" accept="image/*" multiple class="hidden" onchange="app.processBatchImages(this.files,'list')">
+                    <input type="file" id="batchReceiptInput" accept="image/*" multiple class="hidden" onchange="app.processBatchImages(this.files,'receipt')">
+
                     <!-- Primary Button (Flex 2 or just prominent color) -->
                     <button id="addTxBtn" onclick="ui.openTransactionModal()" class="flex-[1.5] md:flex-none bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-1 font-bold text-sm whitespace-nowrap">
                         <i class="fa-solid fa-plus"></i> 記一筆
@@ -738,6 +759,46 @@
         </div>
     </div>
 
+    <!-- Modal: Batch Review -->
+    <div id="batchReviewModal" class="fixed inset-0 bg-black/60 z-[70] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl m-4 flex flex-col" style="max-height:92vh">
+            <!-- Header -->
+            <div class="p-5 border-b border-gray-100 flex items-center justify-between shrink-0">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <i class="fa-solid fa-images text-violet-500"></i> 批次辨識確認
+                    </h3>
+                    <p id="batchProgressText" class="text-xs text-gray-400 mt-0.5">準備中...</p>
+                </div>
+                <button onclick="app.closeBatchModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div id="batchProgressBar" class="h-1.5 bg-gray-100 shrink-0">
+                <div id="batchProgressFill" class="h-full bg-violet-500 transition-all duration-300" style="width:0%"></div>
+            </div>
+
+            <!-- Results List -->
+            <div id="batchReviewBody" class="overflow-y-auto flex-1 p-4 space-y-4">
+                <div class="text-center py-12 text-gray-400">
+                    <i class="fa-solid fa-circle-notch fa-spin text-3xl text-violet-300 mb-3 block"></i>
+                    <p>正在辨識圖片...</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-4 border-t border-gray-100 flex items-center justify-between shrink-0">
+                <div class="flex gap-2">
+                    <button onclick="app.batchSelectAll(true)" class="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg font-bold text-gray-600 transition">全選</button>
+                    <button onclick="app.batchSelectAll(false)" class="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg font-bold text-gray-600 transition">取消全選</button>
+                </div>
+                <button id="batchSaveBtn" onclick="app.saveBatchTransactions()" class="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-bold shadow-md transition flex items-center gap-2 disabled:opacity-40" disabled>
+                    <i class="fa-solid fa-floppy-disk"></i> <span id="batchSaveBtnText">存入帳本</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Settings -->
     <div id="settingsModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto">
@@ -873,7 +934,15 @@
 
     <!-- TRANSACTION MODAL -->
     <div id="transactionModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-start md:items-center justify-center backdrop-blur-sm pt-10 md:pt-0">
-        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-4 md:p-6 m-4 overflow-y-auto max-h-[85vh] md:max-h-[90vh]">
+        <!-- AI 辨識中遮罩 -->
+        <div id="aiScanOverlay" class="hidden absolute inset-0 bg-white/80 backdrop-blur-sm z-30 flex flex-col items-center justify-center rounded-2xl gap-3">
+            <div class="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center">
+                <i class="fa-solid fa-circle-notch fa-spin text-2xl text-indigo-500"></i>
+            </div>
+            <p class="font-bold text-indigo-700" id="aiScanOverlayText">AI 正在辨識圖片...</p>
+            <p class="text-xs text-gray-400">辨識完成前無法操作</p>
+        </div>
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-4 md:p-6 m-4 overflow-y-auto max-h-[85vh] md:max-h-[90vh] relative">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800" id="txModalTitle">📝 新增紀錄</h3>
                 <button onclick="ui.closeModal('transactionModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
@@ -1759,6 +1828,299 @@
             },
             deleteTransaction: async(id)=>{ ui.showConfirm('刪除交易', '確定要刪除這筆紀錄嗎？', async () => { await deleteDoc(doc(state.db, "transactions", id)); }); },
             
+            /* ── 批次辨識 ── */
+            closeBatchModal: () => {
+                document.getElementById('batchReviewModal').classList.add('hidden');
+                // reset inputs so same files can be re-selected
+                document.getElementById('batchListInput').value = '';
+                document.getElementById('batchReceiptInput').value = '';
+                state._batchResults = [];
+            },
+
+            batchSelectAll: (checked) => {
+                document.querySelectorAll('.batch-row-check').forEach(cb => cb.checked = checked);
+                app.updateBatchSaveBtn();
+            },
+
+            updateBatchSaveBtn: () => {
+                const count = document.querySelectorAll('.batch-row-check:checked').length;
+                const btn = document.getElementById('batchSaveBtn');
+                const txt = document.getElementById('batchSaveBtnText');
+                btn.disabled = count === 0;
+                txt.textContent = count > 0 ? `存入帳本（${count} 筆）` : '存入帳本';
+            },
+
+            processBatchImages: async (files, mode) => {
+                if (!files || files.length === 0) return;
+                if (!state.geminiKey) return alert("請先設定 API Key");
+                state._batchResults = [];
+                const modal = document.getElementById('batchReviewModal');
+                const body = document.getElementById('batchReviewBody');
+                const progressText = document.getElementById('batchProgressText');
+                const progressFill = document.getElementById('batchProgressFill');
+                const total = files.length;
+                modal.classList.remove('hidden');
+                body.innerHTML = `<div class="text-center py-12 text-gray-400"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-violet-300 mb-3 block"></i><p>正在辨識 ${total} 張圖片，請稍候...</p></div>`;
+                document.getElementById('batchSaveBtn').disabled = true;
+
+                for (let i = 0; i < total; i++) {
+                    progressText.textContent = `辨識中 ${i + 1} / ${total} 張...`;
+                    progressFill.style.width = `${((i) / total) * 100}%`;
+                    try {
+                        const base64 = await app._fileToBase64(files[i]);
+                        const result = await app._analyzeOneBatchImage(base64, files[i].type, mode);
+                        result.fileName = files[i].name;
+                        result.mode = mode;
+                        state._batchResults.push(result);
+                    } catch (e) {
+                        state._batchResults.push({ fileName: files[i].name, mode, error: e.message, transactions: [] });
+                    }
+                }
+                progressFill.style.width = '100%';
+                progressText.textContent = `辨識完成！共 ${total} 張`;
+                app.renderBatchReview();
+            },
+
+            _fileToBase64: (file) => new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onload = async () => {
+                    try {
+                        // 壓縮：最長邊 1280px，JPEG 品質 0.82，不影響文字辨識
+                        const compressed = await app._compressImage(r.result, file.type);
+                        resolve(compressed);
+                    } catch(e) {
+                        // 壓縮失敗時退回原圖
+                        resolve({ base64: r.result.split(',')[1], mimeType: file.type });
+                    }
+                };
+                r.onerror = reject;
+                r.readAsDataURL(file);
+            }),
+
+            _compressImage: (dataUrl, mimeType) => new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const MAX = 1280;
+                    let w = img.width, h = img.height;
+                    if (w > MAX || h > MAX) {
+                        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+                        else { w = Math.round(w * MAX / h); h = MAX; }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    const compressed = canvas.toDataURL('image/jpeg', 0.82);
+                    resolve({ base64: compressed.split(',')[1], mimeType: 'image/jpeg' });
+                };
+                img.onerror = () => {
+                    // 圖片載入失敗時退回原圖
+                    resolve({ base64: dataUrl.split(',')[1], mimeType: mimeType });
+                };
+                img.src = dataUrl;
+            }),
+
+            _analyzeOneBatchImage: async (imgData, mimeType, mode) => {
+                const cats = state.categories.expense.join(', ');
+                const isGroup = state.currentLedger && state.currentLedger.type === 'group';
+                const baseInstruction = `你是一個記帳助手。請分析圖片並提取所有交易紀錄。類別請從以下挑選最接近的：[${cats}]，若都不符填「其他」。日期格式統一輸出為 YYYY-MM-DD。請「只」回傳合法 JSON，不含任何 markdown 或說明。`;
+
+                let prompt;
+                if (mode === 'list') {
+                    prompt = `${baseInstruction}
+這是一張消費清單/電子發票列表截圖，圖中可能有多筆不同日期的交易。
+請提取圖中所有可見的交易，每筆各自的日期、商店名稱、金額。
+回傳格式：{"type":"list","transactions":[{"date":"YYYY-MM-DD","merchant":"商店名稱","amount":金額數字,"category":"類別","items":[]},...]}
+如果某筆日期看不到，用 null。金額必須是數字不含符號。`;
+                } else {
+                    prompt = `${baseInstruction}
+這是一張收據/發票照片。請提取交易日期、商店名稱、以及所有品項與金額。
+回傳格式：{"type":"receipt","date":"YYYY-MM-DD or null","merchant":"商店名稱","items":[{"name":"品項名稱","amount":金額數字,"category":"類別","note":""},...]}`;
+                }
+
+                const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }, { inlineData: { mimeType: imgData.mimeType, data: imgData.base64 } }] }] })
+                });
+                const d = await resp.json();
+                if (d.error) throw new Error(d.error.message);
+                let raw = d.candidates[0].content.parts[0].text;
+                const s = raw.indexOf('{'), e = raw.lastIndexOf('}');
+                if (s !== -1 && e !== -1) raw = raw.substring(s, e + 1);
+                const parsed = JSON.parse(raw);
+                // Normalize: both formats produce a .transactions array
+                if (parsed.type === 'receipt') {
+                    const today = new Date().toISOString().split('T')[0];
+                    parsed.transactions = [{
+                        date: parsed.date || today,
+                        merchant: parsed.merchant || '',
+                        amount: (parsed.items || []).reduce((s, i) => s + (i.amount || 0), 0),
+                        category: (parsed.items && parsed.items[0]) ? parsed.items[0].category : '其他',
+                        items: parsed.items || []
+                    }];
+                }
+                return parsed;
+            },
+
+            renderBatchReview: () => {
+                const body = document.getElementById('batchReviewBody');
+                const isGroup = state.currentLedger && state.currentLedger.type === 'group';
+                const members = isGroup && state.currentLedger.members ? state.currentLedger.members : [];
+                const today = new Date().toISOString().split('T')[0];
+                const allCats = [...state.categories.expense, ...(state.categories.income || [])];
+
+                if (!state._batchResults || !state._batchResults.length) {
+                    body.innerHTML = '<p class="text-center text-gray-400 py-8">無結果</p>';
+                    return;
+                }
+
+                let txIndex = 0;
+                body.innerHTML = state._batchResults.map((result, ri) => {
+                    const txList = result.transactions || [];
+                    const modeLabel = result.mode === 'list' ? '清單截圖' : '收據';
+                    const headerCls = result.error ? 'bg-red-50 border-red-200' : 'bg-violet-50 border-violet-200';
+                    const rows = txList.map((tx, ti) => {
+                        const idx = txIndex++;
+                        const hasItems = tx.items && tx.items.length > 1;
+                        const catOptions = allCats.map(c => `<option value="${c}" ${c === tx.category ? 'selected' : ''}>${c}</option>`).join('');
+                        const memberOptions = members.map(m => `<option value="${m}">${m}</option>`).join('');
+                        const splitChecks = members.map(m => `<label class="flex items-center gap-1 text-xs cursor-pointer"><input type="checkbox" class="batch-split-${idx}" value="${m}" checked><span>${m}</span></label>`).join('');
+                        const itemsHtml = hasItems ? `
+                            <div class="batch-items-${idx} hidden mt-2 pl-3 border-l-2 border-violet-100 space-y-1">
+                                ${tx.items.map((item, ii) => `
+                                <div class="flex items-center gap-2 text-xs">
+                                    <input type="checkbox" class="batch-item-check-${idx}" data-item="${ii}" checked onchange="app.updateBatchRowAmount(${idx})">
+                                    <span class="flex-1 text-gray-600 truncate">${item.name}</span>
+                                    <input type="number" class="batch-item-amt-${idx} w-20 border border-gray-200 rounded px-1 py-0.5 text-right text-xs" value="${item.amount}" data-item="${ii}" onchange="app.updateBatchRowAmount(${idx})">
+                                </div>`).join('')}
+                            </div>` : '';
+                        const expandBtn = hasItems ? `<button onclick="app.toggleBatchItems(${idx})" class="text-[10px] text-violet-500 hover:text-violet-700 font-bold ml-1" id="batch-expand-${idx}">▶ 展開品項</button>` : '';
+
+                        return `
+                        <div class="batch-row border border-gray-100 rounded-xl p-3 bg-white" data-idx="${idx}" data-ri="${ri}" data-ti="${ti}">
+                            <div class="flex items-start gap-2">
+                                <input type="checkbox" class="batch-row-check mt-1 w-4 h-4 accent-violet-500 shrink-0" data-idx="${idx}" checked onchange="app.updateBatchSaveBtn()">
+                                <div class="flex-1 min-w-0 space-y-2">
+                                    <!-- Row 1: Date / Merchant / Amount / Category -->
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <input type="date" class="batch-date-${idx} border border-gray-200 rounded-lg px-2 py-1 text-xs font-mono" value="${tx.date || today}">
+                                        <input type="text" class="batch-merchant-${idx} flex-1 min-w-[100px] border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-700" value="${tx.merchant || ''}">
+                                        <input type="number" class="batch-amt-${idx} w-24 border border-gray-200 rounded-lg px-2 py-1 text-xs text-right font-bold text-rose-600" value="${tx.amount || 0}">
+                                        <select class="batch-cat-${idx} border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white">${catOptions}</select>
+                                    </div>
+                                    ${expandBtn}
+                                    ${itemsHtml}
+                                    <!-- Row 2 (Group only): PaidBy / SplitAmong -->
+                                    ${isGroup ? `
+                                    <div class="flex flex-wrap items-center gap-3 pt-1 border-t border-gray-50">
+                                        <div class="flex items-center gap-1.5 text-xs">
+                                            <span class="text-gray-400 shrink-0">付款人</span>
+                                            <select class="batch-paidby-${idx} border border-gray-200 rounded px-2 py-0.5 text-xs bg-white">${memberOptions}</select>
+                                        </div>
+                                        <div class="flex items-center gap-1.5 text-xs flex-wrap">
+                                            <span class="text-gray-400 shrink-0">分攤</span>
+                                            ${splitChecks}
+                                        </div>
+                                    </div>` : ''}
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('');
+
+                    const errorHtml = result.error ? `<div class="text-xs text-red-500 p-3"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${result.error}</div>` : '';
+
+                    return `
+                    <div class="border rounded-xl overflow-hidden ${headerCls}">
+                        <div class="px-4 py-2.5 flex items-center gap-2 text-sm font-bold text-gray-700 border-b border-current/10">
+                            <i class="fa-solid fa-${result.mode === 'list' ? 'list' : 'receipt'} text-violet-500"></i>
+                            <span class="flex-1 truncate">${result.fileName || '圖片'}</span>
+                            <span class="text-xs font-normal text-gray-400">${modeLabel} · ${txList.length} 筆</span>
+                        </div>
+                        ${errorHtml}
+                        <div class="p-3 space-y-2">${rows}</div>
+                    </div>`;
+                }).join('');
+
+                app.updateBatchSaveBtn();
+            },
+
+            toggleBatchItems: (idx) => {
+                const el = document.querySelector(`.batch-items-${idx}`);
+                const btn = document.getElementById(`batch-expand-${idx}`);
+                if (!el || !btn) return;
+                const hidden = el.classList.toggle('hidden');
+                btn.textContent = hidden ? '▶ 展開品項' : '▼ 收合品項';
+            },
+
+            updateBatchRowAmount: (idx) => {
+                // Recalculate total from checked items
+                const checks = document.querySelectorAll(`.batch-item-check-${idx}:checked`);
+                let total = 0;
+                checks.forEach(cb => {
+                    const ii = cb.getAttribute('data-item');
+                    const amtEl = document.querySelector(`.batch-item-amt-${idx}[data-item="${ii}"]`);
+                    if (amtEl) total += parseFloat(amtEl.value) || 0;
+                });
+                const amtEl = document.querySelector(`.batch-amt-${idx}`);
+                if (amtEl) amtEl.value = Math.round(total);
+            },
+
+            saveBatchTransactions: async () => {
+                const btn = document.getElementById('batchSaveBtn');
+                const txt = document.getElementById('batchSaveBtnText');
+                btn.disabled = true; txt.textContent = '存入中...';
+                try {
+                    const batch = writeBatch(state.db);
+                    const isGroup = state.currentLedger && state.currentLedger.type === 'group';
+                    const members = isGroup && state.currentLedger.members ? state.currentLedger.members : [];
+                    let count = 0;
+
+                    document.querySelectorAll('.batch-row-check:checked').forEach(cb => {
+                        const idx = cb.getAttribute('data-idx');
+                        const dateEl = document.querySelector(`.batch-date-${idx}`);
+                        const merchantEl = document.querySelector(`.batch-merchant-${idx}`);
+                        const amtEl = document.querySelector(`.batch-amt-${idx}`);
+                        const catEl = document.querySelector(`.batch-cat-${idx}`);
+                        const date = dateEl ? dateEl.value : new Date().toISOString().split('T')[0];
+                        const merchant = merchantEl ? merchantEl.value.trim() : '';
+                        const amount = parseFloat(amtEl ? amtEl.value : 0) || 0;
+                        const category = catEl ? catEl.value : '其他';
+                        if (amount <= 0) return;
+
+                        let paidBy = state.userName;
+                        let splitAmong = [];
+                        if (isGroup) {
+                            const pbEl = document.querySelector(`.batch-paidby-${idx}`);
+                            if (pbEl) paidBy = pbEl.value;
+                            splitAmong = Array.from(document.querySelectorAll(`.batch-split-${idx}:checked`)).map(c => c.value);
+                            if (splitAmong.length === 0) splitAmong = members;
+                        }
+
+                        const docRef = doc(collection(state.db, 'transactions'));
+                        batch.set(docRef, {
+                            ledgerId: state.currentLedger.id, type: 'expense',
+                            date, amount, originalAmount: amount, currency: state.currentLedger.defaultCurrency || 'TWD',
+                            exchangeRate: 1, paidBy, splitAmong, name: merchant || '消費', category,
+                            merchant, groupId: Date.now().toString() + idx,
+                            createdAt: new Date().toISOString(), lastEditedBy: state.userName, lastEditedAt: new Date().toISOString()
+                        });
+                        count++;
+                    });
+
+                    if (count === 0) return alert("沒有勾選任何項目");
+                    await batch.commit();
+                    app.closeBatchModal();
+                    const toast = document.createElement('div');
+                    toast.className = 'fixed bottom-4 right-4 bg-violet-700 text-white px-4 py-3 rounded-xl shadow-xl z-[200] animate-fade-in text-sm font-bold flex items-center gap-2';
+                    toast.innerHTML = `<i class="fa-solid fa-circle-check text-violet-300"></i> 已批次存入 ${count} 筆！`;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 3500);
+                } catch (e) {
+                    alert('批次存入失敗: ' + e.message);
+                    btn.disabled = false;
+                    app.updateBatchSaveBtn();
+                }
+            },
+
             /* ── 重複帳單相關 ── */
             findDupesForItems: (date, type, newItems) => {
                 const existing = state.transactions.filter(t => t.type === type);
@@ -1921,38 +2283,58 @@
         };
 
         const ai = {
-            handleImageUpload: (inp) => { const f=inp.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ state.currentImage={base64:r.result.split(',')[1],mimeType:f.type}; document.getElementById('imagePreview').src=r.result; document.getElementById('imagePreviewContainer').classList.remove('hidden'); document.getElementById('uploadZone').classList.add('hidden'); ai.runAiAnalysis(); }; r.readAsDataURL(f); },
+            handleImageUpload: (inp) => { const f=inp.files[0]; if(!f)return; const r=new FileReader(); r.onload=async()=>{ try { const compressed=await app._compressImage(r.result,f.type); state.currentImage=compressed; document.getElementById('imagePreview').src='data:image/jpeg;base64,'+compressed.base64; } catch(e) { state.currentImage={base64:r.result.split(',')[1],mimeType:f.type}; document.getElementById('imagePreview').src=r.result; } document.getElementById('imagePreviewContainer').classList.remove('hidden'); document.getElementById('uploadZone').classList.add('hidden'); ai.runAiAnalysis(); }; r.readAsDataURL(f); },
             clearImage: () => { state.currentImage=null; document.getElementById('receiptUpload').value=''; document.getElementById('imagePreviewContainer').classList.add('hidden'); document.getElementById('uploadZone').classList.remove('hidden'); document.getElementById('aiLoading').classList.add('hidden'); },
-            runAiAnalysis: async () => { 
-                if(!state.geminiKey) return alert("請先設定 API Key"); 
-                const l=document.getElementById('aiLoading'); l.classList.remove('hidden'); document.getElementById('aiStatusText').innerText = "AI 正在辨識收據內容..."; 
-                try{ 
+            runAiAnalysis: async () => {
+                if(!state.geminiKey) return alert("請先設定 API Key");
+                const l=document.getElementById('aiLoading');
+                const overlay=document.getElementById('aiScanOverlay');
+                const overlayTxt=document.getElementById('aiScanOverlayText');
+                l.classList.remove('hidden');
+                if(overlay){ overlay.classList.remove('hidden'); if(overlayTxt) overlayTxt.textContent='AI 正在辨識圖片，請稍候...'; }
+                document.getElementById('aiStatusText').innerText = "AI 正在辨識收據內容...";
+                try{
                     const existingCats = state.categories.expense.join(', ');
-                    let p = `Analyze this receipt. 1. Identify items & prices. 2. Distribute service charges/taxes/discounts proportionally. 3. Return ONLY valid JSON: {"merchant":"...", "items":[{"name":"...", "amount":number, "category":"...", "note":"..."}]}. Do not include markdown formatting or explanations. Category map to: [${existingCats}].`;
+                    // 更新 prompt：同時抓日期
+                    let p = `Analyze this receipt image. 1. Identify the transaction date if visible (format YYYY-MM-DD), merchant name, items & prices. 2. Distribute service charges/taxes proportionally. 3. Return ONLY valid JSON (no markdown): {"date":"YYYY-MM-DD or null","merchant":"...","items":[{"name":"...","amount":number,"category":"...","note":""}]}. Category must be one of: [${existingCats}].`;
                     if (state.customAiPrompt) { p += ` User Instruction: ${state.customAiPrompt}`; }
-                    
-                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, { 
-                        method: 'POST', 
-                        headers: { 'Content-Type': 'application/json' }, 
-                        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: p }, { inlineData: { mimeType: state.currentImage.mimeType, data: state.currentImage.base64 } }] }] }) 
+
+                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: p }, { inlineData: { mimeType: state.currentImage.mimeType, data: state.currentImage.base64 } }] }] })
                     });
-                    const d = await r.json(); 
+                    const d = await r.json();
                     if (d.error) throw new Error(d.error.message);
-                    
+
                     let rawText = d.candidates[0].content.parts[0].text;
                     const firstOpen = rawText.indexOf('{');
                     const lastClose = rawText.lastIndexOf('}');
-                    
+
                     if (firstOpen !== -1 && lastClose !== -1) {
                         rawText = rawText.substring(firstOpen, lastClose + 1);
                     }
-                    
-                    const j=JSON.parse(rawText); 
-                    
-                    document.getElementById('transactionItemsList').innerHTML=''; 
-                    (j.items||[]).forEach(i => { if (!state.categories.expense.includes(i.category)) { state.categories.expense.push(i.category); app.saveCategories(); ui.renderSettings(); } ui.addItemRow(i.name, i.category, i.amount, i.note); }); 
-                    if(j.merchant) document.getElementById('tMerchant').value = j.merchant; ui.updateTotal(); document.getElementById('aiStatusText').innerText = "辨識完成！"; setTimeout(() => l.classList.add('hidden'), 1500); 
-                } catch(e){ alert("辨識錯誤: " + e.message + "\n(請至系統設定檢查 API Key 是否有效)"); l.classList.add('hidden'); } 
+
+                    const j=JSON.parse(rawText);
+
+                    // 自動填入日期（若 AI 有辨識到）
+                    if (j.date) {
+                        const dateEl = document.getElementById('tDate');
+                        if (dateEl) dateEl.value = j.date;
+                    }
+
+                    document.getElementById('transactionItemsList').innerHTML='';
+                    (j.items||[]).forEach(i => { if (!state.categories.expense.includes(i.category)) { state.categories.expense.push(i.category); app.saveCategories(); ui.renderSettings(); } ui.addItemRow(i.name, i.category, i.amount, i.note); });
+                    if(j.merchant) document.getElementById('tMerchant').value = j.merchant;
+                    ui.updateTotal();
+                    document.getElementById('aiStatusText').innerText = "辨識完成！";
+                    if(overlayTxt) overlayTxt.textContent='辨識完成！';
+                    setTimeout(() => { l.classList.add('hidden'); if(overlay) overlay.classList.add('hidden'); }, 1200);
+                } catch(e){
+                    alert("辨識錯誤: " + e.message + "\n(請至系統設定檢查 API Key 是否有效)");
+                    l.classList.add('hidden');
+                    if(overlay) overlay.classList.add('hidden');
+                }
             },
             runNoteAnalysis: async () => {
                 const noteText = document.getElementById('aiNoteInput').value.trim();
@@ -2039,6 +2421,23 @@
             toggleCurrencyEdit: (show) => { document.getElementById('currencyViewMode').classList.toggle('hidden', show); document.getElementById('currencyEditMode').classList.toggle('hidden', !show); if(!show) ui.updateTotal(); },
             toggleStatsSection: () => { document.getElementById('statsContent').classList.toggle('hidden'); document.getElementById('statsToggleIcon').classList.toggle('rotate-180'); },
             toggleSettledSection: () => { document.getElementById('settledContent').classList.toggle('hidden'); document.getElementById('settledToggleIcon').classList.toggle('rotate-180'); },
+
+            /* ── 批次辨識 UI helpers ── */
+            toggleBatchDropdown: () => {
+                const menu = document.getElementById('batchDropdownMenu');
+                menu.classList.toggle('hidden');
+                // 點選單外自動關閉
+                if (!menu.classList.contains('hidden')) {
+                    const close = (e) => { if (!document.getElementById('batchDropdownWrapper').contains(e.target)) { menu.classList.add('hidden'); document.removeEventListener('click', close); } };
+                    setTimeout(() => document.addEventListener('click', close), 0);
+                }
+            },
+            openBatchMode: (mode) => {
+                document.getElementById('batchDropdownMenu').classList.add('hidden');
+                if (!state.currentLedger) return alert("請先選擇帳本");
+                if (!state.geminiKey) return alert("請先在系統設定填入 Gemini API Key");
+                document.getElementById(mode === 'list' ? 'batchListInput' : 'batchReceiptInput').click();
+            },
 
             /* ── 今日提醒 ── */
             renderTodayReminder: (listData) => {
