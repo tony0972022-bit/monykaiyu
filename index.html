@@ -1785,13 +1785,20 @@
                         const newItems = [];
                         rows.forEach((r,idx)=>{
                             const n=r.querySelector('.item-name').value.trim(),c=r.querySelector('.item-cat').value,nt=r.querySelector('.item-note').value.trim();
+                            const nOrig=r.querySelector('.item-name-original')?.value||'';
                             let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a; if(!n&&a===0)return;
                             if(cur!=='TWD') a=Math.round(oa*rate);
-                            newItems.push({n,c,nt,a,oa});
+                            // 品項個別分攤：群組帳本才讀取，否則用整體 splitAmong
+                            let itemSplit=splitAmong;
+                            if(isG){
+                                const itemSplitEls=r.querySelectorAll('.item-split-check:checked');
+                                if(itemSplitEls.length>0) itemSplit=Array.from(itemSplitEls).map(cb=>cb.value);
+                            }
+                            newItems.push({n,c,nt,a,oa,nOrig,itemSplit});
                         });
                         // 建立 batch
-                        newItems.forEach(({n,c,nt,a,oa})=>{
-                            bat.set(doc(collection(state.db,"transactions")),{ ledgerId:state.currentLedger.id, type:typ, date:dat, amount:a, originalAmount:oa, currency:cur, exchangeRate:rate, paidBy:pb, splitAmong, name:n, category:c, imageUrl:u, merchant:merch, groupId, createdAt:new Date().toISOString(), lastEditedBy:state.userName, lastEditedAt:new Date().toISOString(), note: nt });
+                        newItems.forEach(({n,c,nt,a,oa,nOrig,itemSplit})=>{
+                            bat.set(doc(collection(state.db,"transactions")),{ ledgerId:state.currentLedger.id, type:typ, date:dat, amount:a, originalAmount:oa, currency:cur, exchangeRate:rate, paidBy:pb, splitAmong:itemSplit, name:n, nameOriginal:nOrig, category:c, imageUrl:u, merchant:merch, groupId, createdAt:new Date().toISOString(), lastEditedBy:state.userName, lastEditedAt:new Date().toISOString(), note: nt });
                         });
                         // 重複檢查
                         const dupes = app.findDupesForItems(dat, typ, newItems);
@@ -1940,14 +1947,17 @@
 這是一張消費清單/電子發票列表截圖，圖中可能有多筆不同日期的交易。
 請提取圖中所有可見的交易，每筆各自的日期、商店名稱、金額。
 若商店名稱為非中文（如日文、英文等），請在 merchantOriginal 保留原文，merchant 欄位提供繁體中文翻譯或音譯；若已是中文則省略 merchantOriginal。
-回傳格式：{"type":"list","transactions":[{"date":"YYYY-MM-DD","merchant":"中文商店名","merchantOriginal":"原文（非中文時填）","amount":金額數字,"category":"類別","items":[]},...]}
-如果某筆日期看不到，用 null。金額必須是數字不含符號。`;
+請偵測圖中金額的幣別（如 JPY、USD、EUR、TWD 等），在最外層加入 "currency":"幣別代碼"，台幣填 TWD。
+回傳格式：{"type":"list","currency":"JPY","transactions":[{"date":"YYYY-MM-DD","merchant":"中文商店名","merchantOriginal":"原文（非中文時填）","amount":金額數字,"category":"類別","items":[]},...]}
+如果某筆日期看不到，用 null。金額必須是數字不含符號，請填寫原始幣別金額（不要自行換算）。`;
                 } else {
                     prompt = `${baseInstruction}
 這是一張收據/發票照片。請提取交易日期、商店名稱、以及所有品項與金額。
 若品項名稱為非中文（如日文、英文等），請在 nameOriginal 保留原文，name 欄位提供繁體中文翻譯；若已是中文則省略 nameOriginal 或與 name 相同。
 若整體收據為外文，merchant 請翻譯為中文，merchantOriginal 保留原文。
-回傳格式：{"type":"receipt","date":"YYYY-MM-DD or null","merchant":"中文商店名","merchantOriginal":"原文（非中文時填）","items":[{"nameOriginal":"原文品項名（非中文時填）","name":"繁體中文名稱","amount":金額數字,"category":"類別","note":""},...]}`;
+請偵測收據上的幣別（如 JPY、USD、EUR、TWD 等），在最外層加入 "currency":"幣別代碼"，台幣填 TWD。
+金額請填寫原始幣別金額（不要自行換算）。
+回傳格式：{"type":"receipt","currency":"JPY","date":"YYYY-MM-DD or null","merchant":"中文商店名","merchantOriginal":"原文（非中文時填）","items":[{"nameOriginal":"原文品項名（非中文時填）","name":"繁體中文名稱","amount":金額數字,"category":"類別","note":""},...]}`;
                 }
 
                 const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
@@ -1960,6 +1970,9 @@
                 const s = raw.indexOf('{'), e = raw.lastIndexOf('}');
                 if (s !== -1 && e !== -1) raw = raw.substring(s, e + 1);
                 const parsed = JSON.parse(raw);
+                // 幣別正規化
+                const detectedCurrency = (parsed.currency || 'TWD').toUpperCase();
+                parsed.currency = detectedCurrency;
                 // Normalize: both formats produce a .transactions array
                 if (parsed.type === 'receipt') {
                     const today = new Date().toISOString().split('T')[0];
@@ -2063,12 +2076,28 @@
 
                     const errorHtml = result.error ? `<div class="text-xs text-red-500 p-3"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${result.error}</div>` : '';
 
+                    const detectedCurr = (result.currency || state.currentLedger?.defaultCurrency || 'TWD').toUpperCase();
+                    const detectedRate = (state.rates[detectedCurr] || 1).toFixed(4);
+                    const currOptions = state.currencies.map(c => `<option value="${c}" ${c === detectedCurr ? 'selected' : ''}>${c}</option>`).join('');
+                    const isForeign = detectedCurr !== 'TWD';
+                    const currRowCls = isForeign ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-100';
+
                     return `
                     <div class="border rounded-xl overflow-hidden ${headerCls}">
                         <div class="px-4 py-2.5 flex items-center gap-2 text-sm font-bold text-gray-700 border-b border-current/10">
                             <i class="fa-solid fa-${result.mode === 'list' ? 'list' : 'receipt'} text-violet-500"></i>
                             <span class="flex-1 truncate">${result.fileName || '圖片'}</span>
                             <span class="text-xs font-normal text-gray-400">${modeLabel} · ${txList.length} 筆</span>
+                        </div>
+                        <div class="px-3 py-2 flex items-center gap-3 text-xs border-b ${currRowCls}">
+                            <i class="fa-solid fa-coins text-amber-500"></i>
+                            <span class="text-gray-500 shrink-0">幣別</span>
+                            <select id="batch-result-currency-${ri}" class="border border-gray-200 rounded px-2 py-0.5 text-xs bg-white" onchange="app.onBatchCurrencyChange(${ri})">
+                                ${currOptions}
+                            </select>
+                            <span class="text-gray-400 shrink-0">匯率→TWD</span>
+                            <input id="batch-result-rate-${ri}" type="number" step="0.0001" min="0.0001" class="border border-gray-200 rounded px-2 py-0.5 text-xs bg-white w-24" value="${detectedRate}">
+                            ${isForeign ? `<span class="text-amber-600 text-[10px] font-medium">⚠ 偵測到外幣，請確認匯率</span>` : ''}
                         </div>
                         ${errorHtml}
                         <div class="p-3 space-y-2">${rows}</div>
@@ -2165,6 +2194,10 @@
                             imageUrl = imageUrlCache[ri];
                         }
 
+                        // 讀取此來源圖的幣別設定
+                        const resCurrency = document.getElementById(`batch-result-currency-${ri}`)?.value || 'TWD';
+                        const resRate = parseFloat(document.getElementById(`batch-result-rate-${ri}`)?.value) || 1;
+
                         const groupId = Date.now().toString() + idx;
                         const origTx = resultData?.transactions?.[ti] || {};
                         const origItems = origTx.items || [];
@@ -2172,8 +2205,8 @@
 
                         const baseDoc = {
                             ledgerId: state.currentLedger.id, type: 'expense',
-                            date, currency: state.currentLedger.defaultCurrency || 'TWD',
-                            exchangeRate: 1, paidBy, splitAmong, merchant, groupId, imageUrl,
+                            date, currency: resCurrency,
+                            exchangeRate: resRate, paidBy, splitAmong, merchant, groupId, imageUrl,
                             createdAt: new Date().toISOString(),
                             lastEditedBy: state.userName, lastEditedAt: new Date().toISOString()
                         };
@@ -2184,8 +2217,10 @@
                                 const ii = parseInt(itemCb.getAttribute('data-item'));
                                 const origItem = origItems[ii] || {};
                                 const amtItemEl = document.querySelector(`.batch-item-amt-${idx}[data-item="${ii}"]`);
-                                const itemAmt = parseFloat(amtItemEl?.value || 0) || 0;
-                                if (itemAmt <= 0) return;
+                                const itemOrigAmt = parseFloat(amtItemEl?.value || 0) || 0;
+                                if (itemOrigAmt <= 0) return;
+                                // 換算台幣
+                                const itemTwdAmt = resCurrency !== 'TWD' ? Math.round(itemOrigAmt * resRate) : itemOrigAmt;
                                 // 品項個別分攤：若有設定則用品項的，否則用整筆的
                                 const itemSplitEls = document.querySelectorAll(`.batch-item-split-${idx}-${ii}:checked`);
                                 const itemSplitAmong = itemSplitEls.length > 0
@@ -2196,7 +2231,7 @@
                                 firestoreBatch.set(doc(collection(state.db, 'transactions')), {
                                     ...baseDoc,
                                     splitAmong: itemSplitAmong,
-                                    amount: itemAmt, originalAmount: itemAmt,
+                                    amount: itemTwdAmt, originalAmount: itemOrigAmt,
                                     name: origItem.name || merchant || '消費',
                                     nameOriginal: itemNameOrig,
                                     category: origItem.category || category,
@@ -2206,10 +2241,12 @@
                             });
                         } else {
                             // 清單模式（或單品項收據）：存一筆
+                            const origTotalAmt = totalAmount;
+                            const twdTotalAmt = resCurrency !== 'TWD' ? Math.round(origTotalAmt * resRate) : origTotalAmt;
                             const txNameOrig = (origTx.merchantOriginal && origTx.merchantOriginal !== origTx.merchant) ? origTx.merchantOriginal : '';
                             firestoreBatch.set(doc(collection(state.db, 'transactions')), {
                                 ...baseDoc,
-                                amount: totalAmount, originalAmount: totalAmount,
+                                amount: twdTotalAmt, originalAmount: origTotalAmt,
                                 name: merchant || '消費',
                                 nameOriginal: txNameOrig,
                                 category, note: ''
@@ -2337,6 +2374,11 @@
                 if(r) { document.getElementById('tRate').value = (state.rates[c] || 1).toFixed(4); }
                 document.getElementById('currencyViewText').innerText = `${c} (匯率: ${document.getElementById('tRate').value})`; app.calcTwd();
             },
+            onBatchCurrencyChange: (ri) => {
+                const c = document.getElementById(`batch-result-currency-${ri}`)?.value || 'TWD';
+                const rateEl = document.getElementById(`batch-result-rate-${ri}`);
+                if (rateEl) rateEl.value = (state.rates[c] || 1).toFixed(4);
+            },
             calcTwd: ()=>ui.updateTotal(),
             
             calculateDebt: () => {
@@ -2408,8 +2450,7 @@
                 document.getElementById('aiStatusText').innerText = "AI 正在辨識收據內容...";
                 try{
                     const existingCats = state.categories.expense.join(', ');
-                    // 更新 prompt：同時抓日期
-                    let p = `Analyze this receipt image. 1. Identify the transaction date if visible (format YYYY-MM-DD), merchant name, items & prices. 2. Distribute service charges/taxes proportionally. 3. Return ONLY valid JSON (no markdown): {"date":"YYYY-MM-DD or null","merchant":"...","items":[{"name":"...","amount":number,"category":"...","note":""}]}. Category must be one of: [${existingCats}].`;
+                    let p = `Analyze this receipt image. 1. Identify the transaction date if visible (format YYYY-MM-DD), merchant name, items & prices. 2. Distribute service charges/taxes proportionally. 3. If item names are non-Chinese (Japanese, English, Korean, etc.), put the original text in nameOriginal and provide a Traditional Chinese translation in name; if already Chinese, nameOriginal can be omitted. 4. Detect the currency used on this receipt (e.g. JPY, USD, EUR, TWD) and include "currency":"XXX" in the root JSON. Report the original currency amounts as-is — do NOT convert to TWD. 5. Return ONLY valid JSON (no markdown): {"currency":"XXX","date":"YYYY-MM-DD or null","merchant":"Traditional Chinese name","merchantOriginal":"original if non-Chinese","items":[{"nameOriginal":"original if non-Chinese","name":"Traditional Chinese name","amount":number,"category":"...","note":""}]}. Category must be one of: [${existingCats}].`;
                     if (state.customAiPrompt) { p += ` User Instruction: ${state.customAiPrompt}`; }
 
                     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
@@ -2436,9 +2477,21 @@
                         if (dateEl) dateEl.value = j.date;
                     }
 
+                    // 自動填入幣別（若 AI 偵測到非台幣）
+                    if (j.currency) {
+                        const curr = j.currency.toUpperCase();
+                        const currEl = document.getElementById('tCurrency');
+                        if (currEl && state.currencies.includes(curr)) {
+                            currEl.value = curr;
+                            app.updateRate(true); // 自動帶入匯率
+                        }
+                    }
+
                     document.getElementById('transactionItemsList').innerHTML='';
-                    (j.items||[]).forEach(i => { if (!state.categories.expense.includes(i.category)) { state.categories.expense.push(i.category); app.saveCategories(); ui.renderSettings(); } ui.addItemRow(i.name, i.category, i.amount, i.note); });
+                    (j.items||[]).forEach(i => { if (i.category && !state.categories.expense.includes(i.category)) { state.categories.expense.push(i.category); app.saveCategories(); ui.renderSettings(); } ui.addItemRow(i.name||'', i.category||'', i.amount||0, i.note||'', i.nameOriginal||''); });
+                    // 商店名稱：優先顯示中文名，原文存備用
                     if(j.merchant) document.getElementById('tMerchant').value = j.merchant;
+                    if(j.merchantOriginal && j.merchantOriginal !== j.merchant) { /* 可在商店欄下方顯示原文 */ }
                     ui.updateTotal();
                     document.getElementById('aiStatusText').innerText = "辨識完成！";
                     if(overlayTxt) overlayTxt.textContent='辨識完成！';
@@ -2702,23 +2755,58 @@
                     let groupBadges = '';
                     if (isGroupLedger && g.type === 'expense') {
                         const payer = g.paidBy || '?';
-                        const splits = Array.isArray(g.splitAmong) ? g.splitAmong : [];
                         const memberCount = state.currentLedger.members ? state.currentLedger.members.length : 0;
-                        
-                        let splitText = '全員';
-                        if (splits.length > 0 && splits.length < memberCount) {
-                            splitText = splits.length <= 2 ? splits.join(', ') : `${splits.length}人分攤`;
+
+                        // 取所有品項 splitAmong 的 key（排序後），偵測是否一致
+                        const itemSplitKeys = g.items.map(i => (Array.isArray(i.splitAmong) && i.splitAmong.length ? [...i.splitAmong].sort().join(',') : '__all__'));
+                        const splitsUniform = itemSplitKeys.every(k => k === itemSplitKeys[0]);
+
+                        // 聯集：所有品項涉及的成員
+                        const allSplitMembers = [...new Set(g.items.flatMap(i => Array.isArray(i.splitAmong) && i.splitAmong.length ? i.splitAmong : (state.currentLedger.members || [])))];
+
+                        let splitText, splitTitle, splitBadgeCls;
+                        if (splitsUniform) {
+                            // 所有品項分攤一致，正常顯示
+                            const splits = Array.isArray(g.items[0].splitAmong) ? g.items[0].splitAmong : [];
+                            if (splits.length === 0 || splits.length === memberCount) {
+                                splitText = '全員'; splitTitle = '全員平分';
+                            } else {
+                                splitText = splits.length <= 2 ? splits.join(', ') : `${splits.length}人`;
+                                splitTitle = splits.join('、');
+                            }
+                            splitBadgeCls = 'bg-blue-50 text-blue-600 border-blue-100';
+                        } else {
+                            // 品項分攤各異，顯示所有涉及成員 + 警示
+                            const names = allSplitMembers.length <= 3 ? allSplitMembers.join(', ') : `${allSplitMembers.length}人`;
+                            splitText = `各異 (${names})`;
+                            splitTitle = '此筆各品項分攤人員不同，請展開查看明細';
+                            splitBadgeCls = 'bg-orange-50 text-orange-600 border-orange-200';
                         }
+
+                        // 計算每人應付金額
+                        const memberShares = {};
+                        g.items.forEach(item => {
+                            const amt = item.amount || 0;
+                            const beneficiaries = (Array.isArray(item.splitAmong) && item.splitAmong.length)
+                                ? item.splitAmong
+                                : (state.currentLedger.members || []);
+                            if (beneficiaries.length === 0) return;
+                            const perPerson = amt / beneficiaries.length;
+                            beneficiaries.forEach(m => { memberShares[m] = (memberShares[m] || 0) + perPerson; });
+                        });
+                        const shareEntries = Object.entries(memberShares);
+                        const shareText = shareEntries.map(([m, a]) => `<span class="font-medium text-gray-600">${m}</span> $${Math.round(a).toLocaleString()}`).join('<span class="text-gray-300 mx-0.5">·</span>');
 
                         groupBadges = `
                             <div class="flex flex-wrap gap-1 mt-1">
                                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800 border border-yellow-200" title="付款人">
                                     <i class="fa-solid fa-wallet mr-1"></i>${payer}
                                 </span>
-                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100" title="分攤對象">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${splitBadgeCls}" title="${splitTitle}">
                                     <i class="fa-solid fa-users mr-1"></i>${splitText}
                                 </span>
                             </div>
+                            ${shareEntries.length > 0 ? `<div class="flex flex-wrap items-center gap-0.5 mt-0.5 text-[10px] text-gray-400">${shareText}</div>` : ''}
                         `;
                     }
 
@@ -2748,21 +2836,30 @@
                     <tr id="${detailId}" class="hidden bg-slate-50 border-b border-slate-100 shadow-inner">
                         <td colspan="5" class="p-3 md:p-4">
                             <div class="space-y-2">
-                                ${g.items.map(i=>`
+                                ${g.items.map(i=>{
+                                    const iSplit = Array.isArray(i.splitAmong) && i.splitAmong.length ? i.splitAmong : (state.currentLedger?.members || []);
+                                    const gSplit = Array.isArray(g.items[0].splitAmong) && g.items[0].splitAmong.length ? g.items[0].splitAmong : (state.currentLedger?.members || []);
+                                    const splitDiffers = isGroupLedger && [...iSplit].sort().join(',') !== [...gSplit].sort().join(',');
+                                    const splitBadge = isGroupLedger ? `<span class="text-[10px] ${splitDiffers ? 'text-orange-500 font-bold' : 'text-gray-400'}" title="分攤：${iSplit.join('、')}"><i class="fa-solid fa-users mr-0.5"></i>${iSplit.length === (state.currentLedger?.members?.length||0) ? '全員' : iSplit.join(', ')}</span>` : '';
+                                    return `
                                     <div class="flex justify-between items-center text-sm p-2 bg-white rounded border border-gray-100 shadow-sm">
-                                        <div class="flex flex-col">
-                                            <span class="font-medium text-gray-700">${i.name}</span>
-                                            <span class="text-[10px] text-gray-400">${i.category} ${i.note ? `• ${i.note}` : ''}</span>
+                                        <div class="flex flex-col gap-0.5 flex-1 min-w-0">
+                                            ${i.nameOriginal ? `<span class="text-[10px] text-blue-400 truncate">${i.nameOriginal}</span>` : ''}
+                                            <span class="font-medium text-gray-700 leading-tight">${i.name}</span>
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <span class="text-[10px] text-gray-400">${i.category}${i.note ? ` • ${i.note}` : ''}</span>
+                                                ${splitBadge}
+                                            </div>
                                         </div>
-                                        <div class="flex items-center gap-3">
+                                        <div class="flex items-center gap-3 shrink-0">
                                             <span class="font-mono text-gray-600 font-bold">$${i.amount.toLocaleString()}</span>
                                             <div class="flex gap-2 border-l pl-2 border-gray-200">
                                                 <button onclick="app.editTransaction('${i.id}')" class="text-blue-400 hover:text-blue-600 p-1" title="編輯"><i class="fa-solid fa-pen"></i></button>
                                                 <button onclick="app.deleteTransaction('${i.id}')" class="text-red-400 hover:text-red-600 p-1" title="刪除"><i class="fa-solid fa-trash"></i></button>
                                             </div>
                                         </div>
-                                    </div>
-                                `).join('')}
+                                    </div>`;
+                                }).join('')}
                                 
                                 ${isGroupLedger && g.type === 'expense' ? `
                                     <div class="mt-3 text-xs text-gray-500 bg-white/50 border border-gray-200 p-2 rounded flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
@@ -2929,10 +3026,32 @@
                 }
                 ui.openModal('transactionModal'); 
             },
-            addItemRow: (n='',c='',a='', nt='') => { 
-                const div=document.createElement('div'); div.className='grid grid-cols-12 gap-2 p-2 border-b item-row items-start'; 
-                div.innerHTML=`<div class="col-span-5"><textarea class="item-name w-full border p-1 rounded text-sm mb-1" rows="2" onblur="app.autoCategorize(this)">${n}</textarea><input type="text" class="item-note w-full border p-1 rounded text-[10px]" value="${nt}" placeholder="備註"></div><div class="col-span-3"><select class="item-cat w-full border p-1 rounded text-sm">${state.categories[document.getElementById('tType').value].map(x=>`<option ${x===c?'selected':''}>${x}</option>`).join('')}</select></div><div class="col-span-3"><input type="number" class="item-amount w-full border p-1 rounded text-sm" value="${a}" oninput="ui.updateTotal()"></div><div class="col-span-1 text-center"><button type="button" onclick="this.parentElement.parentElement.remove(); ui.updateTotal()"><i class="fa-solid fa-times"></i></button></div>`; 
-                document.getElementById('transactionItemsList').appendChild(div); 
+            addItemRow: (n='', c='', a='', nt='', nameOriginal='') => {
+                const isGroup = state.currentLedger && state.currentLedger.type === 'group';
+                const members = isGroup && state.currentLedger.members ? state.currentLedger.members : [];
+                const hasOrig = nameOriginal && nameOriginal.trim() !== '' && nameOriginal !== n;
+                const catOpts = state.categories[document.getElementById('tType').value]
+                    .map(x => `<option ${x===c?'selected':''}>${x}</option>`).join('');
+                // 品項分攤（群組才顯示）
+                const splitHtml = isGroup && members.length > 0 ? `
+                    <div class="col-span-12 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 border-t border-gray-100">
+                        <span class="text-[10px] text-gray-400 shrink-0">品項分攤</span>
+                        ${members.map(m => `<label class="flex items-center gap-1 text-[10px] cursor-pointer"><input type="checkbox" class="item-split-check" value="${m}" checked><span>${m}</span></label>`).join('')}
+                    </div>` : '';
+                const div = document.createElement('div');
+                div.className = 'grid grid-cols-12 gap-2 p-2 border-b item-row items-start';
+                div.innerHTML = `
+                    <div class="col-span-5">
+                        ${hasOrig ? `<div class="text-[10px] text-blue-400 font-medium mb-0.5 leading-tight truncate" title="${nameOriginal}">${nameOriginal}</div>` : ''}
+                        <input type="hidden" class="item-name-original" value="${hasOrig ? nameOriginal.replace(/"/g,'&quot;') : ''}">
+                        <textarea class="item-name w-full border p-1 rounded text-sm mb-1" rows="2" onblur="app.autoCategorize(this)">${n}</textarea>
+                        <input type="text" class="item-note w-full border p-1 rounded text-[10px]" value="${nt}" placeholder="備註">
+                    </div>
+                    <div class="col-span-3"><select class="item-cat w-full border p-1 rounded text-sm">${catOpts}</select></div>
+                    <div class="col-span-3"><input type="number" class="item-amount w-full border p-1 rounded text-sm" value="${a}" oninput="ui.updateTotal()"></div>
+                    <div class="col-span-1 text-center"><button type="button" onclick="this.closest('.item-row').remove(); ui.updateTotal()"><i class="fa-solid fa-times"></i></button></div>
+                    ${splitHtml}`;
+                document.getElementById('transactionItemsList').appendChild(div);
             },
             updateCategoriesForRows: () => { document.querySelectorAll('.item-cat').forEach(s=>s.innerHTML=state.categories[document.getElementById('tType').value].map(c=>`<option>${c}</option>`).join('')); },
             updateTotal: () => { 
