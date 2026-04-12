@@ -1939,12 +1939,15 @@
                     prompt = `${baseInstruction}
 這是一張消費清單/電子發票列表截圖，圖中可能有多筆不同日期的交易。
 請提取圖中所有可見的交易，每筆各自的日期、商店名稱、金額。
-回傳格式：{"type":"list","transactions":[{"date":"YYYY-MM-DD","merchant":"商店名稱","amount":金額數字,"category":"類別","items":[]},...]}
+若商店名稱為非中文（如日文、英文等），請在 merchantOriginal 保留原文，merchant 欄位提供繁體中文翻譯或音譯；若已是中文則省略 merchantOriginal。
+回傳格式：{"type":"list","transactions":[{"date":"YYYY-MM-DD","merchant":"中文商店名","merchantOriginal":"原文（非中文時填）","amount":金額數字,"category":"類別","items":[]},...]}
 如果某筆日期看不到，用 null。金額必須是數字不含符號。`;
                 } else {
                     prompt = `${baseInstruction}
 這是一張收據/發票照片。請提取交易日期、商店名稱、以及所有品項與金額。
-回傳格式：{"type":"receipt","date":"YYYY-MM-DD or null","merchant":"商店名稱","items":[{"name":"品項名稱","amount":金額數字,"category":"類別","note":""},...]}`;
+若品項名稱為非中文（如日文、英文等），請在 nameOriginal 保留原文，name 欄位提供繁體中文翻譯；若已是中文則省略 nameOriginal 或與 name 相同。
+若整體收據為外文，merchant 請翻譯為中文，merchantOriginal 保留原文。
+回傳格式：{"type":"receipt","date":"YYYY-MM-DD or null","merchant":"中文商店名","merchantOriginal":"原文（非中文時填）","items":[{"nameOriginal":"原文品項名（非中文時填）","name":"繁體中文名稱","amount":金額數字,"category":"類別","note":""},...]}`;
                 }
 
                 const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
@@ -1963,6 +1966,7 @@
                     parsed.transactions = [{
                         date: parsed.date || today,
                         merchant: parsed.merchant || '',
+                        merchantOriginal: parsed.merchantOriginal || '',
                         amount: (parsed.items || []).reduce((s, i) => s + (i.amount || 0), 0),
                         category: (parsed.items && parsed.items[0]) ? parsed.items[0].category : '其他',
                         items: parsed.items || []
@@ -1990,18 +1994,36 @@
                     const headerCls = result.error ? 'bg-red-50 border-red-200' : 'bg-violet-50 border-violet-200';
                     const rows = txList.map((tx, ti) => {
                         const idx = txIndex++;
-                        const hasItems = tx.items && tx.items.length > 1;
+                        const hasItems = tx.items && tx.items.length > 0;
                         const catOptions = allCats.map(c => `<option value="${c}" ${c === tx.category ? 'selected' : ''}>${c}</option>`).join('');
                         const memberOptions = members.map(m => `<option value="${m}" ${m === state.userName ? 'selected' : ''}>${m}</option>`).join('');
                         const splitChecks = members.map(m => `<label class="flex items-center gap-1 text-xs cursor-pointer"><input type="checkbox" class="batch-split-${idx}" value="${m}" checked><span>${m}</span></label>`).join('');
+                        // 商店原文（外文收據）
+                        const hasMerchOrig = tx.merchantOriginal && tx.merchantOriginal !== tx.merchant;
                         const itemsHtml = hasItems ? `
-                            <div class="batch-items-${idx} hidden mt-2 pl-3 border-l-2 border-violet-100 space-y-1">
-                                ${tx.items.map((item, ii) => `
-                                <div class="flex items-center gap-2 text-xs">
-                                    <input type="checkbox" class="batch-item-check-${idx}" data-item="${ii}" checked onchange="app.updateBatchRowAmount(${idx})">
-                                    <span class="flex-1 text-gray-600 truncate">${item.name}</span>
-                                    <input type="number" class="batch-item-amt-${idx} w-20 border border-gray-200 rounded px-1 py-0.5 text-right text-xs" value="${item.amount}" data-item="${ii}" onchange="app.updateBatchRowAmount(${idx})">
-                                </div>`).join('')}
+                            <div class="batch-items-${idx} hidden mt-2 pl-3 border-l-2 border-violet-100 space-y-1.5">
+                                ${tx.items.map((item, ii) => {
+                                    const hasOrig = item.nameOriginal && item.nameOriginal !== item.name;
+                                    const itemSplitPanel = isGroup ? `
+                                        <div class="shrink-0 relative">
+                                            <button type="button" onclick="app.toggleItemSplitPanel(${idx},${ii})" class="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 border border-violet-200 text-violet-600 hover:bg-violet-100 flex items-center gap-0.5 whitespace-nowrap">
+                                                <i class="fa-solid fa-users text-[9px]"></i> 分攤
+                                            </button>
+                                            <div id="batch-item-split-panel-${idx}-${ii}" class="hidden absolute right-0 top-full mt-1 p-2 bg-white border border-violet-200 rounded-lg shadow-lg z-10 flex flex-col gap-1.5 min-w-[80px]">
+                                                ${members.map(m => `<label class="flex items-center gap-1 text-[10px] cursor-pointer whitespace-nowrap"><input type="checkbox" class="batch-item-split-${idx}-${ii}" value="${m}" checked><span>${m}</span></label>`).join('')}
+                                            </div>
+                                        </div>` : '';
+                                    return `
+                                    <div class="flex items-start gap-2 text-xs py-0.5">
+                                        <input type="checkbox" class="mt-1 shrink-0 batch-item-check-${idx}" data-item="${ii}" checked onchange="app.updateBatchRowAmount(${idx})">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-gray-700 font-medium leading-tight truncate">${hasOrig ? item.nameOriginal : item.name}</div>
+                                            ${hasOrig ? `<div class="text-[10px] text-blue-400 mt-0.5 truncate">${item.name}</div>` : ''}
+                                        </div>
+                                        <input type="number" class="batch-item-amt-${idx} w-20 border border-gray-200 rounded px-1 py-0.5 text-right text-xs shrink-0" value="${item.amount}" data-item="${ii}" onchange="app.updateBatchRowAmount(${idx})">
+                                        ${itemSplitPanel}
+                                    </div>`;
+                                }).join('')}
                             </div>` : '';
                         const expandBtn = hasItems ? `<button onclick="app.toggleBatchItems(${idx})" class="text-[10px] text-violet-500 hover:text-violet-700 font-bold ml-1" id="batch-expand-${idx}">▶ 展開品項</button>` : '';
 
@@ -2013,7 +2035,10 @@
                                     <!-- Row 1: Date / Merchant / Amount / Category -->
                                     <div class="flex flex-wrap items-center gap-2">
                                         <input type="date" class="batch-date-${idx} border border-gray-200 rounded-lg px-2 py-1 text-xs font-mono" value="${tx.date || today}">
-                                        <input type="text" class="batch-merchant-${idx} flex-1 min-w-[100px] border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-700" value="${tx.merchant || ''}">
+                                        <div class="flex-1 min-w-[100px]">
+                                            <input type="text" class="batch-merchant-${idx} w-full border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-700" value="${tx.merchant || ''}">
+                                            ${hasMerchOrig ? `<div class="text-[10px] text-blue-400 pl-1 mt-0.5 truncate">${tx.merchantOriginal}</div>` : ''}
+                                        </div>
                                         <input type="number" class="batch-amt-${idx} w-24 border border-gray-200 rounded-lg px-2 py-1 text-xs text-right font-bold text-rose-600" value="${tx.amount || 0}">
                                         <select class="batch-cat-${idx} border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white">${catOptions}</select>
                                     </div>
@@ -2059,6 +2084,15 @@
                 if (!el || !btn) return;
                 const hidden = el.classList.toggle('hidden');
                 btn.textContent = hidden ? '▶ 展開品項' : '▼ 收合品項';
+            },
+
+            toggleItemSplitPanel: (idx, ii) => {
+                // 關閉所有其他已開的分攤面板，再切換目標
+                document.querySelectorAll('[id^="batch-item-split-panel-"]').forEach(p => {
+                    if (p.id !== `batch-item-split-panel-${idx}-${ii}`) p.classList.add('hidden');
+                });
+                const panel = document.getElementById(`batch-item-split-panel-${idx}-${ii}`);
+                if (panel) panel.classList.toggle('hidden');
             },
 
             updateBatchRowAmount: (idx) => {
@@ -2152,10 +2186,19 @@
                                 const amtItemEl = document.querySelector(`.batch-item-amt-${idx}[data-item="${ii}"]`);
                                 const itemAmt = parseFloat(amtItemEl?.value || 0) || 0;
                                 if (itemAmt <= 0) return;
+                                // 品項個別分攤：若有設定則用品項的，否則用整筆的
+                                const itemSplitEls = document.querySelectorAll(`.batch-item-split-${idx}-${ii}:checked`);
+                                const itemSplitAmong = itemSplitEls.length > 0
+                                    ? Array.from(itemSplitEls).map(c => c.value)
+                                    : splitAmong;
+                                // 原文欄位（國外收據）
+                                const itemNameOrig = (origItem.nameOriginal && origItem.nameOriginal !== origItem.name) ? origItem.nameOriginal : '';
                                 firestoreBatch.set(doc(collection(state.db, 'transactions')), {
                                     ...baseDoc,
+                                    splitAmong: itemSplitAmong,
                                     amount: itemAmt, originalAmount: itemAmt,
                                     name: origItem.name || merchant || '消費',
+                                    nameOriginal: itemNameOrig,
                                     category: origItem.category || category,
                                     note: origItem.note || ''
                                 });
@@ -2163,10 +2206,13 @@
                             });
                         } else {
                             // 清單模式（或單品項收據）：存一筆
+                            const txNameOrig = (origTx.merchantOriginal && origTx.merchantOriginal !== origTx.merchant) ? origTx.merchantOriginal : '';
                             firestoreBatch.set(doc(collection(state.db, 'transactions')), {
                                 ...baseDoc,
                                 amount: totalAmount, originalAmount: totalAmount,
-                                name: merchant || '消費', category, note: ''
+                                name: merchant || '消費',
+                                nameOriginal: txNameOrig,
+                                category, note: ''
                             });
                             count++;
                         }
