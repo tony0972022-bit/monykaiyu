@@ -998,7 +998,11 @@
                             </div>
                         </div>
                     </div>
-                    <div id="groupPayerField" class="hidden col-span-2 md:col-span-2"><label class="block text-xs font-bold text-yellow-700 uppercase mb-1">先墊錢的人</label><select id="tPaidBy" class="w-full p-2 bg-white border border-yellow-200 rounded-lg text-sm"></select></div>
+                    <div id="payerField" class="hidden col-span-2 md:col-span-2">
+                        <label class="block text-xs font-bold text-yellow-700 uppercase mb-1">付款人</label>
+                        <select id="tPaidBy" class="w-full p-2 bg-white border border-yellow-200 rounded-lg text-sm"></select>
+                        <input id="tPaidByText" type="text" class="hidden w-full p-2 bg-white border border-yellow-200 rounded-lg text-sm" placeholder="輸入付款人">
+                    </div>
                     
                     <div class="col-span-2 md:col-span-4 bg-yellow-50 p-2 rounded-lg border border-yellow-100 transition-all" id="currencyWrapper">
                         <div id="currencyViewMode" class="flex items-center justify-between cursor-pointer" onclick="ui.toggleCurrencyEdit(true)">
@@ -1756,15 +1760,17 @@
                         const d=await r.json(); if(d.status==='success') u = app.getDirectDriveUrl(d.url);
                     }
                     const eid=document.getElementById('editingTxId').value; const typ=document.getElementById('tType').value; const dat=document.getElementById('tDate').value;
-                    const isG=state.currentLedger.type==='group'; let cur='TWD',rate=1,pb='',splitAmong=[];
+                    const isG=state.currentLedger.type==='group'; let cur='TWD',rate=1,pb=state.userName,splitAmong=[];
                     
                     cur=document.getElementById('tCurrency').value; 
                     rate=parseFloat(document.getElementById('tRate').value)||1;
                     
-                    if(isG){ 
-                        pb=document.getElementById('tPaidBy').value; 
-                        splitAmong = Array.from(document.querySelectorAll('.split-checkbox:checked')).map(cb => cb.value); 
-                        if (splitAmong.length === 0) return alert("請選分攤對象"); 
+                    if(isG){
+                        pb=document.getElementById('tPaidBy').value;
+                        splitAmong = Array.from(document.querySelectorAll('.split-checkbox:checked')).map(cb => cb.value);
+                        if (splitAmong.length === 0) return alert("請選分攤對象");
+                    } else {
+                        pb = document.getElementById('tPaidByText').value.trim() || state.userName;
                     }
                     const rows=document.querySelectorAll('.item-row'),bat=writeBatch(state.db);
                     if(eid){
@@ -1823,6 +1829,8 @@
                 if(state.currentLedger.type==='group'){
                     document.getElementById('tPaidBy').value=t.paidBy||state.userName;
                     if (t.splitAmong) { document.querySelectorAll('.split-checkbox').forEach(cb => cb.checked = t.splitAmong.includes(cb.value)); }
+                } else {
+                    document.getElementById('tPaidByText').value=t.paidBy||state.userName;
                 }
                 document.getElementById('transactionItemsList').innerHTML=''; ui.addItemRow(t.name,t.category,t.currency!=='TWD'?t.originalAmount:t.amount, t.note); ui.updateTotal();
             },
@@ -1984,7 +1992,7 @@
                         const idx = txIndex++;
                         const hasItems = tx.items && tx.items.length > 1;
                         const catOptions = allCats.map(c => `<option value="${c}" ${c === tx.category ? 'selected' : ''}>${c}</option>`).join('');
-                        const memberOptions = members.map(m => `<option value="${m}">${m}</option>`).join('');
+                        const memberOptions = members.map(m => `<option value="${m}" ${m === state.userName ? 'selected' : ''}>${m}</option>`).join('');
                         const splitChecks = members.map(m => `<label class="flex items-center gap-1 text-xs cursor-pointer"><input type="checkbox" class="batch-split-${idx}" value="${m}" checked><span>${m}</span></label>`).join('');
                         const itemsHtml = hasItems ? `
                             <div class="batch-items-${idx} hidden mt-2 pl-3 border-l-2 border-violet-100 space-y-1">
@@ -2545,8 +2553,8 @@
                         <td class="px-4 py-2 text-gray-800 font-medium">${t.name || '-'}</td>
                         <td class="px-4 py-2"><span class="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">${t.category || '-'}</span></td>
                         <td class="px-4 py-2 text-right font-bold ${t.type==='income' ? 'text-emerald-600' : 'text-rose-600'}">${t.type==='income'?'+':'-'}$${t.amount.toLocaleString()}</td>
-                        <td class="px-4 py-2 hidden md:table-cell text-gray-500">${isGroup ? (t.paidBy || '-') : '-'}</td>
-                        <td class="px-4 py-2 hidden md:table-cell text-gray-500">${isGroup && t.splitAmong && t.splitAmong.length ? t.splitAmong.join('、') : (isGroup ? '全體' : '-')}</td>
+                        <td class="px-4 py-2 hidden md:table-cell text-gray-500">${t.paidBy || '-'}</td>
+                        <td class="px-4 py-2 hidden md:table-cell text-gray-500">${isGroup ? (t.splitAmong && t.splitAmong.length ? t.splitAmong.join('、') : '全體') : '-'}</td>
                         <td class="px-4 py-2 text-center"><button onclick="app.toggleGroupSettled('${t.id}', false)" class="text-[10px] bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 px-2 py-1 rounded font-bold transition"><i class="fa-solid fa-rotate-left mr-1"></i>取消</button></td>
                     </tr>`).join('');
             },
@@ -2861,8 +2869,17 @@
                 ui.toggleCurrencyEdit(false); 
                 ui.renderSplitCheckboxes();
                 
-                if(state.currentLedger.type === 'group') {
-                    const ps = document.getElementById('tPaidBy'); ps.innerHTML = state.currentLedger.members.map(m => `<option value="${m}" ${m===state.userName?'selected':''}>${m}</option>`).join('');
+                // 付款人欄位：群組 → 下拉選單；個人 → 文字輸入
+                document.getElementById('payerField').classList.remove('hidden');
+                if (state.currentLedger.type === 'group') {
+                    document.getElementById('tPaidBy').classList.remove('hidden');
+                    document.getElementById('tPaidByText').classList.add('hidden');
+                    const ps = document.getElementById('tPaidBy');
+                    ps.innerHTML = state.currentLedger.members.map(m => `<option value="${m}" ${m===state.userName?'selected':''}>${m}</option>`).join('');
+                } else {
+                    document.getElementById('tPaidBy').classList.add('hidden');
+                    document.getElementById('tPaidByText').classList.remove('hidden');
+                    document.getElementById('tPaidByText').value = state.userName;
                 }
                 ui.openModal('transactionModal'); 
             },
