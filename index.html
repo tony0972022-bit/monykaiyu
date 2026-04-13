@@ -922,23 +922,14 @@
                 <h3 class="font-bold text-gray-800 text-base"><i class="fa-solid fa-plus-circle text-emerald-500 mr-2"></i>記一筆</h3>
                 <button onclick="ui.closeRecordPicker()" class="text-gray-400 hover:text-gray-600 text-lg"><i class="fa-solid fa-times"></i></button>
             </div>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-3 gap-3">
                 <button onclick="ui.closeRecordPicker(); ui.openTransactionModal()" class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-100 hover:border-emerald-400 hover:bg-emerald-50 transition group">
                     <div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition">
                         <i class="fa-solid fa-pen text-emerald-600"></i>
                     </div>
                     <div class="text-center">
-                        <div class="font-bold text-sm text-gray-800">手動輸入</div>
-                        <div class="text-[10px] text-gray-400">自行填寫項目與金額</div>
-                    </div>
-                </button>
-                <button onclick="ui.closeRecordPicker(); ui.openTransactionModal(); setTimeout(()=>document.getElementById('receiptUpload').click(),200)" class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-100 hover:border-blue-400 hover:bg-blue-50 transition group">
-                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition">
-                        <i class="fa-solid fa-camera text-blue-600"></i>
-                    </div>
-                    <div class="text-center">
-                        <div class="font-bold text-sm text-gray-800">AI 單張收據</div>
-                        <div class="text-[10px] text-gray-400">拍一張，AI 自動辨識</div>
+                        <div class="font-bold text-sm text-gray-800">記一筆</div>
+                        <div class="text-[10px] text-gray-400">手動 / AI 單張</div>
                     </div>
                 </button>
                 <button onclick="ui.closeRecordPicker(); ui.openBatchMode('receipt')" class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-100 hover:border-violet-400 hover:bg-violet-50 transition group">
@@ -947,7 +938,7 @@
                     </div>
                     <div class="text-center">
                         <div class="font-bold text-sm text-gray-800">多張收據</div>
-                        <div class="text-[10px] text-gray-400">實體發票、購物照片</div>
+                        <div class="text-[10px] text-gray-400">購物收據照片</div>
                     </div>
                 </button>
                 <button onclick="ui.closeRecordPicker(); ui.openBatchMode('list')" class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-100 hover:border-orange-400 hover:bg-orange-50 transition group">
@@ -956,7 +947,7 @@
                     </div>
                     <div class="text-center">
                         <div class="font-bold text-sm text-gray-800">清單截圖</div>
-                        <div class="text-[10px] text-gray-400">電子發票、消費記錄</div>
+                        <div class="text-[10px] text-gray-400">電子發票、記錄列表</div>
                     </div>
                 </button>
             </div>
@@ -2644,7 +2635,6 @@
                 }
             },
             openBatchMode: (mode) => {
-                document.getElementById('batchDropdownMenu').classList.add('hidden');
                 if (!state.currentLedger) return alert("請先選擇帳本");
                 if (!state.geminiKey) return alert("請先在系統設定填入 Gemini API Key");
                 document.getElementById(mode === 'list' ? 'batchListInput' : 'batchReceiptInput').click();
