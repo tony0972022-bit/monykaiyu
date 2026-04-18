@@ -2477,8 +2477,13 @@
                 members.forEach(m => {
                     balances[m] = 0;
                     details[m] = { paid: 0, share: 0 };
-                    breakdowns[m] = { paidByMe: [], paidForMe: [], personalOnly: [] };
+                    breakdowns[m] = {
+                        paidByMe: { all: [], subset: [] },   // 我先墊：全員平分 / 沒有平分(部分)
+                        paidForMe: { all: [], subset: [] }, // 別人幫我墊：全員平分 / 沒有平分(部分)
+                        personalOnly: []                    // 個人純支出
+                    };
                 });
+                const isAllMembersSplit = (bens) => bens.length === members.length && members.every(mm => bens.includes(mm));
                 state.transactions.forEach(t => {
                     if (t.type !== 'expense') return;
                     if (t.isSettled) return; // 略過已經標記結清的項目
@@ -2487,6 +2492,7 @@
                     const splitAmount = amount / beneficiaries.length;
                     beneficiaries.forEach(b => { if (balances[b] !== undefined) { balances[b] -= splitAmount; details[b].share += splitAmount; } });
 
+                    const allSplit = isAllMembersSplit(beneficiaries);
                     // === 為每位成員分類這筆交易 ===
                     members.forEach(m => {
                         const isPayer = payer === m;
@@ -2500,21 +2506,23 @@
                             amount: amount,
                             payer: payer,
                             beneficiaries: beneficiaries.slice(),
-                            myShare: isBeneficiary ? splitAmount : 0
+                            myShare: isBeneficiary ? splitAmount : 0,
+                            isAllSplit: allSplit
                         };
                         if (isPayer && beneficiaries.length === 1 && beneficiaries[0] === m) {
-                            breakdowns[m].personalOnly.push(entry); // 類型①
+                            breakdowns[m].personalOnly.push(entry);
                         } else if (isPayer) {
-                            breakdowns[m].paidByMe.push(entry);     // 類型②
+                            (allSplit ? breakdowns[m].paidByMe.all : breakdowns[m].paidByMe.subset).push(entry);
                         } else if (isBeneficiary) {
-                            breakdowns[m].paidForMe.push(entry);    // 類型③
+                            (allSplit ? breakdowns[m].paidForMe.all : breakdowns[m].paidForMe.subset).push(entry);
                         }
                     });
                 });
                 // 日期新→舊排序
                 members.forEach(m => {
-                    ['paidByMe', 'paidForMe', 'personalOnly'].forEach(k => {
-                        breakdowns[m][k].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+                    const b = breakdowns[m];
+                    [b.paidByMe.all, b.paidByMe.subset, b.paidForMe.all, b.paidForMe.subset, b.personalOnly].forEach(arr => {
+                        arr.sort((a, b2) => (b2.date || '').localeCompare(a.date || ''));
                     });
                 });
                 state.settleBreakdowns = breakdowns;
@@ -2524,20 +2532,70 @@
                 const creditors = net.filter(n => n.amount > 1).sort((a, b) => b.amount - a.amount);
                 const debtors = net.filter(n => n.amount < -1).sort((a, b) => a.amount - b.amount);
 
+                // 欄位說明折疊區（點擊展開）
+                let detailHtml = `
+                    <details class="mb-3 text-xs border border-blue-100 rounded-lg bg-blue-50/40">
+                        <summary class="cursor-pointer px-3 py-2 text-indigo-700 hover:bg-blue-50 rounded-lg font-bold flex items-center gap-1">
+                            <i class="fa-solid fa-circle-info"></i> 欄位說明（點擊展開）
+                        </summary>
+                        <div class="px-3 pb-3 pt-1 text-gray-700 space-y-1.5 leading-relaxed">
+                            <p><b class="text-emerald-700">先墊金額</b>：此成員實際掏腰包付出去的總金額（含自己用 + 幫別人墊）</p>
+                            <p class="pl-4 text-gray-600">⤷ <b>個人</b> = 這筆錢裡屬於自己消費的部分</p>
+                            <p class="pl-4 text-gray-600">⤷ <b>代墊</b> = 這筆錢裡幫別人先付的部分（之後要收回）</p>
+                            <p><b class="text-rose-700">實際消費</b>：此成員應該承擔的消費份額（作為分帳受益人分到的金額）</p>
+                            <p class="pl-4 text-gray-600">⤷ <b>平分</b> = 全員一起平分項目分到的金額</p>
+                            <p class="pl-4 text-gray-600">⤷ <b>非平分</b> = 僅部分成員平分項目分到的金額</p>
+                            <p class="pl-4 text-gray-600">⤷ <b>個人</b> = 自己單獨的消費（灰色，不影響結算）</p>
+                            <p><b class="text-indigo-700">結餘</b>：先墊 − 實際消費</p>
+                            <p class="pl-4 text-gray-600">⤷ <span class="text-green-600 font-bold">正數 = 應收</span>（別人要還他） ／ <span class="text-red-600 font-bold">負數 = 應付</span>（他要還別人）</p>
+                        </div>
+                    </details>
+                `;
                 // 主表格：每位成員一列（可點擊）+ 緊接著一個展開用的隱藏列
-                let detailHtml = `<div class="mb-2 overflow-x-auto"><table class="w-full text-xs text-left border-collapse"><thead><tr class="bg-gray-100 text-gray-600 border-b"><th class="p-2 w-8"></th><th class="p-2">成員</th><th class="p-2 text-right">先墊金額</th><th class="p-2 text-right">實際消費</th><th class="p-2 text-right">結餘</th></tr></thead><tbody>`;
+                const money = (n) => '$' + Math.round(n).toLocaleString();
+                detailHtml += `<div class="mb-2 overflow-x-auto"><table class="w-full text-xs text-left border-collapse"><thead><tr class="bg-gray-100 text-gray-600 border-b"><th class="p-2 w-8"></th><th class="p-2">成員</th><th class="p-2 text-right">先墊金額</th><th class="p-2 text-right">實際消費</th><th class="p-2 text-right">結餘</th></tr></thead><tbody>`;
                 members.forEach(m => {
                     const d = details[m]; const netVal = balances[m]; const colorClass = netVal >= 0 ? 'text-green-600' : 'text-red-600';
                     const bd = breakdowns[m];
-                    const entryCount = bd.paidByMe.length + bd.paidForMe.length + bd.personalOnly.length;
+                    const entryCount = bd.paidByMe.all.length + bd.paidByMe.subset.length + bd.paidForMe.all.length + bd.paidForMe.subset.length + bd.personalOnly.length;
                     const isMe = m === state.userName;
+                    // --- 先墊金額拆分：個人(自付自用) + 代墊(給別人的部分)
+                    const sumAmt = (arr) => arr.reduce((s, e) => s + e.amount, 0);
+                    const sumShare = (arr) => arr.reduce((s, e) => s + e.myShare, 0);
+                    const paidByMeAllAmt = sumAmt(bd.paidByMe.all);
+                    const paidByMeSubAmt = sumAmt(bd.paidByMe.subset);
+                    const paidByMeAllMyShare = sumShare(bd.paidByMe.all);
+                    const paidByMeSubMyShare = sumShare(bd.paidByMe.subset);
+                    const personalAmt = sumAmt(bd.personalOnly);
+                    // 個人 = 個人純支出 + 我付款時我自己分到的 share
+                    const paidPersonalPart = personalAmt + paidByMeAllMyShare + paidByMeSubMyShare;
+                    // 代墊 = 我付款金額 - 我自己分到的 share - 個人純支出
+                    const paidForOthersPart = (paidByMeAllAmt + paidByMeSubAmt) - (paidByMeAllMyShare + paidByMeSubMyShare);
+                    // --- 實際消費拆分：全員平分 + 部分平分 + 個人純支出
+                    const shareAll = sumShare(bd.paidByMe.all) + sumShare(bd.paidForMe.all);
+                    const shareSub = sumShare(bd.paidByMe.subset) + sumShare(bd.paidForMe.subset);
+                    const sharePersonal = personalAmt;
+                    // 組合小字
+                    const paidSubtext = [];
+                    if (paidPersonalPart > 0.5) paidSubtext.push(`個人${money(paidPersonalPart)}`);
+                    if (paidForOthersPart > 0.5) paidSubtext.push(`代墊${money(paidForOthersPart)}`);
+                    const shareSubtext = [];
+                    if (shareAll > 0.5) shareSubtext.push(`平分${money(shareAll)}`);
+                    if (shareSub > 0.5) shareSubtext.push(`非平分${money(shareSub)}`);
+                    if (sharePersonal > 0.5) shareSubtext.push(`<span class="text-gray-300">個人${money(sharePersonal)}</span>`);
                     detailHtml += `
                         <tr class="border-b border-gray-100 tx-group-header member-summary-row ${isMe ? 'bg-indigo-50/40' : ''}" onclick="ui.toggleMemberDetail('${m}')">
-                            <td class="p-2 text-center text-gray-400"><i class="fa-solid fa-chevron-right text-[10px] transition-transform" id="memberChevron-${m}"></i></td>
-                            <td class="p-2 font-bold">${m}${isMe ? '<span class="text-[10px] text-indigo-500 ml-1">(我)</span>' : ''}<span class="ml-1 text-[10px] text-gray-400 font-normal">${entryCount}筆</span></td>
-                            <td class="p-2 text-right text-gray-500">$${Math.round(d.paid).toLocaleString()}</td>
-                            <td class="p-2 text-right text-gray-500">$${Math.round(d.share).toLocaleString()}</td>
-                            <td class="p-2 text-right font-bold ${colorClass}">${netVal >= 0 ? '應收' : '應付'} $${Math.round(Math.abs(netVal)).toLocaleString()}</td>
+                            <td class="p-2 text-center text-gray-400 align-top"><i class="fa-solid fa-chevron-right text-[10px] transition-transform" id="memberChevron-${m}"></i></td>
+                            <td class="p-2 font-bold align-top">${m}${isMe ? '<span class="text-[10px] text-indigo-500 ml-1">(我)</span>' : ''}<span class="ml-1 text-[10px] text-gray-400 font-normal">${entryCount}筆</span></td>
+                            <td class="p-2 text-right text-gray-500 align-top">
+                                ${money(d.paid)}
+                                ${paidSubtext.length ? `<div class="text-[10px] text-gray-400 font-normal mt-0.5">${paidSubtext.join(' · ')}</div>` : ''}
+                            </td>
+                            <td class="p-2 text-right text-gray-500 align-top">
+                                ${money(d.share)}
+                                ${shareSubtext.length ? `<div class="text-[10px] text-gray-400 font-normal mt-0.5">${shareSubtext.join(' · ')}</div>` : ''}
+                            </td>
+                            <td class="p-2 text-right font-bold ${colorClass} align-top">${netVal >= 0 ? '應收' : '應付'} ${money(Math.abs(netVal))}</td>
                         </tr>
                         <tr class="member-detail-row hidden" id="memberDetailRow-${m}">
                             <td colspan="5" class="p-0">
@@ -3460,15 +3518,11 @@
 
             // === 分帳明細：渲染單一成員展開內容 ===
             renderMemberBreakdown: (member) => {
-                const bd = (state.settleBreakdowns && state.settleBreakdowns[member]) || { paidByMe: [], paidForMe: [], personalOnly: [] };
+                const bd = (state.settleBreakdowns && state.settleBreakdowns[member]) || { paidByMe: { all: [], subset: [] }, paidForMe: { all: [], subset: [] }, personalOnly: [] };
                 const mode = state.settleDetailMode || 'simple';
                 const body = document.getElementById('memberDetailBody-' + member);
                 if (!body) return;
                 const sum = (arr, key) => arr.reduce((s, x) => s + (x[key] || 0), 0);
-                const paidByMeTotal = sum(bd.paidByMe, 'amount');
-                const paidForMeTotal = sum(bd.paidForMe, 'myShare');
-                const personalTotal = sum(bd.personalOnly, 'amount');
-
                 const fmtDate = (d) => (d || '').slice(5).replace('-', '/');
                 const money = (n) => '$' + Math.round(n).toLocaleString();
 
@@ -3485,7 +3539,6 @@
                             </li>
                         `;
                     }
-                    // full mode
                     const beneStr = e.beneficiaries.join(', ');
                     const catHtml = e.category ? `<span class="text-[10px] text-gray-400 ml-1 px-1 bg-gray-100 rounded">${e.category}</span>` : '';
                     return `
@@ -3506,38 +3559,59 @@
                     `;
                 };
 
+                // 小段：標題 + 列表（給 all / subset 使用）
+                const subsection = (title, subIcon, subBorder, subTextColor, arr, amountKey) => {
+                    if (arr.length === 0) return '';
+                    const total = sum(arr, amountKey);
+                    return `
+                        <div class="mb-1.5 ml-2">
+                            <div class="flex items-center gap-1.5 mb-0.5 text-[11px] ${subTextColor}">
+                                ${subIcon} ${title} <span class="font-mono">${money(total)}</span>
+                                <span class="text-gray-400 font-normal">（${arr.length}筆）</span>
+                            </div>
+                            <ul class="bg-white rounded border ${subBorder} px-3">
+                                ${arr.map(entryLi).join('')}
+                            </ul>
+                        </div>
+                    `;
+                };
+
+                const paidByMeTotal = sum(bd.paidByMe.all, 'amount') + sum(bd.paidByMe.subset, 'amount');
+                const paidForMeTotal = sum(bd.paidForMe.all, 'myShare') + sum(bd.paidForMe.subset, 'myShare');
+                const personalTotal = sum(bd.personalOnly, 'amount');
+                const paidByMeCount = bd.paidByMe.all.length + bd.paidByMe.subset.length;
+                const paidForMeCount = bd.paidForMe.all.length + bd.paidForMe.subset.length;
+
                 let html = '';
-                // 📤 我先墊的（類型②）
-                if (bd.paidByMe.length > 0) {
+                // 📤 我先墊的（類型②）再細分
+                if (paidByMeCount > 0) {
                     html += `
-                        <div class="mb-2">
+                        <div class="mb-3">
                             <div class="flex items-center gap-2 mb-1 text-xs font-bold text-emerald-700">
                                 <i class="fa-solid fa-hand-holding-dollar"></i>
                                 📤 我先墊的 ${money(paidByMeTotal)}
-                                <span class="text-[10px] text-gray-500 font-normal">（共 ${bd.paidByMe.length} 筆）</span>
+                                <span class="text-[10px] text-gray-500 font-normal">（共 ${paidByMeCount} 筆）</span>
                             </div>
-                            <ul class="bg-white rounded border border-emerald-100 px-3">
-                                ${bd.paidByMe.map(entryLi).join('')}
-                            </ul>
+                            ${subsection('✅ 全員平分', '<i class="fa-solid fa-users text-emerald-500"></i>', 'border-emerald-100', 'font-bold text-emerald-600', bd.paidByMe.all, 'amount')}
+                            ${subsection('🔸 沒有平分（部分成員）', '<i class="fa-solid fa-user-group text-amber-500"></i>', 'border-amber-100', 'font-bold text-amber-600', bd.paidByMe.subset, 'amount')}
                         </div>
                     `;
                 }
-                // 📥 別人幫我墊的（類型③）
-                if (bd.paidForMe.length > 0) {
+                // 📥 別人幫我墊的（類型③）再細分
+                if (paidForMeCount > 0) {
                     html += `
-                        <div class="mb-2">
+                        <div class="mb-3">
                             <div class="flex items-center gap-2 mb-1 text-xs font-bold text-rose-700">
                                 <i class="fa-solid fa-arrow-right-to-bracket"></i>
                                 📥 別人幫我墊的 ${money(paidForMeTotal)}
-                                <span class="text-[10px] text-gray-500 font-normal">（共 ${bd.paidForMe.length} 筆，這是我需要還的金額）</span>
+                                <span class="text-[10px] text-gray-500 font-normal">（共 ${paidForMeCount} 筆，這是我需要還的金額）</span>
                             </div>
-                            <ul class="bg-white rounded border border-rose-100 px-3">
-                                ${bd.paidForMe.map(entryLi).join('')}
-                            </ul>
+                            ${subsection('✅ 全員平分', '<i class="fa-solid fa-users text-rose-500"></i>', 'border-rose-100', 'font-bold text-rose-600', bd.paidForMe.all, 'myShare')}
+                            ${subsection('🔸 沒有平分（部分成員）', '<i class="fa-solid fa-user-group text-amber-500"></i>', 'border-amber-100', 'font-bold text-amber-600', bd.paidForMe.subset, 'myShare')}
                         </div>
                     `;
                 }
-                // 💰 個人純支出（類型①，顏色淡化）
+                // 💰 個人純支出（類型①，淡化）
                 if (bd.personalOnly.length > 0) {
                     html += `
                         <div class="mb-1 opacity-50">
