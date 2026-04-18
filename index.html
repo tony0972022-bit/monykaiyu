@@ -621,12 +621,64 @@
 
     <!-- Modal: Settlement & Archive -->
     <div id="settleModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">💰 結算分帳</h3>
                 <button onclick="ui.closeModal('settleModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
             <div id="settleContent" class="space-y-4 mb-6"></div>
+
+            <!-- Settlement Transfer Receipts Section -->
+            <div class="border-t border-gray-100 pt-4 mb-4 bg-indigo-50 p-4 rounded-lg">
+                <h4 class="font-bold text-gray-700 mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-receipt text-indigo-600"></i> 結算轉帳憑證
+                    <span class="text-xs font-normal text-gray-500">（所有成員皆可上傳）</span>
+                </h4>
+                <p class="text-xs text-gray-500 mb-3">上傳轉帳截圖作為結算證明，圖片會自動壓縮以節省空間，所有成員皆可查看。</p>
+
+                <div class="bg-white p-3 rounded-lg border border-indigo-100 mb-3">
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">付款人</label>
+                            <select id="receiptFromUser" class="w-full p-1.5 border border-gray-300 rounded text-xs bg-white"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">收款人</label>
+                            <select id="receiptToUser" class="w-full p-1.5 border border-gray-300 rounded text-xs bg-white"></select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">金額</label>
+                            <input type="number" id="receiptAmount" placeholder="0" class="w-full p-1.5 border border-gray-300 rounded text-xs" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">備註 (可選)</label>
+                            <input type="text" id="receiptNote" placeholder="例：4月聚餐" class="w-full p-1.5 border border-gray-300 rounded text-xs" />
+                        </div>
+                    </div>
+                    <div class="border-2 border-dashed border-indigo-200 rounded-lg p-3 text-center hover:border-indigo-400 transition relative bg-indigo-50/30">
+                        <input type="file" id="receiptFileInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="app.handleReceiptFileSelect(this)" />
+                        <div id="receiptUploadPlaceholder">
+                            <i class="fa-solid fa-cloud-arrow-up text-indigo-400 text-2xl mb-1"></i>
+                            <p class="text-xs text-gray-600 font-bold">點擊或拖曳上傳轉帳截圖</p>
+                            <p class="text-[10px] text-gray-400 mt-1">支援 JPG / PNG，自動壓縮至 &lt; 300KB</p>
+                        </div>
+                        <div id="receiptUploadPreview" class="hidden">
+                            <img id="receiptPreviewImg" class="max-h-32 mx-auto rounded" />
+                            <p id="receiptPreviewInfo" class="text-[10px] text-gray-500 mt-1"></p>
+                        </div>
+                    </div>
+                    <button id="receiptUploadBtn" onclick="app.uploadSettlementReceipt()" disabled class="w-full mt-2 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-bold shadow disabled:bg-gray-300 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-upload"></i> 上傳轉帳憑證
+                    </button>
+                </div>
+
+                <div id="receiptsListContainer" class="space-y-2 max-h-64 overflow-y-auto">
+                    <p class="text-xs text-gray-400 text-center py-2">目前尚無上傳的轉帳憑證</p>
+                </div>
+            </div>
+
             <div class="border-t border-gray-100 pt-4 bg-yellow-50 p-4 rounded-lg">
                 <h4 class="font-bold text-gray-700 mb-2 flex items-center gap-2"><i class="fa-solid fa-box-archive text-yellow-600"></i> 結算並歸檔</h4>
                 <p class="text-xs text-gray-500 mb-3">將此帳本封存，並將您的應付金額 ($<span id="settleShareAmount">0</span>) 記錄到個人帳本。</p>
@@ -636,6 +688,14 @@
                 </div>
                 <button onclick="app.archiveLedger()" class="w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm font-bold shadow">確認歸檔並記帳</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal: Receipt Image Viewer -->
+    <div id="receiptViewerModal" class="fixed inset-0 bg-black/80 z-[60] hidden flex items-center justify-center p-4" onclick="ui.closeModal('receiptViewerModal')">
+        <div class="max-w-4xl max-h-[90vh] flex flex-col items-center gap-2">
+            <img id="receiptViewerImg" class="max-w-full max-h-[80vh] rounded-lg shadow-2xl" />
+            <p id="receiptViewerInfo" class="text-white text-sm bg-black/50 px-4 py-2 rounded-full"></p>
         </div>
     </div>
     
@@ -1144,7 +1204,9 @@
             customAiPrompt: localStorage.getItem('acc_ai_prompt') || '',
             assets: [], unsubscribeAssets: null,
             chartMode: 'weekly', chartFilters: { selectedYear: new Date().getFullYear(), compareYear: new Date().getFullYear() - 1, selectedYears: [new Date().getFullYear()] },
-            currentChartStats: {}, currentListData: [], importFile: null, recurringRules: [], unsubscribeRecurring: null, pwAttempts: 0 
+            currentChartStats: {}, currentListData: [], importFile: null, recurringRules: [], unsubscribeRecurring: null, pwAttempts: 0,
+            settlementReceipts: [], unsubscribeReceipts: null, pendingReceiptImage: null,
+            settleBreakdowns: {}, settleMembersCache: [], settleDetailMode: 'simple'
         };
 
         const app = {
@@ -2411,8 +2473,12 @@
             
             calculateDebt: () => {
                 if (!state.currentLedger || state.currentLedger.type !== 'group') return;
-                const members = state.currentLedger.members; const balances = {}; const details = {};
-                members.forEach(m => { balances[m] = 0; details[m] = { paid: 0, share: 0 }; });
+                const members = state.currentLedger.members; const balances = {}; const details = {}; const breakdowns = {};
+                members.forEach(m => {
+                    balances[m] = 0;
+                    details[m] = { paid: 0, share: 0 };
+                    breakdowns[m] = { paidByMe: [], paidForMe: [], personalOnly: [] };
+                });
                 state.transactions.forEach(t => {
                     if (t.type !== 'expense') return;
                     if (t.isSettled) return; // 略過已經標記結清的項目
@@ -2420,16 +2486,77 @@
                     if (balances[payer] !== undefined) { balances[payer] += amount; details[payer].paid += amount; }
                     const splitAmount = amount / beneficiaries.length;
                     beneficiaries.forEach(b => { if (balances[b] !== undefined) { balances[b] -= splitAmount; details[b].share += splitAmount; } });
+
+                    // === 為每位成員分類這筆交易 ===
+                    members.forEach(m => {
+                        const isPayer = payer === m;
+                        const isBeneficiary = beneficiaries.includes(m);
+                        if (!isPayer && !isBeneficiary) return; // 類型④：跟此成員無關
+                        const entry = {
+                            id: t.id,
+                            date: t.date,
+                            name: t.name || '(無名稱)',
+                            category: t.category || '',
+                            amount: amount,
+                            payer: payer,
+                            beneficiaries: beneficiaries.slice(),
+                            myShare: isBeneficiary ? splitAmount : 0
+                        };
+                        if (isPayer && beneficiaries.length === 1 && beneficiaries[0] === m) {
+                            breakdowns[m].personalOnly.push(entry); // 類型①
+                        } else if (isPayer) {
+                            breakdowns[m].paidByMe.push(entry);     // 類型②
+                        } else if (isBeneficiary) {
+                            breakdowns[m].paidForMe.push(entry);    // 類型③
+                        }
+                    });
                 });
+                // 日期新→舊排序
+                members.forEach(m => {
+                    ['paidByMe', 'paidForMe', 'personalOnly'].forEach(k => {
+                        breakdowns[m][k].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+                    });
+                });
+                state.settleBreakdowns = breakdowns;
+                state.settleMembersCache = members;
+
                 const net = members.map(m => ({ name: m, amount: balances[m] }));
                 const creditors = net.filter(n => n.amount > 1).sort((a, b) => b.amount - a.amount);
                 const debtors = net.filter(n => n.amount < -1).sort((a, b) => a.amount - b.amount);
-                let detailHtml = `<div class="mb-4 overflow-x-auto"><table class="w-full text-xs text-left border-collapse"><thead><tr class="bg-gray-100 text-gray-600 border-b"><th class="p-2">成員</th><th class="p-2 text-right">先墊金額</th><th class="p-2 text-right">實際消費</th><th class="p-2 text-right">結餘</th></tr></thead><tbody>`;
+
+                // 主表格：每位成員一列（可點擊）+ 緊接著一個展開用的隱藏列
+                let detailHtml = `<div class="mb-2 overflow-x-auto"><table class="w-full text-xs text-left border-collapse"><thead><tr class="bg-gray-100 text-gray-600 border-b"><th class="p-2 w-8"></th><th class="p-2">成員</th><th class="p-2 text-right">先墊金額</th><th class="p-2 text-right">實際消費</th><th class="p-2 text-right">結餘</th></tr></thead><tbody>`;
                 members.forEach(m => {
                     const d = details[m]; const netVal = balances[m]; const colorClass = netVal >= 0 ? 'text-green-600' : 'text-red-600';
-                    detailHtml += `<tr class="border-b border-gray-100"><td class="p-2 font-bold">${m}</td><td class="p-2 text-right text-gray-500">$${Math.round(d.paid).toLocaleString()}</td><td class="p-2 text-right text-gray-500">$${Math.round(d.share).toLocaleString()}</td><td class="p-2 text-right font-bold ${colorClass}">${netVal >= 0 ? '應收' : '應付'} $${Math.round(Math.abs(netVal)).toLocaleString()}</td></tr>`;
+                    const bd = breakdowns[m];
+                    const entryCount = bd.paidByMe.length + bd.paidForMe.length + bd.personalOnly.length;
+                    const isMe = m === state.userName;
+                    detailHtml += `
+                        <tr class="border-b border-gray-100 tx-group-header member-summary-row ${isMe ? 'bg-indigo-50/40' : ''}" onclick="ui.toggleMemberDetail('${m}')">
+                            <td class="p-2 text-center text-gray-400"><i class="fa-solid fa-chevron-right text-[10px] transition-transform" id="memberChevron-${m}"></i></td>
+                            <td class="p-2 font-bold">${m}${isMe ? '<span class="text-[10px] text-indigo-500 ml-1">(我)</span>' : ''}<span class="ml-1 text-[10px] text-gray-400 font-normal">${entryCount}筆</span></td>
+                            <td class="p-2 text-right text-gray-500">$${Math.round(d.paid).toLocaleString()}</td>
+                            <td class="p-2 text-right text-gray-500">$${Math.round(d.share).toLocaleString()}</td>
+                            <td class="p-2 text-right font-bold ${colorClass}">${netVal >= 0 ? '應收' : '應付'} $${Math.round(Math.abs(netVal)).toLocaleString()}</td>
+                        </tr>
+                        <tr class="member-detail-row hidden" id="memberDetailRow-${m}">
+                            <td colspan="5" class="p-0">
+                                <div class="bg-slate-50 px-3 py-3 border-l-4 border-indigo-400" id="memberDetailBody-${m}"></div>
+                            </td>
+                        </tr>
+                    `;
                 });
                 detailHtml += `</tbody></table></div>`;
+                // 全域模式切換列
+                detailHtml += `
+                    <div class="flex justify-between items-center mb-3 text-xs">
+                        <span class="text-gray-400">💡 點成員列可展開/收合明細</span>
+                        <button onclick="ui.toggleSettleDetailMode()" class="text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded font-bold flex items-center gap-1">
+                            <i class="fa-solid fa-eye" id="settleDetailModeIcon"></i>
+                            <span id="settleDetailModeLabel">${state.settleDetailMode === 'full' ? '精簡顯示' : '顯示完整分帳'}</span>
+                        </button>
+                    </div>
+                `;
                 let transferHtml = `<h4 class="font-bold text-gray-700 mb-2 border-l-4 border-indigo-500 pl-2">建議轉帳方案</h4><ul class="space-y-2">`;
                 if (creditors.length === 0) { transferHtml += '<li class="text-center text-green-500 font-bold bg-green-50 p-2 rounded">目前未結清的帳目皆已平衡</li>'; } 
                 else {
@@ -2446,7 +2573,196 @@
                 document.getElementById('settleShareAmount').innerText = (details[state.userName] ? Math.round(details[state.userName].share) : 0).toLocaleString();
                 const targetSelect = document.getElementById('targetPersonalLedger'); targetSelect.innerHTML = '<option value="">(僅歸檔，不記錄支出)</option>';
                 state.ledgers.filter(l => l.type === 'personal' && l.status !== 'archived').forEach(l => { targetSelect.innerHTML += `<option value="${l.id}">${l.name}</option>`; });
-                document.getElementById('settleContent').innerHTML = detailHtml + transferHtml; ui.openModal('settleModal');
+                document.getElementById('settleContent').innerHTML = detailHtml + transferHtml;
+
+                // Prepare receipt upload UI: populate member dropdowns
+                const fromSel = document.getElementById('receiptFromUser');
+                const toSel = document.getElementById('receiptToUser');
+                if (fromSel && toSel) {
+                    const opts = members.map(m => `<option value="${m}">${m}</option>`).join('');
+                    fromSel.innerHTML = opts;
+                    toSel.innerHTML = opts;
+                    if (members.includes(state.userName)) fromSel.value = state.userName;
+                    if (members.length > 1) {
+                        const other = members.find(m => m !== fromSel.value);
+                        if (other) toSel.value = other;
+                    }
+                }
+                // Reset any previous pending image
+                state.pendingReceiptImage = null;
+                document.getElementById('receiptAmount').value = '';
+                document.getElementById('receiptNote').value = '';
+                document.getElementById('receiptFileInput').value = '';
+                document.getElementById('receiptUploadPlaceholder').classList.remove('hidden');
+                document.getElementById('receiptUploadPreview').classList.add('hidden');
+                document.getElementById('receiptUploadBtn').disabled = true;
+
+                // Start listening to settlement receipts for this ledger
+                app.listenSettlementReceipts();
+
+                ui.openModal('settleModal');
+            },
+
+            // ===== Settlement Receipts: Upload / Listen / Delete =====
+            compressImageFile: (file, maxDim = 1200, quality = 0.7, maxBytes = 300 * 1024) => {
+                return new Promise((resolve, reject) => {
+                    if (!file || !file.type.startsWith('image/')) {
+                        reject(new Error('非圖片檔案'));
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            let w = img.width, h = img.height;
+                            if (w > maxDim || h > maxDim) {
+                                if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+                                else { w = Math.round(w * maxDim / h); h = maxDim; }
+                            }
+                            const canvas = document.createElement('canvas');
+                            canvas.width = w; canvas.height = h;
+                            const ctx = canvas.getContext('2d');
+                            ctx.fillStyle = '#fff';
+                            ctx.fillRect(0, 0, w, h);
+                            ctx.drawImage(img, 0, 0, w, h);
+
+                            // Iterative compression: reduce quality until under maxBytes or reach floor
+                            let q = quality;
+                            let dataUrl = canvas.toDataURL('image/jpeg', q);
+                            let bytes = Math.round((dataUrl.length - 'data:image/jpeg;base64,'.length) * 3 / 4);
+                            let iter = 0;
+                            while (bytes > maxBytes && q > 0.3 && iter < 8) {
+                                q -= 0.1;
+                                dataUrl = canvas.toDataURL('image/jpeg', q);
+                                bytes = Math.round((dataUrl.length - 'data:image/jpeg;base64,'.length) * 3 / 4);
+                                iter++;
+                            }
+                            // If still too big, reduce dimension by 20% and retry
+                            if (bytes > maxBytes) {
+                                const w2 = Math.round(w * 0.8), h2 = Math.round(h * 0.8);
+                                const canvas2 = document.createElement('canvas');
+                                canvas2.width = w2; canvas2.height = h2;
+                                const ctx2 = canvas2.getContext('2d');
+                                ctx2.fillStyle = '#fff';
+                                ctx2.fillRect(0, 0, w2, h2);
+                                ctx2.drawImage(img, 0, 0, w2, h2);
+                                dataUrl = canvas2.toDataURL('image/jpeg', 0.6);
+                                bytes = Math.round((dataUrl.length - 'data:image/jpeg;base64,'.length) * 3 / 4);
+                            }
+                            resolve({ dataUrl, width: w, height: h, bytes, originalBytes: file.size });
+                        };
+                        img.onerror = () => reject(new Error('無法讀取圖片'));
+                        img.src = e.target.result;
+                    };
+                    reader.onerror = () => reject(new Error('檔案讀取失敗'));
+                    reader.readAsDataURL(file);
+                });
+            },
+
+            handleReceiptFileSelect: async (input) => {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                const btn = document.getElementById('receiptUploadBtn');
+                const placeholder = document.getElementById('receiptUploadPlaceholder');
+                const preview = document.getElementById('receiptUploadPreview');
+                const previewImg = document.getElementById('receiptPreviewImg');
+                const previewInfo = document.getElementById('receiptPreviewInfo');
+                btn.disabled = true;
+                btn.innerHTML = '<div class="loader inline-block" style="width:12px;height:12px;border-width:2px;"></div> 壓縮中...';
+                try {
+                    const result = await app.compressImageFile(file, 1200, 0.75, 300 * 1024);
+                    state.pendingReceiptImage = result.dataUrl;
+                    previewImg.src = result.dataUrl;
+                    const origKB = (result.originalBytes / 1024).toFixed(0);
+                    const newKB = (result.bytes / 1024).toFixed(0);
+                    previewInfo.innerText = `壓縮完成：${origKB}KB → ${newKB}KB（${result.width}×${result.height}）`;
+                    placeholder.classList.add('hidden');
+                    preview.classList.remove('hidden');
+                    btn.innerHTML = '<i class="fa-solid fa-upload"></i> 上傳轉帳憑證';
+                    btn.disabled = false;
+                } catch (err) {
+                    alert('圖片處理失敗：' + err.message);
+                    btn.innerHTML = '<i class="fa-solid fa-upload"></i> 上傳轉帳憑證';
+                    btn.disabled = true;
+                    state.pendingReceiptImage = null;
+                }
+            },
+
+            uploadSettlementReceipt: async () => {
+                if (!state.currentLedger) return;
+                if (!state.pendingReceiptImage) { alert('請先選擇要上傳的轉帳截圖'); return; }
+                const fromUser = document.getElementById('receiptFromUser').value;
+                const toUser = document.getElementById('receiptToUser').value;
+                const amount = parseFloat(document.getElementById('receiptAmount').value) || 0;
+                const note = document.getElementById('receiptNote').value.trim();
+                if (!fromUser || !toUser) { alert('請選擇付款人與收款人'); return; }
+                const btn = document.getElementById('receiptUploadBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<div class="loader inline-block" style="width:12px;height:12px;border-width:2px;"></div> 上傳中...';
+                try {
+                    await addDoc(collection(state.db, 'settlement_receipts'), {
+                        ledgerId: state.currentLedger.id,
+                        ledgerName: state.currentLedger.name,
+                        uploadedBy: state.userName,
+                        fromUser: fromUser,
+                        toUser: toUser,
+                        amount: amount,
+                        note: note,
+                        imageData: state.pendingReceiptImage,
+                        uploadedAt: new Date().toISOString()
+                    });
+                    // Reset form
+                    state.pendingReceiptImage = null;
+                    document.getElementById('receiptFileInput').value = '';
+                    document.getElementById('receiptAmount').value = '';
+                    document.getElementById('receiptNote').value = '';
+                    document.getElementById('receiptUploadPlaceholder').classList.remove('hidden');
+                    document.getElementById('receiptUploadPreview').classList.add('hidden');
+                    btn.innerHTML = '<i class="fa-solid fa-upload"></i> 上傳轉帳憑證';
+                    btn.disabled = true;
+                } catch (e) {
+                    console.error(e);
+                    alert('上傳失敗：' + e.message);
+                    btn.innerHTML = '<i class="fa-solid fa-upload"></i> 上傳轉帳憑證';
+                    btn.disabled = false;
+                }
+            },
+
+            listenSettlementReceipts: () => {
+                if (!state.currentLedger) return;
+                if (state.unsubscribeReceipts) state.unsubscribeReceipts();
+                state.unsubscribeReceipts = onSnapshot(
+                    query(collection(state.db, 'settlement_receipts'), where('ledgerId', '==', state.currentLedger.id)),
+                    (snap) => {
+                        state.settlementReceipts = [];
+                        snap.forEach(d => state.settlementReceipts.push({ id: d.id, ...d.data() }));
+                        state.settlementReceipts.sort((a, b) => (b.uploadedAt || '').localeCompare(a.uploadedAt || ''));
+                        ui.renderSettlementReceipts();
+                    }
+                );
+            },
+
+            deleteSettlementReceipt: (id, uploader) => {
+                if (uploader !== state.userName) {
+                    alert('只有上傳者本人可以刪除此憑證');
+                    return;
+                }
+                ui.showConfirm('刪除憑證', '確定要刪除此轉帳憑證嗎？', async () => {
+                    try {
+                        await deleteDoc(doc(state.db, 'settlement_receipts', id));
+                    } catch (e) {
+                        alert('刪除失敗：' + e.message);
+                    }
+                });
+            },
+
+            viewReceiptImage: (id) => {
+                const r = state.settlementReceipts.find(x => x.id === id);
+                if (!r) return;
+                document.getElementById('receiptViewerImg').src = r.imageData;
+                const info = `${r.fromUser} → ${r.toUser}${r.amount ? ' $' + Math.round(r.amount).toLocaleString() : ''}${r.note ? '・' + r.note : ''}`;
+                document.getElementById('receiptViewerInfo').innerText = info;
+                ui.openModal('receiptViewerModal');
             },
 
             loadUserStats: async () => { const y=document.getElementById('statYear').value,m=document.getElementById('statMonth').value,cnt=document.getElementById('ledgerStatsContainer'),ldr=document.getElementById('statsLoader');ldr.classList.remove('hidden');cnt.innerHTML='';
@@ -3141,6 +3457,169 @@
                 document.getElementById('importModal').classList.remove('hidden');
             },
             closeModal: (id) => document.getElementById(id).classList.add('hidden'),
+
+            // === 分帳明細：渲染單一成員展開內容 ===
+            renderMemberBreakdown: (member) => {
+                const bd = (state.settleBreakdowns && state.settleBreakdowns[member]) || { paidByMe: [], paidForMe: [], personalOnly: [] };
+                const mode = state.settleDetailMode || 'simple';
+                const body = document.getElementById('memberDetailBody-' + member);
+                if (!body) return;
+                const sum = (arr, key) => arr.reduce((s, x) => s + (x[key] || 0), 0);
+                const paidByMeTotal = sum(bd.paidByMe, 'amount');
+                const paidForMeTotal = sum(bd.paidForMe, 'myShare');
+                const personalTotal = sum(bd.personalOnly, 'amount');
+
+                const fmtDate = (d) => (d || '').slice(5).replace('-', '/');
+                const money = (n) => '$' + Math.round(n).toLocaleString();
+
+                const entryLi = (e) => {
+                    const shareTxt = (e.myShare > 0 && Math.abs(e.myShare - e.amount) > 0.5)
+                        ? `<span class="text-gray-400 text-[10px] ml-1">（我分${money(e.myShare)}）</span>` : '';
+                    if (mode === 'simple') {
+                        return `
+                            <li class="flex justify-between items-center py-1 border-b border-gray-100 last:border-0">
+                                <span class="text-xs text-gray-700">
+                                    <span class="text-gray-400 mr-1">${fmtDate(e.date)}</span>${e.name}
+                                </span>
+                                <span class="font-mono text-xs text-gray-700">${money(e.amount)}${shareTxt}</span>
+                            </li>
+                        `;
+                    }
+                    // full mode
+                    const beneStr = e.beneficiaries.join(', ');
+                    const catHtml = e.category ? `<span class="text-[10px] text-gray-400 ml-1 px-1 bg-gray-100 rounded">${e.category}</span>` : '';
+                    return `
+                        <li class="py-1.5 border-b border-gray-100 last:border-0">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs">
+                                    <span class="text-gray-400 mr-1">${fmtDate(e.date)}</span>
+                                    <span class="font-bold text-gray-700">${e.name}</span>${catHtml}
+                                </span>
+                                <span class="font-mono text-xs text-gray-700 font-bold">${money(e.amount)}</span>
+                            </div>
+                            <div class="text-[10px] text-gray-500 mt-0.5 flex flex-wrap gap-x-2">
+                                <span>付款: <span class="text-indigo-600 font-bold">${e.payer}</span></span>
+                                <span>分帳: ${beneStr}</span>
+                                ${e.myShare > 0 ? `<span class="text-indigo-600 font-bold">→ 我分${money(e.myShare)}</span>` : '<span class="text-gray-400">(我未參與受益)</span>'}
+                            </div>
+                        </li>
+                    `;
+                };
+
+                let html = '';
+                // 📤 我先墊的（類型②）
+                if (bd.paidByMe.length > 0) {
+                    html += `
+                        <div class="mb-2">
+                            <div class="flex items-center gap-2 mb-1 text-xs font-bold text-emerald-700">
+                                <i class="fa-solid fa-hand-holding-dollar"></i>
+                                📤 我先墊的 ${money(paidByMeTotal)}
+                                <span class="text-[10px] text-gray-500 font-normal">（共 ${bd.paidByMe.length} 筆）</span>
+                            </div>
+                            <ul class="bg-white rounded border border-emerald-100 px-3">
+                                ${bd.paidByMe.map(entryLi).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+                // 📥 別人幫我墊的（類型③）
+                if (bd.paidForMe.length > 0) {
+                    html += `
+                        <div class="mb-2">
+                            <div class="flex items-center gap-2 mb-1 text-xs font-bold text-rose-700">
+                                <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                                📥 別人幫我墊的 ${money(paidForMeTotal)}
+                                <span class="text-[10px] text-gray-500 font-normal">（共 ${bd.paidForMe.length} 筆，這是我需要還的金額）</span>
+                            </div>
+                            <ul class="bg-white rounded border border-rose-100 px-3">
+                                ${bd.paidForMe.map(entryLi).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+                // 💰 個人純支出（類型①，顏色淡化）
+                if (bd.personalOnly.length > 0) {
+                    html += `
+                        <div class="mb-1 opacity-50">
+                            <div class="flex items-center gap-2 mb-1 text-xs font-bold text-gray-500">
+                                <i class="fa-solid fa-circle-user"></i>
+                                💰 個人純支出 ${money(personalTotal)}
+                                <span class="text-[10px] text-gray-400 font-normal">（共 ${bd.personalOnly.length} 筆，不影響結算）</span>
+                            </div>
+                            <ul class="bg-white rounded border border-gray-200 px-3">
+                                ${bd.personalOnly.map(entryLi).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+                if (html === '') {
+                    html = '<p class="text-xs text-gray-400 text-center py-2">此成員無未結清交易</p>';
+                }
+                body.innerHTML = html;
+            },
+
+            toggleMemberDetail: (member) => {
+                const row = document.getElementById('memberDetailRow-' + member);
+                const chev = document.getElementById('memberChevron-' + member);
+                if (!row) return;
+                const willOpen = row.classList.contains('hidden');
+                if (willOpen) {
+                    ui.renderMemberBreakdown(member);
+                    row.classList.remove('hidden');
+                    if (chev) chev.classList.add('rotate-90');
+                } else {
+                    row.classList.add('hidden');
+                    if (chev) chev.classList.remove('rotate-90');
+                }
+            },
+
+            toggleSettleDetailMode: () => {
+                state.settleDetailMode = (state.settleDetailMode === 'full') ? 'simple' : 'full';
+                const lbl = document.getElementById('settleDetailModeLabel');
+                if (lbl) lbl.innerText = state.settleDetailMode === 'full' ? '精簡顯示' : '顯示完整分帳';
+                // 重新渲染所有目前已展開的成員明細
+                (state.settleMembersCache || []).forEach(m => {
+                    const row = document.getElementById('memberDetailRow-' + m);
+                    if (row && !row.classList.contains('hidden')) {
+                        ui.renderMemberBreakdown(m);
+                    }
+                });
+            },
+
+            renderSettlementReceipts: () => {
+                const container = document.getElementById('receiptsListContainer');
+                if (!container) return;
+                const list = state.settlementReceipts || [];
+                if (list.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">目前尚無上傳的轉帳憑證</p>';
+                    return;
+                }
+                container.innerHTML = list.map(r => {
+                    const dateStr = r.uploadedAt ? new Date(r.uploadedAt).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+                    const amt = r.amount ? `$${Math.round(r.amount).toLocaleString()}` : '';
+                    const canDelete = r.uploadedBy === state.userName;
+                    const noteHtml = r.note ? `<span class="text-[10px] text-gray-500">・${r.note}</span>` : '';
+                    return `
+                        <div class="bg-white border border-indigo-100 rounded-lg p-2 flex gap-2 items-center">
+                            <img src="${r.imageData}" class="w-16 h-16 object-cover rounded cursor-pointer flex-shrink-0" onclick="app.viewReceiptImage('${r.id}')" alt="轉帳憑證" />
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-1 flex-wrap">
+                                    <span class="text-xs font-bold text-gray-700">${r.fromUser}</span>
+                                    <i class="fa-solid fa-arrow-right text-gray-400 text-[10px]"></i>
+                                    <span class="text-xs font-bold text-gray-700">${r.toUser}</span>
+                                    ${amt ? `<span class="text-xs font-mono font-bold text-indigo-600 ml-1">${amt}</span>` : ''}
+                                    ${noteHtml}
+                                </div>
+                                <p class="text-[10px] text-gray-400 mt-0.5">由 ${r.uploadedBy} 上傳・${dateStr}</p>
+                            </div>
+                            <div class="flex flex-col gap-1 flex-shrink-0">
+                                <button onclick="app.viewReceiptImage('${r.id}')" class="text-indigo-500 hover:text-indigo-700 text-xs px-2 py-1" title="檢視大圖"><i class="fa-solid fa-eye"></i></button>
+                                ${canDelete ? `<button onclick="app.deleteSettlementReceipt('${r.id}','${r.uploadedBy}')" class="text-red-400 hover:text-red-600 text-xs px-2 py-1" title="刪除"><i class="fa-solid fa-trash"></i></button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            },
             toggleMobileMenu: () => document.getElementById('mobileMenu').classList.toggle('hidden'),
             viewImage: (u) => { const du = app.getDirectDriveUrl(u); document.getElementById('imageViewerSrc').src = du; document.getElementById('imageViewerLink').href = du; ui.openModal('imageViewerModal'); },
             viewImageById: (id) => { const t = state.transactions.find(x => x.id === id); if (t?.imageUrl) ui.viewImage(t.imageUrl); },
