@@ -2575,13 +2575,39 @@
                     const shareAll = sumShare(bd.paidByMe.all) + sumShare(bd.paidForMe.all);
                     const shareSub = sumShare(bd.paidByMe.subset) + sumShare(bd.paidForMe.subset);
                     const sharePersonal = personalAmt;
+                    // --- 非平分的夥伴統計（排除自己；按累計金額排序）
+                    // 我在 subset 項目中，跟誰一起出現？
+                    const partnerAgg = {};
+                    const addPartners = (arr) => {
+                        arr.forEach(e => {
+                            // 我在此筆有參與的人：受益者 ∪ 付款者
+                            const involved = new Set(e.beneficiaries);
+                            involved.add(e.payer);
+                            involved.forEach(p => {
+                                if (p === m) return; // 排除自己
+                                if (!partnerAgg[p]) partnerAgg[p] = 0;
+                                partnerAgg[p] += e.amount; // 用交易金額做權重排序
+                            });
+                        });
+                    };
+                    addPartners(bd.paidByMe.subset);
+                    addPartners(bd.paidForMe.subset);
+                    const partnersSorted = Object.entries(partnerAgg)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(x => x[0]);
                     // 組合小字
                     const paidSubtext = [];
                     if (paidPersonalPart > 0.5) paidSubtext.push(`個人${money(paidPersonalPart)}`);
                     if (paidForOthersPart > 0.5) paidSubtext.push(`代墊${money(paidForOthersPart)}`);
                     const shareSubtext = [];
                     if (shareAll > 0.5) shareSubtext.push(`平分${money(shareAll)}`);
-                    if (shareSub > 0.5) shareSubtext.push(`非平分${money(shareSub)}`);
+                    if (shareSub > 0.5) {
+                        let subPart = `非平分${money(shareSub)}`;
+                        if (partnersSorted.length > 0) {
+                            subPart += `<span class="text-indigo-400"> (與${partnersSorted.join('、')})</span>`;
+                        }
+                        shareSubtext.push(subPart);
+                    }
                     if (sharePersonal > 0.5) shareSubtext.push(`<span class="text-gray-300">個人${money(sharePersonal)}</span>`);
                     detailHtml += `
                         <tr class="border-b border-gray-100 tx-group-header member-summary-row ${isMe ? 'bg-indigo-50/40' : ''}" onclick="ui.toggleMemberDetail('${m}')">
@@ -3576,6 +3602,79 @@
                     `;
                 };
 
+                // 依「夥伴組合」分群的子段（用於 subset 非平分項目）
+                // role: 'paidByMe-shared' | 'paidByMe-advance' | 'paidForMe'
+                //   paidByMe-shared  → 我付錢，我也分享 → 標「與 X」，金額用交易總額
+                //   paidByMe-advance → 我付錢，但自己不在受益 → 標「給 X」，金額用交易總額（全數代墊給別人）
+                //   paidForMe        → 別人付錢，我也分到 → 標「與 X」，金額用我的 share
+                const groupedSubsection = (title, titleIcon, titleColor, borderColor, arr, role) => {
+                    if (arr.length === 0) return '';
+                    // 分群 key = 此筆涉及的其他人名單（排除自己），排序後做 key
+                    const groups = {};
+                    arr.forEach(e => {
+                        const involved = new Set(e.beneficiaries);
+                        involved.add(e.payer);
+                        involved.delete(member); // 排除自己
+                        const partners = Array.from(involved).sort();
+                        const key = partners.join('|') || '(僅自己)';
+                        if (!groups[key]) groups[key] = { partners, entries: [], totalAmount: 0, totalShare: 0 };
+                        groups[key].entries.push(e);
+                        groups[key].totalAmount += e.amount;
+                        groups[key].totalShare += (e.myShare || 0);
+                    });
+                    // 將群組依總交易金額排序（大到小）
+                    const sortedGroups = Object.values(groups).sort((a, b) => b.totalAmount - a.totalAmount);
+                    // 排序 partners 以「累計金額」排（同方案 D 的邏輯）
+                    const partnerWeights = {};
+                    arr.forEach(e => {
+                        const involved = new Set(e.beneficiaries);
+                        involved.add(e.payer);
+                        involved.forEach(p => {
+                            if (p === member) return;
+                            partnerWeights[p] = (partnerWeights[p] || 0) + e.amount;
+                        });
+                    });
+                    const sortByWeight = (names) => names.slice().sort((a, b) => (partnerWeights[b] || 0) - (partnerWeights[a] || 0));
+                    const prefix = role === 'paidByMe-advance' ? '給' : '與';
+                    const totalKey = role === 'paidForMe' ? 'totalShare' : 'totalAmount';
+                    const grandTotal = sortedGroups.reduce((s, g) => s + g[totalKey], 0);
+                    const totalCount = arr.length;
+                    return `
+                        <div class="mb-1.5 ml-2">
+                            <div class="flex items-center gap-1.5 mb-0.5 text-[11px] ${titleColor}">
+                                ${titleIcon} ${title} <span class="font-mono">${money(grandTotal)}</span>
+                                <span class="text-gray-400 font-normal">（${totalCount}筆，${sortedGroups.length}組）</span>
+                            </div>
+                            ${sortedGroups.map(g => {
+                                const partnerNames = sortByWeight(g.partners);
+                                const partnerLabel = partnerNames.length > 0 ? `${prefix} ${partnerNames.join('、')}` : '僅自己';
+                                const shownTotal = role === 'paidForMe' ? g.totalShare : g.totalAmount;
+                                return `
+                                <details class="bg-white rounded border ${borderColor} mb-1" open>
+                                    <summary class="cursor-pointer px-3 py-1.5 flex items-center justify-between text-[11px] hover:bg-gray-50 rounded">
+                                        <span class="flex items-center gap-1">
+                                            <i class="fa-solid fa-caret-right text-gray-400"></i>
+                                            <span class="font-bold text-gray-700">${partnerLabel}</span>
+                                            <span class="text-gray-400 font-normal">（${g.entries.length}筆）</span>
+                                        </span>
+                                        <span class="font-mono text-gray-700 font-bold">${money(shownTotal)}</span>
+                                    </summary>
+                                    <ul class="px-3 border-t ${borderColor}">
+                                        ${g.entries.map(entryLi).join('')}
+                                    </ul>
+                                </details>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                };
+
+                // 把 paidByMe.subset 再分成兩群：
+                //   - shared   : 我也是受益者之一
+                //   - advance  : 我不是受益者（全數代墊）
+                const paidByMeSubsetShared = bd.paidByMe.subset.filter(e => e.beneficiaries.includes(member));
+                const paidByMeSubsetAdvance = bd.paidByMe.subset.filter(e => !e.beneficiaries.includes(member));
+
                 const paidByMeTotal = sum(bd.paidByMe.all, 'amount') + sum(bd.paidByMe.subset, 'amount');
                 const paidForMeTotal = sum(bd.paidForMe.all, 'myShare') + sum(bd.paidForMe.subset, 'myShare');
                 const personalTotal = sum(bd.personalOnly, 'amount');
@@ -3593,7 +3692,8 @@
                                 <span class="text-[10px] text-gray-500 font-normal">（共 ${paidByMeCount} 筆）</span>
                             </div>
                             ${subsection('✅ 全員平分', '<i class="fa-solid fa-users text-emerald-500"></i>', 'border-emerald-100', 'font-bold text-emerald-600', bd.paidByMe.all, 'amount')}
-                            ${subsection('🔸 沒有平分（部分成員）', '<i class="fa-solid fa-user-group text-amber-500"></i>', 'border-amber-100', 'font-bold text-amber-600', bd.paidByMe.subset, 'amount')}
+                            ${groupedSubsection('🔸 沒有平分（部分成員）', '<i class="fa-solid fa-user-group text-amber-500"></i>', 'font-bold text-amber-600', 'border-amber-100', paidByMeSubsetShared, 'paidByMe-shared')}
+                            ${groupedSubsection('🎁 全數代墊（不含自己）', '<i class="fa-solid fa-gift text-pink-500"></i>', 'font-bold text-pink-600', 'border-pink-100', paidByMeSubsetAdvance, 'paidByMe-advance')}
                         </div>
                     `;
                 }
@@ -3607,7 +3707,7 @@
                                 <span class="text-[10px] text-gray-500 font-normal">（共 ${paidForMeCount} 筆，這是我需要還的金額）</span>
                             </div>
                             ${subsection('✅ 全員平分', '<i class="fa-solid fa-users text-rose-500"></i>', 'border-rose-100', 'font-bold text-rose-600', bd.paidForMe.all, 'myShare')}
-                            ${subsection('🔸 沒有平分（部分成員）', '<i class="fa-solid fa-user-group text-amber-500"></i>', 'border-amber-100', 'font-bold text-amber-600', bd.paidForMe.subset, 'myShare')}
+                            ${groupedSubsection('🔸 沒有平分（部分成員）', '<i class="fa-solid fa-user-group text-amber-500"></i>', 'font-bold text-amber-600', 'border-amber-100', bd.paidForMe.subset, 'paidForMe')}
                         </div>
                     `;
                 }
