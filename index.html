@@ -1062,7 +1062,11 @@
             <form id="transactionForm" onsubmit="app.addTransaction(event)" class="space-y-4">
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
                     <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">類型</label><select id="tType" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm" onchange="ui.updateCategoriesForRows()"><option value="expense">支出</option><option value="income">收入</option></select></div>
-                    <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">日期</label><input type="date" id="tDate" required class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm cursor-pointer hover:bg-gray-50"></div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">日期</label>
+                        <input type="date" id="tDate" required class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm cursor-pointer hover:bg-gray-50" onchange="app.refreshTxDateWarning()">
+                        <div id="tDateWarn" class="hidden mt-1 flex items-center gap-1 flex-wrap"></div>
+                    </div>
                     <div class="col-span-2">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">商店/對象 (選填)</label>
                         <div class="relative">
@@ -1637,14 +1641,14 @@
                 b.disabled = true; i.value = ''; 
                 try { 
                     const p = `Role: Financial Assistant. Context JSON: ${JSON.stringify(state.allTransactionsCache.slice(0, 50).map(t => ({ d: t.date, a: t.amount, c: t.category, i: t.name })))}. Question: "${q}". Answer in Traditional Chinese, concise.`; 
-                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, { 
-                        method: 'POST', 
-                        headers: { 'Content-Type': 'application/json' }, 
-                        body: JSON.stringify({ contents: [{ parts: [{ text: p }] }] }) 
-                    }); 
-                    const d = await r.json(); 
+                    const r = await app._fetchWithTimeoutRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: p }] }] })
+                    }, { timeoutMs: 30000, retries: 2 });
+                    const d = await r.json();
                     if (d.error) throw new Error(d.error.message);
-                    h.innerHTML += `<div class="bg-white border p-2 rounded-lg w-fit mb-2 text-sm text-gray-700">${marked.parse(d.candidates[0].content.parts[0].text)}</div>`; 
+                    h.innerHTML += `<div class="bg-white border p-2 rounded-lg w-fit mb-2 text-sm text-gray-700">${marked.parse(d.candidates[0].content.parts[0].text)}</div>`;
                 } catch (e) { 
                     h.innerHTML += `<div class="text-red-500 text-xs">Error: ${e.message} <br> (請至系統設定檢查 API Key 是否有效)</div>`; 
                 } 
@@ -1959,26 +1963,59 @@
                 const progressFill = document.getElementById('batchProgressFill');
                 const total = files.length;
                 modal.classList.remove('hidden');
-                body.innerHTML = `<div class="text-center py-12 text-gray-400"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-violet-300 mb-3 block"></i><p>正在辨識 ${total} 張圖片，請稍候...</p></div>`;
+                body.innerHTML = `<div class="text-center py-12 text-gray-400"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-violet-300 mb-3 block"></i><p>正在平行辨識 ${total} 張圖片，請稍候...</p></div>`;
                 document.getElementById('batchSaveBtn').disabled = true;
 
-                for (let i = 0; i < total; i++) {
-                    progressText.textContent = `辨識中 ${i + 1} / ${total} 張...`;
-                    progressFill.style.width = `${((i) / total) * 100}%`;
+                // [A] 平行辨識 + concurrency limit（避免一次太多請求被 Gemini 限流）
+                // 配額：付費版約 1000 RPM、免費版 15 RPM；CONC=5 可同時跑 5 張
+                const CONC = 5;
+                const startTime = Date.now();
+                let done = 0;
+                const results = new Array(total); // 保留順序
+
+                progressText.textContent = `辨識中 0 / ${total} 張（平行 ${Math.min(CONC, total)} 張）...`;
+                progressFill.style.width = '0%';
+
+                const updateProgress = () => {
+                    done++;
+                    const pct = (done / total) * 100;
+                    progressFill.style.width = `${pct}%`;
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    const eta = done > 0 && done < total
+                        ? Math.max(1, Math.round(elapsed / done * (total - done)))
+                        : 0;
+                    progressText.textContent = done < total
+                        ? `辨識中 ${done} / ${total} 張・約剩 ${eta} 秒`
+                        : `辨識完成！共 ${total} 張・耗時 ${elapsed.toFixed(1)} 秒`;
+                };
+
+                const processOne = async (file, idx) => {
                     try {
-                        const imgData = await app._fileToBase64(files[i]);
-                        const result = await app._analyzeOneBatchImage(imgData, files[i].type, mode);
-                        result.fileName = files[i].name;
+                        const imgData = await app._fileToBase64(file);
+                        const result = await app._analyzeOneBatchImage(imgData, file.type, mode);
+                        result.fileName = file.name;
                         result.mode = mode;
-                        result.imageBase64 = imgData.base64;      // 壓縮後圖片 base64
-                        result.imageMimeType = imgData.mimeType;   // 通常為 image/jpeg
-                        state._batchResults.push(result);
+                        result.imageBase64 = imgData.base64;
+                        result.imageMimeType = imgData.mimeType;
+                        results[idx] = result;
                     } catch (e) {
-                        state._batchResults.push({ fileName: files[i].name, mode, error: e.message, transactions: [] });
+                        results[idx] = { fileName: file.name, mode, error: e.message, transactions: [] };
+                    } finally {
+                        updateProgress();
                     }
+                };
+
+                // 分批送出（每批 CONC 個並行）
+                for (let i = 0; i < total; i += CONC) {
+                    const slice = [];
+                    for (let j = i; j < Math.min(i + CONC, total); j++) {
+                        slice.push(processOne(files[j], j));
+                    }
+                    await Promise.all(slice);
                 }
+
+                state._batchResults = results;
                 progressFill.style.width = '100%';
-                progressText.textContent = `辨識完成！共 ${total} 張`;
                 app.renderBatchReview();
             },
 
@@ -2001,7 +2038,8 @@
             _compressImage: (dataUrl, mimeType) => new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
-                    const MAX = 1280;
+                    // [B] 加速：1024px @ 0.72 對收據 OCR 仍清晰，上傳量約為 1280@0.82 的 60%
+                    const MAX = 1024;
                     let w = img.width, h = img.height;
                     if (w > MAX || h > MAX) {
                         if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
@@ -2010,7 +2048,7 @@
                     const canvas = document.createElement('canvas');
                     canvas.width = w; canvas.height = h;
                     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    const compressed = canvas.toDataURL('image/jpeg', 0.82);
+                    const compressed = canvas.toDataURL('image/jpeg', 0.72);
                     resolve({ base64: compressed.split(',')[1], mimeType: 'image/jpeg' });
                 };
                 img.onerror = () => {
@@ -2020,10 +2058,73 @@
                 img.src = dataUrl;
             }),
 
+            // [D] 帶 timeout 與重試的 fetch；專供 Gemini API 使用
+            _fetchWithTimeoutRetry: async (url, options, { timeoutMs = 35000, retries = 2, retryDelayMs = 800 } = {}) => {
+                let lastErr;
+                for (let attempt = 0; attempt <= retries; attempt++) {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), timeoutMs);
+                    try {
+                        const resp = await fetch(url, { ...options, signal: controller.signal });
+                        clearTimeout(timer);
+                        // 5xx 視為可重試
+                        if (!resp.ok && resp.status >= 500 && attempt < retries) {
+                            await new Promise(r => setTimeout(r, retryDelayMs * (attempt + 1)));
+                            continue;
+                        }
+                        return resp;
+                    } catch (e) {
+                        clearTimeout(timer);
+                        lastErr = e;
+                        const isAbort = e.name === 'AbortError';
+                        // timeout 或 network error 都重試
+                        if (attempt < retries) {
+                            await new Promise(r => setTimeout(r, retryDelayMs * (attempt + 1)));
+                            continue;
+                        }
+                        throw isAbort ? new Error(`請求逾時（已重試 ${retries} 次）`) : e;
+                    }
+                }
+                throw lastErr || new Error('Gemini API 請求失敗');
+            },
+
+            // 日期合理性檢查：判斷 AI 辨識的日期是否可疑
+            // 回傳 null（無問題）或 { level, msg, color }
+            _dateWarning: (dateStr) => {
+                if (!dateStr) return { level: 'info', msg: '無日期', color: 'gray' };
+                const d = new Date(dateStr + 'T00:00:00');
+                if (isNaN(d.getTime())) return { level: 'error', msg: '日期格式無效', color: 'red' };
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                // 1. 未來日期 → 紅色（一定錯）
+                if (d > today) {
+                    const days = Math.round((d - today) / 86400000);
+                    return { level: 'error', msg: `未來日期 (+${days}天)`, color: 'red' };
+                }
+                // 2. 過於久遠 → 橘色（>6 個月）
+                const monthsDiff = (today.getFullYear() - d.getFullYear()) * 12 + (today.getMonth() - d.getMonth());
+                if (monthsDiff >= 6) return { level: 'warn', msg: `已過 ${monthsDiff} 個月`, color: 'orange' };
+                // 3. 跨年度 → 黃色（請確認年份）
+                if (d.getFullYear() !== today.getFullYear()) return { level: 'warn', msg: `非當年度 (${d.getFullYear()})`, color: 'amber' };
+                // 4. 跨月份 → 藍色（一般提示）
+                if (d.getMonth() !== today.getMonth()) {
+                    const mMap = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+                    return { level: 'info', msg: `非當月 (${mMap[d.getMonth()]}月)`, color: 'blue' };
+                }
+                return null;
+            },
+
             _analyzeOneBatchImage: async (imgData, mimeType, mode) => {
                 const cats = state.categories.expense.join(', ');
                 const isGroup = state.currentLedger && state.currentLedger.type === 'group';
-                const baseInstruction = `你是一個記帳助手。請分析圖片並提取所有交易紀錄。類別請從以下挑選最接近的：[${cats}]，若都不符填「其他」。日期格式統一輸出為 YYYY-MM-DD。請「只」回傳合法 JSON，不含任何 markdown 或說明。`;
+                const todayStr = new Date().toISOString().split('T')[0];
+                const baseInstruction = `你是一個記帳助手。請分析圖片並提取所有交易紀錄。類別請從以下挑選最接近的：[${cats}]，若都不符填「其他」。
+【日期規則・極重要】
+1. 今天的日期是 ${todayStr}。除非收據上明確寫到，否則絕對不可以輸出「未來」的日期。
+2. 收據日期若不清楚、被裁切、或無法 100% 確定年份/月份/日期，**寧可填 null 也不要猜測**。
+3. 注意 0 與 O、6 與 8、年份末兩位不可混淆；若只看到「12/05」這種沒有年份的格式，請優先採用今天最接近的合理年份（例如今天是 2026-05-03 而收據寫 12/05，應為 2025-12-05 而非 2026-12-05）。
+4. 日期格式統一輸出為 YYYY-MM-DD。
+請「只」回傳合法 JSON，不含任何 markdown 或說明。`;
 
                 let prompt;
                 if (mode === 'list') {
@@ -2051,10 +2152,10 @@
 回傳格式：{"type":"receipt","currency":"JPY","date":"YYYY-MM-DD or null","merchant":"中文商店名","merchantOriginal":"原文（非中文時填）","items":[{"nameOriginal":"原文品項名（非中文時填）","name":"繁體中文名稱","amount":金額數字（折抵為負）,"category":"類別","note":""},...]}`;
                 }
 
-                const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
+                const resp = await app._fetchWithTimeoutRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }, { inlineData: { mimeType: imgData.mimeType, data: imgData.base64 } }] }] })
-                });
+                }, { timeoutMs: 35000, retries: 2 });
                 const d = await resp.json();
                 if (d.error) throw new Error(d.error.message);
                 let raw = d.candidates[0].content.parts[0].text;
@@ -2066,9 +2167,8 @@
                 parsed.currency = detectedCurrency;
                 // Normalize: both formats produce a .transactions array
                 if (parsed.type === 'receipt') {
-                    const today = new Date().toISOString().split('T')[0];
                     parsed.transactions = [{
-                        date: parsed.date || today,
+                        date: parsed.date || null, // 保留 null 讓 UI 警示 AI 未辨識日期
                         merchant: parsed.merchant || '',
                         merchantOriginal: parsed.merchantOriginal || '',
                         amount: (parsed.items || []).reduce((s, i) => s + (i.amount || 0), 0),
@@ -2131,6 +2231,26 @@
                             </div>` : '';
                         const expandBtn = hasItems ? `<button onclick="app.toggleBatchItems(${idx})" class="text-[10px] text-violet-500 hover:text-violet-700 font-bold ml-1" id="batch-expand-${idx}">▶ 展開品項</button>` : '';
 
+                        // 日期警示：先檢查 AI 原始日期（null 也會被警示）
+                        const dateWarn = app._dateWarning(tx.date);
+                        const dateBorderCls = dateWarn
+                            ? (dateWarn.color === 'red' ? 'border-red-400 bg-red-50'
+                              : dateWarn.color === 'orange' ? 'border-orange-300 bg-orange-50'
+                              : dateWarn.color === 'amber' ? 'border-amber-300 bg-amber-50'
+                              : dateWarn.color === 'blue' ? 'border-blue-300 bg-blue-50'
+                              : 'border-gray-300 bg-gray-50')
+                            : 'border-gray-200';
+                        const dateBadgeCls = dateWarn
+                            ? (dateWarn.color === 'red' ? 'bg-red-100 text-red-700 border border-red-200'
+                              : dateWarn.color === 'orange' ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                              : dateWarn.color === 'amber' ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                              : dateWarn.color === 'blue' ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                              : 'bg-gray-100 text-gray-600 border border-gray-200')
+                            : '';
+                        const dateBadgeHtml = dateWarn
+                            ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-bold ${dateBadgeCls} whitespace-nowrap" title="${dateWarn.msg}"><i class="fa-solid fa-triangle-exclamation mr-0.5"></i>${dateWarn.msg}</span>
+                               <button type="button" onclick="app.batchSetDateToday(${idx})" class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200 whitespace-nowrap" title="改成今天">今</button>`
+                            : '';
                         return `
                         <div class="batch-row border border-gray-100 rounded-xl p-3 bg-white" data-idx="${idx}" data-ri="${ri}" data-ti="${ti}">
                             <div class="flex items-start gap-2">
@@ -2138,7 +2258,8 @@
                                 <div class="flex-1 min-w-0 space-y-2">
                                     <!-- Row 1: Date / Merchant / Amount / Category -->
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <input type="date" class="batch-date-${idx} border border-gray-200 rounded-lg px-2 py-1 text-xs font-mono" value="${tx.date || today}">
+                                        <input type="date" class="batch-date-${idx} border ${dateBorderCls} rounded-lg px-2 py-1 text-xs font-mono" value="${tx.date || today}" onchange="app.refreshBatchDateWarning(${idx})">
+                                        ${dateBadgeHtml ? `<span id="batch-date-warn-${idx}" class="flex items-center gap-1">${dateBadgeHtml}</span>` : `<span id="batch-date-warn-${idx}"></span>`}
                                         <div class="flex-1 min-w-[100px]">
                                             <input type="text" class="batch-merchant-${idx} w-full border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-700" value="${tx.merchant || ''}">
                                             ${hasMerchOrig ? `<div class="text-[10px] text-blue-400 pl-1 mt-0.5 truncate">${tx.merchantOriginal}</div>` : ''}
@@ -2226,6 +2347,62 @@
                 });
                 const amtEl = document.querySelector(`.batch-amt-${idx}`);
                 if (amtEl) amtEl.value = Math.round(total);
+            },
+
+            // 單張交易 modal：日期警示（AI 辨識後 / 使用者手動修改後皆會觸發）
+            // aiDate: AI 辨識到的原始日期（可能為 null/空字串）；若不傳則沿用 input 當前值
+            refreshTxDateWarning: (aiDate) => {
+                const dateEl = document.getElementById('tDate');
+                const warnEl = document.getElementById('tDateWarn');
+                if (!dateEl || !warnEl) return;
+                // AI 完全沒辨識到日期 → 顯示「AI 未辨識到日期」提醒
+                let w;
+                if (aiDate === null || aiDate === '' || aiDate === undefined) {
+                    if (arguments.length > 0) {
+                        w = { level: 'warn', msg: 'AI 未辨識到日期，已預設為今天，請確認', color: 'amber' };
+                    } else {
+                        w = app._dateWarning(dateEl.value);
+                    }
+                } else {
+                    w = app._dateWarning(aiDate || dateEl.value);
+                }
+                // 重設邊框
+                dateEl.classList.remove('border-red-400','border-orange-300','border-amber-300','border-blue-300','bg-red-50','bg-orange-50','bg-amber-50','bg-blue-50');
+                if (!w) { warnEl.classList.add('hidden'); warnEl.innerHTML = ''; return; }
+                const borderMap = { red:['border-red-400','bg-red-50'], orange:['border-orange-300','bg-orange-50'], amber:['border-amber-300','bg-amber-50'], blue:['border-blue-300','bg-blue-50'] };
+                (borderMap[w.color] || []).forEach(c => dateEl.classList.add(c));
+                const badgeMap = { red:'bg-red-100 text-red-700 border-red-200', orange:'bg-orange-100 text-orange-700 border-orange-200', amber:'bg-amber-100 text-amber-700 border-amber-200', blue:'bg-blue-100 text-blue-700 border-blue-200', gray:'bg-gray-100 text-gray-600 border-gray-200' };
+                warnEl.classList.remove('hidden');
+                warnEl.innerHTML = `
+                    <span class="text-[10px] px-1.5 py-0.5 rounded font-bold border ${badgeMap[w.color] || badgeMap.gray}" title="${w.msg}"><i class="fa-solid fa-triangle-exclamation mr-0.5"></i>${w.msg}</span>
+                    <button type="button" onclick="document.getElementById('tDate').valueAsDate=new Date(); app.refreshTxDateWarning();" class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200">改成今天</button>
+                `;
+            },
+
+            // 日期警示：點「今」按鈕快速改成今天
+            batchSetDateToday: (idx) => {
+                const dateEl = document.querySelector(`.batch-date-${idx}`);
+                if (!dateEl) return;
+                dateEl.value = new Date().toISOString().split('T')[0];
+                app.refreshBatchDateWarning(idx);
+            },
+
+            // 日期警示：使用者修改日期後即時重算警示樣式
+            refreshBatchDateWarning: (idx) => {
+                const dateEl = document.querySelector(`.batch-date-${idx}`);
+                const warnEl = document.getElementById(`batch-date-warn-${idx}`);
+                if (!dateEl || !warnEl) return;
+                const w = app._dateWarning(dateEl.value);
+                // 重設 input 邊框
+                dateEl.classList.remove('border-red-400','bg-red-50','border-orange-300','bg-orange-50','border-amber-300','bg-amber-50','border-blue-300','bg-blue-50','border-gray-300','bg-gray-50','border-gray-200');
+                if (!w) { dateEl.classList.add('border-gray-200'); warnEl.innerHTML = ''; return; }
+                const borderMap = { red:['border-red-400','bg-red-50'], orange:['border-orange-300','bg-orange-50'], amber:['border-amber-300','bg-amber-50'], blue:['border-blue-300','bg-blue-50'], gray:['border-gray-300','bg-gray-50'] };
+                (borderMap[w.color] || ['border-gray-200']).forEach(c => dateEl.classList.add(c));
+                const badgeMap = { red:'bg-red-100 text-red-700 border-red-200', orange:'bg-orange-100 text-orange-700 border-orange-200', amber:'bg-amber-100 text-amber-700 border-amber-200', blue:'bg-blue-100 text-blue-700 border-blue-200', gray:'bg-gray-100 text-gray-600 border-gray-200' };
+                warnEl.innerHTML = `
+                    <span class="text-[10px] px-1.5 py-0.5 rounded font-bold border ${badgeMap[w.color] || badgeMap.gray} whitespace-nowrap" title="${w.msg}"><i class="fa-solid fa-triangle-exclamation mr-0.5"></i>${w.msg}</span>
+                    <button type="button" onclick="app.batchSetDateToday(${idx})" class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200 whitespace-nowrap" title="改成今天">今</button>
+                `;
             },
 
             saveBatchTransactions: async () => {
@@ -2887,14 +3064,15 @@
                 document.getElementById('aiStatusText').innerText = "AI 正在辨識收據內容...";
                 try{
                     const existingCats = state.categories.expense.join(', ');
-                    let p = `Analyze this receipt image. 1. Identify the transaction date if visible (format YYYY-MM-DD), merchant name, items & prices. 2. Distribute service charges/taxes proportionally to items (positive). 3. If item names are non-Chinese (Japanese, English, Korean, etc.), put the original text in nameOriginal and provide a Traditional Chinese translation in name; if already Chinese, nameOriginal can be omitted. 4. Detect the currency used on this receipt (e.g. JPY, USD, EUR, TWD) and include "currency":"XXX" in the root JSON. Report the original currency amounts as-is — do NOT convert to TWD. 5. CRITICAL — Discount/Coupon Handling: Any line that represents a 優惠/折扣/折抵/滿減/會員價/折讓/Coupon/Discount/點數折抵/使用券抵 MUST be kept as a separate item with a NEGATIVE amount (e.g. -30). Use the original wording on the receipt as the name (e.g. "滿千折百", "會員優惠", "折扣"). Do NOT merge discounts into other items, do NOT drop them, and do NOT flip the sign to positive. The sum of all items.amount should equal the actual paid amount on the receipt; if it does not match, trust the receipt subtotal/discount lines rather than altering the positive item prices. Category for discount lines: "優惠折抵" or "其他". 6. Return ONLY valid JSON (no markdown): {"currency":"XXX","date":"YYYY-MM-DD or null","merchant":"Traditional Chinese name","merchantOriginal":"original if non-Chinese","items":[{"nameOriginal":"original if non-Chinese","name":"Traditional Chinese name","amount":number (negative for discounts),"category":"...","note":""}]}. Category must be one of: [${existingCats}].`;
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    let p = `Analyze this receipt image. Today's date is ${todayStr}. 1. Identify the transaction date if visible (format YYYY-MM-DD), merchant name, items & prices. CRITICAL — Date Rules: (a) NEVER output a future date (later than ${todayStr}). (b) If the date on the receipt is unclear, partially visible, or you are NOT 100% sure of year/month/day, set "date":null — do NOT guess. (c) Watch out for OCR confusables (0/O, 6/8, year last 2 digits). (d) If only "MM/DD" is shown without year, choose the closest valid past year (e.g. today is ${todayStr} and receipt shows 12/05 → 2025-12-05, NOT a future-year). 2. Distribute service charges/taxes proportionally to items (positive). 3. If item names are non-Chinese (Japanese, English, Korean, etc.), put the original text in nameOriginal and provide a Traditional Chinese translation in name; if already Chinese, nameOriginal can be omitted. 4. Detect the currency used on this receipt (e.g. JPY, USD, EUR, TWD) and include "currency":"XXX" in the root JSON. Report the original currency amounts as-is — do NOT convert to TWD. 5. CRITICAL — Discount/Coupon Handling: Any line that represents a 優惠/折扣/折抵/滿減/會員價/折讓/Coupon/Discount/點數折抵/使用券抵 MUST be kept as a separate item with a NEGATIVE amount (e.g. -30). Use the original wording on the receipt as the name (e.g. "滿千折百", "會員優惠", "折扣"). Do NOT merge discounts into other items, do NOT drop them, and do NOT flip the sign to positive. The sum of all items.amount should equal the actual paid amount on the receipt; if it does not match, trust the receipt subtotal/discount lines rather than altering the positive item prices. Category for discount lines: "優惠折抵" or "其他". 6. Return ONLY valid JSON (no markdown): {"currency":"XXX","date":"YYYY-MM-DD or null","merchant":"Traditional Chinese name","merchantOriginal":"original if non-Chinese","items":[{"nameOriginal":"original if non-Chinese","name":"Traditional Chinese name","amount":number (negative for discounts),"category":"...","note":""}]}. Category must be one of: [${existingCats}].`;
                     if (state.customAiPrompt) { p += ` User Instruction: ${state.customAiPrompt}`; }
 
-                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
+                    const r = await app._fetchWithTimeoutRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: p }, { inlineData: { mimeType: state.currentImage.mimeType, data: state.currentImage.base64 } }] }] })
-                    });
+                    }, { timeoutMs: 35000, retries: 2 });
                     const d = await r.json();
                     if (d.error) throw new Error(d.error.message);
 
@@ -2913,6 +3091,8 @@
                         const dateEl = document.getElementById('tDate');
                         if (dateEl) dateEl.value = j.date;
                     }
+                    // 觸發日期警示檢查（AI 沒辨識到也會提醒）
+                    app.refreshTxDateWarning(j.date);
 
                     // 自動填入幣別（若 AI 偵測到非台幣）
                     if (j.currency) {
@@ -2965,12 +3145,12 @@
 `;
                     if (state.customAiPrompt) { p += `\n使用者額外指示：${state.customAiPrompt}`; }
 
-                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, { 
-                        method: 'POST', 
-                        headers: { 'Content-Type': 'application/json' }, 
-                        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: p }] }] }) 
-                    });
-                    const d = await r.json(); 
+                    const r = await app._fetchWithTimeoutRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: p }] }] })
+                    }, { timeoutMs: 25000, retries: 2 });
+                    const d = await r.json();
                     if (d.error) throw new Error(d.error.message);
                     
                     let rawText = d.candidates[0].content.parts[0].text;
@@ -3461,9 +3641,13 @@
             toggleDetail: (id) => { document.getElementById(id).classList.toggle('hidden'); document.getElementById(`arrow-${id}`).classList.toggle('rotate-180'); },
             
             // Updated to populate Currency options and show inputs even for Personal ledgers
-            openTransactionModal: (t) => { 
-                document.getElementById('txModalTitle').innerText = t || '新增'; document.getElementById('transactionForm').reset(); document.getElementById('transactionItemsList').innerHTML = ''; ui.addItemRow(); 
+            openTransactionModal: (t) => {
+                document.getElementById('txModalTitle').innerText = t || '新增'; document.getElementById('transactionForm').reset(); document.getElementById('transactionItemsList').innerHTML = ''; ui.addItemRow();
                 document.getElementById('tDate').value = new Date().toISOString().split('T')[0];
+                // 清空日期警示
+                const _dwarn = document.getElementById('tDateWarn');
+                if (_dwarn) { _dwarn.classList.add('hidden'); _dwarn.innerHTML = ''; }
+                document.getElementById('tDate').classList.remove('border-red-400','border-orange-300','border-amber-300','border-blue-300','bg-red-50','bg-orange-50','bg-amber-50','bg-blue-50');
                 
                 ui.renderCurrencyOptions(); // Ensure options are populated
                 const def = state.currentLedger.defaultCurrency || 'TWD';
