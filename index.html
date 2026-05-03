@@ -2032,8 +2032,9 @@
 請提取圖中所有可見的交易，每筆各自的日期、商店名稱、金額。
 若商店名稱為非中文（如日文、英文等），請在 merchantOriginal 保留原文，merchant 欄位提供繁體中文翻譯或音譯；若已是中文則省略 merchantOriginal。
 請偵測圖中金額的幣別（如 JPY、USD、EUR、TWD 等），在最外層加入 "currency":"幣別代碼"，台幣填 TWD。
+【重要】若該筆交易為退貨、退款、折讓、紅字發票，amount 請以**負數**呈現（例：-150）。請完整保留所有交易，不可因為金額為負就略過。
 回傳格式：{"type":"list","currency":"JPY","transactions":[{"date":"YYYY-MM-DD","merchant":"中文商店名","merchantOriginal":"原文（非中文時填）","amount":金額數字,"category":"類別","items":[]},...]}
-如果某筆日期看不到，用 null。金額必須是數字不含符號，請填寫原始幣別金額（不要自行換算）。`;
+如果某筆日期看不到，用 null。金額必須是數字（可為負），請填寫原始幣別金額（不要自行換算）。`;
                 } else {
                     prompt = `${baseInstruction}
 這是一張收據/發票照片。請提取交易日期、商店名稱、以及所有品項與金額。
@@ -2041,7 +2042,13 @@
 若整體收據為外文，merchant 請翻譯為中文，merchantOriginal 保留原文。
 請偵測收據上的幣別（如 JPY、USD、EUR、TWD 等），在最外層加入 "currency":"幣別代碼"，台幣填 TWD。
 金額請填寫原始幣別金額（不要自行換算）。
-回傳格式：{"type":"receipt","currency":"JPY","date":"YYYY-MM-DD or null","merchant":"中文商店名","merchantOriginal":"原文（非中文時填）","items":[{"nameOriginal":"原文品項名（非中文時填）","name":"繁體中文名稱","amount":金額數字,"category":"類別","note":""},...]}`;
+【重要・優惠/折扣處理】
+1. 收據上若出現「優惠」「折扣」「折抵」「滿減」「會員價」「折讓」「Coupon」「Discount」「點數折抵」「使用券抵」等減項，**必須**列為一個獨立 item，amount 以**負數**呈現（例：-30）。
+2. name 直接寫收據原文（如「滿千折百」「會員優惠」「折扣」），category 填「優惠折抵」或「其他」。
+3. 不可為了讓總額對齊就把優惠合併進其他品項或省略；也不可把折扣金額轉成正數。
+4. 加總所有 items 的 amount 應該等於收據實付金額；若不等請優先信任收據上的小計/折扣明細，不要竄改正項金額。
+5. 若有「服務費」「稅金」是加項，依原規則按比例分攤到品項；只有「折扣/優惠」要保留為負值獨立項。
+回傳格式：{"type":"receipt","currency":"JPY","date":"YYYY-MM-DD or null","merchant":"中文商店名","merchantOriginal":"原文（非中文時填）","items":[{"nameOriginal":"原文品項名（非中文時填）","name":"繁體中文名稱","amount":金額數字（折抵為負）,"category":"類別","note":""},...]}`;
                 }
 
                 const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
@@ -2247,7 +2254,8 @@
                         const merchant = merchantEl ? merchantEl.value.trim() : '';
                         const totalAmount = parseFloat(amtEl ? amtEl.value : 0) || 0;
                         const category = catEl ? catEl.value : '其他';
-                        if (totalAmount <= 0) continue;
+                        // 允許負總額（整筆退貨/折讓），僅排除 0 元的空白列
+                        if (totalAmount === 0) continue;
 
                         let paidBy = state.userName;
                         let splitAmong = [];
@@ -2302,7 +2310,8 @@
                                 const origItem = origItems[ii] || {};
                                 const amtItemEl = document.querySelector(`.batch-item-amt-${idx}[data-item="${ii}"]`);
                                 const itemOrigAmt = parseFloat(amtItemEl?.value || 0) || 0;
-                                if (itemOrigAmt <= 0) return;
+                                // 允許負金額（優惠 / 折抵 / 退貨），僅排除真正 0 元的空品項
+                                if (itemOrigAmt === 0) return;
                                 // 換算台幣
                                 const itemTwdAmt = resCurrency !== 'TWD' ? Math.round(itemOrigAmt * resRate) : itemOrigAmt;
                                 // 品項個別分攤：若有設定則用品項的，否則用整筆的
@@ -2878,7 +2887,7 @@
                 document.getElementById('aiStatusText').innerText = "AI 正在辨識收據內容...";
                 try{
                     const existingCats = state.categories.expense.join(', ');
-                    let p = `Analyze this receipt image. 1. Identify the transaction date if visible (format YYYY-MM-DD), merchant name, items & prices. 2. Distribute service charges/taxes proportionally. 3. If item names are non-Chinese (Japanese, English, Korean, etc.), put the original text in nameOriginal and provide a Traditional Chinese translation in name; if already Chinese, nameOriginal can be omitted. 4. Detect the currency used on this receipt (e.g. JPY, USD, EUR, TWD) and include "currency":"XXX" in the root JSON. Report the original currency amounts as-is — do NOT convert to TWD. 5. Return ONLY valid JSON (no markdown): {"currency":"XXX","date":"YYYY-MM-DD or null","merchant":"Traditional Chinese name","merchantOriginal":"original if non-Chinese","items":[{"nameOriginal":"original if non-Chinese","name":"Traditional Chinese name","amount":number,"category":"...","note":""}]}. Category must be one of: [${existingCats}].`;
+                    let p = `Analyze this receipt image. 1. Identify the transaction date if visible (format YYYY-MM-DD), merchant name, items & prices. 2. Distribute service charges/taxes proportionally to items (positive). 3. If item names are non-Chinese (Japanese, English, Korean, etc.), put the original text in nameOriginal and provide a Traditional Chinese translation in name; if already Chinese, nameOriginal can be omitted. 4. Detect the currency used on this receipt (e.g. JPY, USD, EUR, TWD) and include "currency":"XXX" in the root JSON. Report the original currency amounts as-is — do NOT convert to TWD. 5. CRITICAL — Discount/Coupon Handling: Any line that represents a 優惠/折扣/折抵/滿減/會員價/折讓/Coupon/Discount/點數折抵/使用券抵 MUST be kept as a separate item with a NEGATIVE amount (e.g. -30). Use the original wording on the receipt as the name (e.g. "滿千折百", "會員優惠", "折扣"). Do NOT merge discounts into other items, do NOT drop them, and do NOT flip the sign to positive. The sum of all items.amount should equal the actual paid amount on the receipt; if it does not match, trust the receipt subtotal/discount lines rather than altering the positive item prices. Category for discount lines: "優惠折抵" or "其他". 6. Return ONLY valid JSON (no markdown): {"currency":"XXX","date":"YYYY-MM-DD or null","merchant":"Traditional Chinese name","merchantOriginal":"original if non-Chinese","items":[{"nameOriginal":"original if non-Chinese","name":"Traditional Chinese name","amount":number (negative for discounts),"category":"...","note":""}]}. Category must be one of: [${existingCats}].`;
                     if (state.customAiPrompt) { p += ` User Instruction: ${state.customAiPrompt}`; }
 
                     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
@@ -2946,12 +2955,13 @@
                     let p = `請將以下使用者的隨手記帳筆記，解析為具體的記帳項目。
 使用者輸入：「${noteText}」
 
-請提取出商店名稱(merchant)、項目名稱(name)、金額(amount，必須是數字)，並從以下現有分類中選擇最適合的分類(category)：[${existingCats}]。如果沒有適合的分類，請填入"其他"。
+請提取出商店名稱(merchant)、項目名稱(name)、金額(amount，必須是數字，優惠/折扣/折抵須為**負數**)，並從以下現有分類中選擇最適合的分類(category)：[${existingCats}]。如果沒有適合的分類，請填入"其他"。
 如果使用者輸入包含多個項目與金額（例如：好市多 牛肉 羊肉 2000 鞋1900 東 西雞肉700），請將其拆分為多個獨立的項目，並將最前面的「好市多」判斷為商店名稱。
+【重要】若筆記中提到「優惠 -30」「折抵 50」「折扣 100」「會員價省 80」「點數抵 60」等減項，amount 一律以**負數**呈現（如 -30、-50、-100、-80、-60），name 直接寫原文（如「優惠」「折抵」「折扣」「會員優惠」），category 填「優惠折抵」或「其他」。不可省略，也不可變成正數。
 
 請「只」回傳合法的 JSON 格式，不要包含任何 markdown 語法或說明文字。
 格式範例：
-{"merchant":"好市多","items":[{"name":"牛肉 羊肉","amount":2000,"category":"食材","note":""},{"name":"鞋","amount":1900,"category":"服飾","note":""},{"name":"東 西雞肉","amount":700,"category":"食材","note":""}]}
+{"merchant":"好市多","items":[{"name":"牛肉 羊肉","amount":2000,"category":"食材","note":""},{"name":"鞋","amount":1900,"category":"服飾","note":""},{"name":"東 西雞肉","amount":700,"category":"食材","note":""},{"name":"會員優惠","amount":-200,"category":"優惠折抵","note":""}]}
 `;
                     if (state.customAiPrompt) { p += `\n使用者額外指示：${state.customAiPrompt}`; }
 
