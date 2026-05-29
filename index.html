@@ -863,9 +863,14 @@
             </div>
             <!-- Footer -->
             <div class="p-4 border-t border-gray-100 flex justify-between items-center gap-2 shrink-0">
-                <button onclick="app.exportRawData()" class="px-3 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg text-xs font-bold flex items-center gap-1" title="匯出完整欄位的原始資料(JSON)供診斷">
-                    <i class="fa-solid fa-bug"></i> 匯出原始資料(診斷用)
-                </button>
+                <div class="flex items-center gap-1">
+                    <button onclick="app.exportRawData()" class="px-3 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg text-xs font-bold flex items-center gap-1" title="匯出完整欄位的原始資料(JSON)供診斷">
+                        <i class="fa-solid fa-bug"></i> 匯出原始資料(診斷用)
+                    </button>
+                    <button onclick="app.cleanupBadImport()" class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-xs font-bold flex items-center gap-1" title="刪除 2026-05-27 由 billy 用 Excel 匯入的整批資料">
+                        <i class="fa-solid fa-eraser"></i> 刪除 5/27 匯入批次
+                    </button>
+                </div>
                 <button onclick="ui.closeModal('duplicateCheckModal')" class="px-5 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">關閉</button>
             </div>
         </div>
@@ -2812,6 +2817,44 @@
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(a.href);
+            },
+
+            // 一次性清理：刪除 2026-05-27 billy 用 Excel 匯入的整批（groupId 前綴 1779868484148）
+            cleanupBadImport: () => {
+                if (!state.currentLedger) return alert('請先選擇帳本');
+                const PREFIX = '1779868484148';
+                const targets = state.transactions.filter(t =>
+                    t.groupId && t.groupId.startsWith(PREFIX) &&
+                    (t.createdAt || '').startsWith('2026-05-27') &&
+                    t.lastEditedBy === 'billy'
+                );
+                if (targets.length === 0) { alert('找不到該批匯入資料（可能已清除，或不在目前帳本）。'); return; }
+                const sum = targets.reduce((s, t) => s + (t.amount || 0), 0);
+                const remain = state.transactions.length - targets.length;
+                ui.showConfirm(
+                    `刪除 5/27 匯入批次（${targets.length} 筆）`,
+                    `將刪除 billy 於 2026-05-27 用 Excel 匯入的 ${targets.length} 筆（金額合計 $${Math.round(sum).toLocaleString()}），刪除後此帳本剩 ${remain} 筆。此動作無法復原，請先確認已留好 JSON 備份、billy 仍保有原始 Excel。`,
+                    async () => {
+                        try {
+                            const commits = [];
+                            let batch = writeBatch(state.db);
+                            let n = 0;
+                            for (const t of targets) {
+                                batch.delete(doc(state.db, 'transactions', t.id));
+                                n++;
+                                if (n >= 400) { commits.push(batch.commit()); batch = writeBatch(state.db); n = 0; }
+                            }
+                            if (n > 0) commits.push(batch.commit());
+                            await Promise.all(commits);
+                            ui.closeModal('duplicateCheckModal');
+                            const toast = document.createElement('div');
+                            toast.className = 'fixed bottom-4 right-4 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-xl z-[200] text-sm font-bold flex items-center gap-2';
+                            toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> 已刪除 ${targets.length} 筆匯入資料`;
+                            document.body.appendChild(toast);
+                            setTimeout(() => toast.remove(), 4000);
+                        } catch (e) { alert('刪除失敗: ' + e.message); }
+                    }
+                );
             },
 
             toggleGroupSettled: async (idsString, isSettled) => {
