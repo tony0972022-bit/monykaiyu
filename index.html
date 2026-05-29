@@ -66,6 +66,18 @@
 
         /* Icon Selector Radio */
         .icon-radio:checked + label { background-color: #dbeafe; border-color: #3b82f6; }
+
+        /* 報表列印（匯出 PDF）：只印出報表視窗內容，隱藏互動按鈕 */
+        @media print {
+            body * { visibility: hidden; }
+            #reportModal, #reportModal * { visibility: visible; }
+            #reportModal { position: absolute !important; top: 0; left: 0; width: 100%; height: auto; padding: 0; margin: 0; background: #fff !important; display: block !important; }
+            #reportModal > div { max-height: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; box-shadow: none !important; border-radius: 0 !important; }
+            #reportBody { overflow: visible !important; max-height: none !important; }
+            .no-print { display: none !important; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; }
+        }
     </style>
 </head>
 <body class="text-gray-800 h-screen flex overflow-hidden">
@@ -374,6 +386,30 @@
         </div>
     </div>
 
+    <!-- Modal: Date Confirmation Before Save (儲存前日期確認) -->
+    <div id="dateConfirmModal" class="fixed inset-0 bg-black/50 z-[110] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4 animate-fade-in flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-amber-100 flex items-center gap-3 shrink-0">
+                <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 shrink-0">
+                    <i class="fa-solid fa-calendar-day text-lg"></i>
+                </div>
+                <div class="flex-1">
+                    <h3 class="text-base font-bold text-gray-800">日期確認</h3>
+                    <p class="text-[11px] text-gray-500 mt-0.5" id="dateConfirmSubtitle">以下日期非當月或當年度，請再次確認</p>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4">
+                <ul id="dateConfirmList" class="space-y-2 text-sm"></ul>
+            </div>
+            <div class="p-4 border-t border-gray-100 flex gap-3 justify-end shrink-0">
+                <button id="dateConfirmCancelBtn" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 font-bold text-sm hover:bg-gray-50">回去修改</button>
+                <button id="dateConfirmOkBtn" class="px-5 py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 shadow-md flex items-center gap-1.5">
+                    <i class="fa-solid fa-check"></i> 確認儲存
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Create/Edit Ledger -->
     <div id="ledgerModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto">
@@ -624,7 +660,12 @@
         <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 m-4 animate-fade-in max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">💰 結算分帳</h3>
-                <button onclick="ui.closeModal('settleModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <div class="flex items-center gap-2">
+                    <button onclick="ui.openSettlementReport()" class="text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1">
+                        <i class="fa-solid fa-table-list"></i> 消費明細報表
+                    </button>
+                    <button onclick="ui.closeModal('settleModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                </div>
             </div>
             <div id="settleContent" class="space-y-4 mb-6"></div>
 
@@ -687,6 +728,49 @@
                     <select id="targetPersonalLedger" class="w-full p-2 border border-gray-300 rounded text-sm bg-white"></select>
                 </div>
                 <button onclick="app.archiveLedger()" class="w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm font-bold shadow">確認歸檔並記帳</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: 消費明細報表 -->
+    <div id="reportModal" class="fixed inset-0 bg-black/50 z-[80] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl m-4 animate-fade-in max-h-[92vh] flex flex-col">
+            <div class="p-5 border-b border-gray-100 flex items-center justify-between shrink-0">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-table-list text-indigo-500"></i> 消費明細報表
+                    <span id="reportLedgerName" class="text-xs font-normal text-gray-400"></span>
+                </h3>
+                <div class="flex items-center gap-2 no-print">
+                    <button onclick="app.exportSettlementReport()" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1">
+                        <i class="fa-solid fa-file-excel"></i> <span class="hidden sm:inline">匯出 Excel</span>
+                    </button>
+                    <button onclick="ui.closeReportModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                </div>
+            </div>
+            <div id="reportBody" class="overflow-y-auto flex-1 p-5 space-y-6"></div>
+        </div>
+    </div>
+
+    <!-- Modal: 報表備註 / 疑慮 -->
+    <div id="noteEditorModal" class="fixed inset-0 bg-black/50 z-[90] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-5 m-4 animate-fade-in">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-bold text-gray-800 flex items-center gap-2"><i class="fa-solid fa-pen-to-square text-indigo-500"></i> 備註 / 疑慮</h3>
+                <button onclick="ui.closeModal('noteEditorModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <input type="hidden" id="noteEditorTxId">
+            <p id="noteEditorTarget" class="text-xs text-gray-500 mb-2 bg-gray-50 border border-gray-100 rounded-lg p-2"></p>
+            <label class="flex items-center gap-2 mb-2 bg-amber-50 border border-amber-100 rounded-lg p-2 cursor-pointer">
+                <input type="checkbox" id="noteEditorIssue" class="w-4 h-4 text-amber-600 rounded">
+                <span class="text-sm text-amber-800 font-bold">🚩 標記為有疑慮（處理前無法匯出 PDF）</span>
+            </label>
+            <textarea id="noteEditorText" rows="3" placeholder="寫下備註或疑慮，所有成員都看得到…" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-y"></textarea>
+            <div class="flex gap-2 justify-between items-center mt-3">
+                <button onclick="app.clearReportNote()" class="text-xs text-red-500 hover:text-red-700 font-bold px-2">清除此筆備註</button>
+                <div class="flex gap-2">
+                    <button onclick="ui.closeModal('noteEditorModal')" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-50">取消</button>
+                    <button onclick="app.saveReportNote()" class="px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow">儲存</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1210,7 +1294,8 @@
             chartMode: 'weekly', chartFilters: { selectedYear: new Date().getFullYear(), compareYear: new Date().getFullYear() - 1, selectedYears: [new Date().getFullYear()] },
             currentChartStats: {}, currentListData: [], importFile: null, recurringRules: [], unsubscribeRecurring: null, pwAttempts: 0,
             settlementReceipts: [], unsubscribeReceipts: null, pendingReceiptImage: null,
-            settleBreakdowns: {}, settleMembersCache: [], settleDetailMode: 'simple'
+            settleBreakdowns: {}, settleMembersCache: [], settleDetailMode: 'simple',
+            reportMode: 'unsettled', reportReview: { notes: {}, confirmations: {} }, unsubscribeReportReview: null
         };
 
         const app = {
@@ -1884,6 +1969,19 @@
                             }
                             newItems.push({n,c,nt,a,oa,nOrig,itemSplit});
                         });
+                        // [日期確認] 儲存前若日期非當年/當月，彈窗請使用者確認
+                        const dconfirm = app._needDateConfirm(dat);
+                        if (dconfirm) {
+                            const totalAmount = newItems.reduce((s, x) => s + (Number(x.a) || 0), 0);
+                            const labelTxt = (merch && merch.trim()) || (newItems[0] && newItems[0].n) || '此筆交易';
+                            const ok = await ui.confirmDateBeforeSave([{
+                                date: dat,
+                                label: labelTxt,
+                                amount: totalAmount,
+                                confirm: dconfirm
+                            }]);
+                            if (!ok) return; // 使用者選「回去修改」→ finally 重置按鈕
+                        }
                         // 建立 batch
                         newItems.forEach(({n,c,nt,a,oa,nOrig,itemSplit})=>{
                             bat.set(doc(collection(state.db,"transactions")),{ ledgerId:state.currentLedger.id, type:typ, date:dat, amount:a, originalAmount:oa, currency:cur, exchangeRate:rate, paidBy:pb, splitAmong:itemSplit, name:n, nameOriginal:nOrig, category:c, imageUrl:u, merchant:merch, groupId, createdAt:new Date().toISOString(), lastEditedBy:state.userName, lastEditedAt:new Date().toISOString(), note: nt });
@@ -2086,6 +2184,28 @@
                     }
                 }
                 throw lastErr || new Error('Gemini API 請求失敗');
+            },
+
+            // 儲存前檢查：日期是否需彈窗確認（嚴格只看「非當年 OR 非當月」）
+            // 注意：「同年同月的未來日期」不在此觸發，由視覺紅色警示處理
+            // 回傳 null（不需確認）或 { reason, label } — label 是給對話窗顯示的中文
+            _needDateConfirm: (dateStr) => {
+                if (!dateStr) return null; // 沒日期不在此檢查（會被預設成今天）
+                const d = new Date(dateStr + 'T00:00:00');
+                if (isNaN(d.getTime())) return null;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                // 1. 跨年度（含未來年份）
+                if (d.getFullYear() !== today.getFullYear()) {
+                    const tag = d > today ? '未來' : '';
+                    return { reason: 'cross-year', label: `${tag}非當年度（${d.getFullYear()}年）` };
+                }
+                // 2. 同年但跨月份（含同年的未來月份）
+                if (d.getMonth() !== today.getMonth()) {
+                    const tag = d > today ? '未來' : '';
+                    return { reason: 'cross-month', label: `${tag}非當月（${d.getMonth() + 1}月）` };
+                }
+                return null;
             },
 
             // 日期合理性檢查：判斷 AI 辨識的日期是否可疑
@@ -2417,6 +2537,34 @@
                     const imageUrlCache = {}; // ri -> imageUrl，同一張圖只上傳一次
 
                     const checkedRows = Array.from(document.querySelectorAll('.batch-row-check:checked'));
+
+                    // [日期確認] 先掃描所有勾選列，收集可疑日期一次性彈窗
+                    const suspicious = [];
+                    for (const cb of checkedRows) {
+                        const idx = cb.getAttribute('data-idx');
+                        const dateEl = document.querySelector(`.batch-date-${idx}`);
+                        const merchantEl = document.querySelector(`.batch-merchant-${idx}`);
+                        const amtEl = document.querySelector(`.batch-amt-${idx}`);
+                        const dStr = dateEl ? dateEl.value : '';
+                        const dconfirm = app._needDateConfirm(dStr);
+                        if (dconfirm) {
+                            suspicious.push({
+                                date: dStr,
+                                label: (merchantEl?.value?.trim()) || '此筆交易',
+                                amount: parseFloat(amtEl?.value || 0) || 0,
+                                confirm: dconfirm
+                            });
+                        }
+                    }
+                    if (suspicious.length > 0) {
+                        const ok = await ui.confirmDateBeforeSave(suspicious);
+                        if (!ok) {
+                            // 使用者選「回去修改」→ 重設按鈕後直接退出
+                            btn.disabled = false;
+                            app.updateBatchSaveBtn();
+                            return;
+                        }
+                    }
                     for (const cb of checkedRows) {
                         const idx = cb.getAttribute('data-idx');
                         const rowEl = document.querySelector(`.batch-row[data-idx="${idx}"]`);
@@ -2618,11 +2766,25 @@
                     const levelTag = { danger: '<span class="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">確定重複</span>', caution: '<span class="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded">高度疑似</span>', warn: '<span class="text-[10px] font-bold text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded">疑似重複</span>', sameamt: '<span class="text-[10px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">同金額提示</span>' };
                     container.innerHTML = `<p class="text-xs text-gray-500 mb-3">共掃描 ${txs.length} 筆，發現 <b class="text-orange-600">${groups.length}</b> 組可疑重複</p>` +
                         groups.map(g => {
-                            const rows = g.matches.map(t => `<div class="flex items-center gap-2 text-xs py-1.5 border-b border-gray-100 last:border-0"><span class="text-gray-400 font-mono w-16 shrink-0">${t.date.slice(5)}</span><span class="flex-1 text-gray-700 truncate">${t.name||'-'}</span><span class="text-gray-400 shrink-0">${t.category||'-'}</span><span class="ml-2 font-bold shrink-0 ${t.type==='income'?'text-emerald-600':'text-rose-600'}">$${t.amount.toLocaleString()}</span><button onclick="app.deleteTransaction('${t.id}')" class="ml-1 text-gray-300 hover:text-red-500 transition shrink-0" title="刪除此筆"><i class="fa-solid fa-trash-can text-xs"></i></button></div>`).join('');
+                            const rows = g.matches.map(t => `<div class="flex items-center gap-2 text-xs py-1.5 border-b border-gray-100 last:border-0"><span class="text-gray-400 font-mono w-16 shrink-0">${t.date.slice(5)}</span><span class="flex-1 text-gray-700 truncate">${t.name||'-'}</span><span class="text-gray-400 shrink-0">${t.category||'-'}</span><span class="ml-2 font-bold shrink-0 ${t.type==='income'?'text-emerald-600':'text-rose-600'}">$${t.amount.toLocaleString()}</span><button onclick="app.deleteFromDupScan('${t.id}')" class="ml-1 text-gray-300 hover:text-red-500 transition shrink-0" title="刪除此筆"><i class="fa-solid fa-trash-can text-xs"></i></button></div>`).join('');
                             return `<div class="border rounded-xl p-3 ${levelColor[g.level]}"><div class="flex items-center gap-2 mb-2">${levelTag[g.level]}<span class="text-xs text-gray-500 ml-1">${g.reason}</span></div>${rows}</div>`;
                         }).join('');
                 }
                 document.getElementById('duplicateCheckModal').classList.remove('hidden');
+            },
+
+            // 在「查重複」視窗內刪除：刪完後即時從本地資料移除並重新掃描，讓該列立刻消失
+            deleteFromDupScan: (id) => {
+                ui.showConfirm('刪除交易', '確定要刪除這筆紀錄嗎？', async () => {
+                    try {
+                        await deleteDoc(doc(state.db, "transactions", id));
+                        // 樂觀更新：onSnapshot 尚未回傳前，先把本地該筆移除，避免列表殘留舊資料
+                        state.transactions = state.transactions.filter(t => t.id !== id);
+                        app.checkDuplicates();
+                    } catch (e) {
+                        alert("刪除失敗: " + e.message);
+                    }
+                });
             },
 
             toggleGroupSettled: async (idsString, isSettled) => {
@@ -2871,6 +3033,185 @@
                 app.listenSettlementReceipts();
 
                 ui.openModal('settleModal');
+            },
+
+            // ===== 消費明細報表 =====
+            // 從目前帳本「未結清」的支出，重新計算每筆消費、每位成員分攤、與轉帳方案
+            buildSettlementReportData: (mode = 'unsettled') => {
+                const ledger = state.currentLedger;
+                if (!ledger || ledger.type !== 'group') return null;
+                const members = ledger.members || [];
+
+                const expenses = state.transactions
+                    .filter(t => t.type === 'expense' && (mode === 'settled' ? t.isSettled === true : !t.isSettled))
+                    .slice()
+                    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+                // 每筆消費 → 一列：支付金額 / 分攤人數 / 一人分攤
+                const rows = expenses.map(t => {
+                    const beneficiaries = (Array.isArray(t.splitAmong) && t.splitAmong.length) ? t.splitAmong : members;
+                    const count = beneficiaries.length || 1;
+                    const perPerson = (t.amount || 0) / count;
+                    return {
+                        id: t.id, date: t.date || '', name: t.name || '(無名稱)', category: t.category || '',
+                        payer: t.paidBy || '?', amount: t.amount || 0,
+                        beneficiaries: beneficiaries.slice(), count, perPerson
+                    };
+                });
+
+                // 每位成員：自己有參與分攤的項目清單 + 先墊總額 + 應分攤總額 + 結餘
+                const memberData = {};
+                members.forEach(m => { memberData[m] = { items: [], shareTotal: 0, paidTotal: 0, balance: 0 }; });
+                rows.forEach(r => {
+                    r.beneficiaries.forEach(b => {
+                        if (!memberData[b]) return;
+                        memberData[b].items.push({ date: r.date, name: r.name, amount: r.amount, count: r.count, myShare: r.perPerson });
+                        memberData[b].shareTotal += r.perPerson;
+                    });
+                    if (memberData[r.payer]) memberData[r.payer].paidTotal += r.amount;
+                });
+                members.forEach(m => { memberData[m].balance = memberData[m].paidTotal - memberData[m].shareTotal; });
+
+                // 轉帳方案（最少現金流）：誰要給誰多少
+                const net = members.map(m => ({ name: m, amount: memberData[m].balance }));
+                const creditors = net.filter(n => n.amount > 1).map(n => ({ ...n })).sort((a, b) => b.amount - a.amount);
+                const debtors = net.filter(n => n.amount < -1).map(n => ({ ...n })).sort((a, b) => a.amount - b.amount);
+                const transfers = [];
+                let ci = 0, di = 0;
+                while (ci < creditors.length && di < debtors.length) {
+                    const amt = Math.min(creditors[ci].amount, Math.abs(debtors[di].amount));
+                    if (amt >= 1) transfers.push({ from: debtors[di].name, to: creditors[ci].name, amount: amt });
+                    creditors[ci].amount -= amt; debtors[di].amount += amt;
+                    if (Math.abs(creditors[ci].amount) < 1) ci++;
+                    if (Math.abs(debtors[di].amount) < 1) di++;
+                }
+
+                const totalExpense = rows.reduce((s, r) => s + r.amount, 0);
+                return { mode, members, rows, memberData, transfers, totalExpense };
+            },
+
+            exportSettlementReport: () => {
+                const mode = state.reportMode || 'unsettled';
+                const data = app.buildSettlementReportData(mode);
+                if (!data) { alert('此功能僅適用於多人帳本'); return; }
+                if (data.rows.length === 0) { alert('目前這個分頁沒有資料可匯出'); return; }
+                const modeLabel = mode === 'settled' ? '已結清' : '未結清';
+                const { members, rows, memberData, transfers, totalExpense } = data;
+                const round = (n) => Math.round(n);
+                const wb = XLSX.utils.book_new();
+
+                // 工作表 1：完整消費清單
+                const listAoa = [['日期', '項目', '類別', '付款人', '支付金額', '分攤人數', '一人分攤', '分攤成員']];
+                rows.forEach(r => listAoa.push([r.date, r.name, r.category, r.payer, round(r.amount), r.count, round(r.perPerson), r.beneficiaries.length === members.length ? '全員' : r.beneficiaries.join('、')]));
+                listAoa.push(['合計', '', '', '', round(totalExpense), '', '', '']);
+                const ws1 = XLSX.utils.aoa_to_sheet(listAoa);
+                ws1['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 24 }];
+                XLSX.utils.book_append_sheet(wb, ws1, '完整消費清單');
+
+                // 每位成員一張工作表
+                const usedNames = new Set();
+                members.forEach(m => {
+                    const md = memberData[m];
+                    const aoa = [
+                        [`${m} 的分攤明細`], [],
+                        ['先墊金額', round(md.paidTotal)],
+                        ['應分攤合計', round(md.shareTotal)],
+                        [md.balance >= 0 ? '應收' : '應付', round(Math.abs(md.balance))], [],
+                        ['日期', '項目', '此項支付金額', '分攤人數', '我這項分攤']
+                    ];
+                    md.items.forEach(it => aoa.push([it.date, it.name, round(it.amount), it.count, round(it.myShare)]));
+                    const ws = XLSX.utils.aoa_to_sheet(aoa);
+                    ws['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 14 }, { wch: 10 }, { wch: 12 }];
+                    let safe = (m.replace(/[\\/?*\[\]:]/g, '_').slice(0, 26)) || '成員';
+                    let base = safe, k = 1;
+                    while (usedNames.has(safe)) safe = base.slice(0, 24) + '_' + (++k);
+                    usedNames.add(safe);
+                    XLSX.utils.book_append_sheet(wb, ws, safe);
+                });
+
+                // 工作表：誰給誰多少
+                const trAoa = [['付款人', '收款人', '金額']];
+                if (transfers.length === 0) trAoa.push(['（帳目已平衡，無需轉帳）', '', '']);
+                else transfers.forEach(tr => trAoa.push([tr.from, tr.to, round(tr.amount)]));
+                const ws3 = XLSX.utils.aoa_to_sheet(trAoa);
+                ws3['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 12 }];
+                XLSX.utils.book_append_sheet(wb, ws3, '誰給誰多少');
+
+                const safeName = (state.currentLedger.name || '帳本').replace(/[\\/:*?"<>|]/g, '_');
+                XLSX.writeFile(wb, `${safeName}_消費明細報表(${modeLabel})_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            },
+
+            // ===== 報表協作審核：備註/疑慮 + 線上確認 + 列印 PDF（僅未結清分頁）=====
+            // 每個帳本一份審核文件：{ notes: { [txId]: {text, hasIssue, by, at} }, confirmations: { [member]: {confirmed, at} } }
+            listenReportReview: () => {
+                if (!state.currentLedger) return;
+                if (state.unsubscribeReportReview) state.unsubscribeReportReview();
+                state.reportReview = { notes: {}, confirmations: {} };
+                const ref = doc(state.db, "report_reviews", state.currentLedger.id);
+                state.unsubscribeReportReview = onSnapshot(ref, (snap) => {
+                    const d = snap.exists() ? snap.data() : {};
+                    state.reportReview = { notes: d.notes || {}, confirmations: d.confirmations || {} };
+                    const modal = document.getElementById('reportModal');
+                    if (modal && !modal.classList.contains('hidden') && (state.reportMode || 'unsettled') === 'unsettled') {
+                        ui.renderReportView();
+                    }
+                });
+            },
+
+            saveReportNote: async () => {
+                const txId = document.getElementById('noteEditorTxId').value;
+                if (!txId || !state.currentLedger) return;
+                const text = document.getElementById('noteEditorText').value.trim();
+                const hasIssue = document.getElementById('noteEditorIssue').checked;
+                const ref = doc(state.db, "report_reviews", state.currentLedger.id);
+                try {
+                    await setDoc(ref, { notes: { [txId]: { text, hasIssue, by: state.userName, at: new Date().toISOString() } } }, { merge: true });
+                    ui.closeModal('noteEditorModal');
+                } catch (e) { alert("儲存備註失敗: " + e.message); }
+            },
+
+            clearReportNote: async () => {
+                const txId = document.getElementById('noteEditorTxId').value;
+                if (!txId || !state.currentLedger) return;
+                const ref = doc(state.db, "report_reviews", state.currentLedger.id);
+                try {
+                    // 沒有 deleteField 匯入，改寫成空白備註（render 端視為無備註）
+                    await setDoc(ref, { notes: { [txId]: { text: '', hasIssue: false, by: state.userName, at: new Date().toISOString() } } }, { merge: true });
+                    ui.closeModal('noteEditorModal');
+                } catch (e) { alert("清除失敗: " + e.message); }
+            },
+
+            toggleReportConfirm: async () => {
+                if (!state.currentLedger || !state.userName) return;
+                const conf = (state.reportReview && state.reportReview.confirmations) || {};
+                const mine = conf[state.userName] && conf[state.userName].confirmed;
+                const ref = doc(state.db, "report_reviews", state.currentLedger.id);
+                try {
+                    await setDoc(ref, { confirmations: { [state.userName]: { confirmed: !mine, at: new Date().toISOString() } } }, { merge: true });
+                } catch (e) { alert("更新確認狀態失敗: " + e.message); }
+            },
+
+            // 回傳匯出 PDF 的門檻狀態：{ ok, issueCount, pending[] }
+            reportGateStatus: (members) => {
+                const review = state.reportReview || { notes: {}, confirmations: {} };
+                const notes = review.notes || {};
+                const conf = review.confirmations || {};
+                const issueCount = Object.values(notes).filter(n => n && n.hasIssue).length;
+                const pending = (members || []).filter(m => !(conf[m] && conf[m].confirmed));
+                return { ok: issueCount === 0 && pending.length === 0, issueCount, pending };
+            },
+
+            printReport: () => {
+                const members = (state.currentLedger && state.currentLedger.members) || [];
+                const gate = app.reportGateStatus(members);
+                if (!gate.ok) {
+                    let msg = '尚未符合匯出條件：\n';
+                    if (gate.issueCount > 0) msg += `・還有 ${gate.issueCount} 筆標記為有疑慮，請先處理\n`;
+                    if (gate.pending.length > 0) msg += `・尚未確認的成員：${gate.pending.join('、')}`;
+                    alert(msg);
+                    return;
+                }
+                window.print();
             },
 
             // ===== Settlement Receipts: Upload / Listen / Delete =====
@@ -3195,6 +3536,57 @@
 
         const ui = {
             showConfirm: (title, msg, callback) => { document.getElementById('confirmTitle').innerText = title; document.getElementById('confirmMessage').innerText = msg; document.getElementById('confirmBtnAction').onclick = () => { if(callback) callback(); ui.closeModal('confirmModal'); }; ui.openModal('confirmModal'); },
+
+            // 儲存前日期確認對話窗（Promise 版）
+            // items: [{ date: 'YYYY-MM-DD', label: '全聯', amount: 1200, confirm: { reason, label } }, ...]
+            // 回傳：Promise<boolean> — true=確認儲存 / false=回去修改
+            confirmDateBeforeSave: (items) => new Promise((resolve) => {
+                if (!items || items.length === 0) return resolve(true); // 沒有可疑項目直接通過
+                const listEl = document.getElementById('dateConfirmList');
+                const subtitleEl = document.getElementById('dateConfirmSubtitle');
+                const okBtn = document.getElementById('dateConfirmOkBtn');
+                const cancelBtn = document.getElementById('dateConfirmCancelBtn');
+
+                subtitleEl.textContent = items.length === 1
+                    ? '此日期非當月或當年度，請再次確認'
+                    : `共 ${items.length} 筆日期非當月或當年度，請再次確認`;
+
+                const colorMap = {
+                    'cross-year':  'bg-amber-50 border-amber-200 text-amber-700',
+                    'cross-month': 'bg-blue-50 border-blue-200 text-blue-700'
+                };
+                listEl.innerHTML = items.map(it => {
+                    const cls = colorMap[it.confirm.reason] || 'bg-gray-50 border-gray-200 text-gray-700';
+                    const amtHtml = (it.amount !== undefined && it.amount !== null)
+                        ? `<span class="text-rose-600 font-mono text-xs">$${Number(it.amount).toLocaleString()}</span>`
+                        : '';
+                    return `
+                        <li class="border ${cls} rounded-lg p-2.5 flex items-start gap-2">
+                            <i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0"></i>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-bold text-gray-800 text-sm truncate">${it.label || '此筆交易'}</span>
+                                    ${amtHtml}
+                                </div>
+                                <div class="text-[11px] mt-0.5">
+                                    <span class="font-mono">${it.date}</span>
+                                    <span class="ml-1.5 font-bold">⚠ ${it.confirm.label}</span>
+                                </div>
+                            </div>
+                        </li>
+                    `;
+                }).join('');
+
+                const cleanup = () => {
+                    okBtn.onclick = null;
+                    cancelBtn.onclick = null;
+                    document.getElementById('dateConfirmModal').classList.add('hidden');
+                };
+                okBtn.onclick = () => { cleanup(); resolve(true); };
+                cancelBtn.onclick = () => { cleanup(); resolve(false); };
+
+                document.getElementById('dateConfirmModal').classList.remove('hidden');
+            }),
             showMerchantList: () => { ui.filterMerchantList(document.getElementById('tMerchant').value); document.getElementById('customMerchantList').classList.remove('hidden'); },
             filterMerchantList: (val) => {
                 const list = document.getElementById('customMerchantList'); list.innerHTML = '';
@@ -3952,6 +4344,220 @@
                         ui.renderMemberBreakdown(m);
                     }
                 });
+            },
+
+            // ===== 消費明細報表 =====
+            openSettlementReport: () => {
+                const ledger = state.currentLedger;
+                if (!ledger || ledger.type !== 'group') { alert('此功能僅適用於多人帳本'); return; }
+                if (!state.transactions.some(t => t.type === 'expense')) { alert('目前沒有支出可產生報表'); return; }
+                state.reportMode = 'unsettled';
+                const nameEl = document.getElementById('reportLedgerName');
+                if (nameEl) nameEl.textContent = `· ${ledger.name}`;
+                app.listenReportReview();
+                ui.renderReportView();
+                ui.openModal('reportModal');
+            },
+            closeReportModal: () => {
+                if (state.unsubscribeReportReview) { state.unsubscribeReportReview(); state.unsubscribeReportReview = null; }
+                ui.closeModal('reportModal');
+            },
+            openNoteEditor: (txId) => {
+                const t = state.transactions.find(x => x.id === txId);
+                const note = (state.reportReview && state.reportReview.notes && state.reportReview.notes[txId]) || {};
+                document.getElementById('noteEditorTxId').value = txId;
+                document.getElementById('noteEditorText').value = note.text || '';
+                document.getElementById('noteEditorIssue').checked = !!note.hasIssue;
+                document.getElementById('noteEditorTarget').textContent = t
+                    ? `${(t.date || '').slice(5)}　${t.name || ''}　$${Math.round(t.amount || 0).toLocaleString()}`
+                    : '';
+                ui.openModal('noteEditorModal');
+            },
+            switchReportMode: (mode) => {
+                state.reportMode = mode;
+                ui.renderReportView();
+            },
+            renderReportView: () => {
+                const mode = state.reportMode || 'unsettled';
+                const data = app.buildSettlementReportData(mode);
+                document.getElementById('reportBody').innerHTML = ui.renderSettlementReport(data);
+            },
+
+            renderSettlementReport: (data) => {
+                const money = (n) => '$' + Math.round(n).toLocaleString();
+                const fmtDate = (d) => (d || '').slice(5).replace('-', '/');
+                const { mode, members, rows, memberData, transfers, totalExpense } = data;
+                const isSettled = mode === 'settled';
+
+                // 分頁切換：未結清 / 已結清
+                const tab = (m, label) => `<button onclick="ui.switchReportMode('${m}')" class="px-4 py-1.5 rounded-lg text-sm font-bold transition ${mode === m ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">${label}</button>`;
+                const tabBar = `<div class="flex gap-2 no-print">${tab('unsettled', '未結清')}${tab('settled', '已結清')}</div>`;
+
+                if (rows.length === 0) {
+                    return tabBar + `<div class="text-center py-12 text-gray-400"><i class="fa-solid fa-inbox text-4xl mb-3 block"></i><p>目前沒有「${isSettled ? '已結清' : '未結清'}」的支出</p></div>`;
+                }
+
+                // 摘要卡
+                let html = tabBar + `
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="bg-rose-50 border border-rose-100 rounded-xl p-3 text-center">
+                            <p class="text-[10px] md:text-[11px] text-rose-500 font-bold uppercase">總支出</p>
+                            <p class="text-base md:text-xl font-bold text-rose-600">${money(totalExpense)}</p>
+                        </div>
+                        <div class="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
+                            <p class="text-[10px] md:text-[11px] text-blue-500 font-bold uppercase">消費筆數</p>
+                            <p class="text-base md:text-xl font-bold text-blue-600">${rows.length}</p>
+                        </div>
+                        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-center">
+                            <p class="text-[10px] md:text-[11px] text-indigo-500 font-bold uppercase">參與成員</p>
+                            <p class="text-base md:text-xl font-bold text-indigo-600">${members.length} 人</p>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-gray-400 -mt-3"><i class="fa-solid fa-circle-info mr-1"></i>本表統計「${isSettled ? '已標記結清' : '尚未標記結清'}」的支出，金額皆為台幣(TWD)。</p>
+                `;
+
+                // 備註/疑慮 欄位（僅未結清分頁顯示）
+                const notes = (state.reportReview && state.reportReview.notes) || {};
+                const noteHead = isSettled ? '' : '<th class="p-2">疑慮/備註</th>';
+                const noteCell = (r) => {
+                    if (isSettled) return '';
+                    const n = notes[r.id];
+                    const has = n && (n.text || n.hasIssue);
+                    if (!has) return `<td class="p-2 text-center"><button onclick="ui.openNoteEditor('${r.id}')" class="no-print text-[11px] text-gray-400 hover:text-indigo-600 border border-dashed border-gray-300 rounded px-1.5 py-0.5"><i class="fa-solid fa-plus"></i> 備註</button></td>`;
+                    const flag = n.hasIssue ? '<span class="text-red-500 font-bold mr-1">🚩</span>' : '';
+                    const by = n.by ? `<span class="text-gray-300 ml-1">(${n.by})</span>` : '';
+                    return `<td class="p-2 whitespace-normal"><div class="text-[11px] text-gray-600">${flag}${n.text || ''}${by}</div><button onclick="ui.openNoteEditor('${r.id}')" class="no-print text-[10px] text-indigo-500 hover:underline">編輯</button></td>`;
+                };
+
+                // 線上確認狀態 + 匯出 PDF 門檻（僅未結清分頁）
+                if (!isSettled) {
+                    const conf = (state.reportReview && state.reportReview.confirmations) || {};
+                    const gate = app.reportGateStatus(members);
+                    const myConfirmed = conf[state.userName] && conf[state.userName].confirmed;
+                    const chips = members.map(m => {
+                        const ok = conf[m] && conf[m].confirmed;
+                        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${ok ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${ok ? '✅' : '⬜'} ${m}</span>`;
+                    }).join('');
+                    const statusLine = gate.ok
+                        ? '<span class="text-green-600 font-bold"><i class="fa-solid fa-circle-check mr-1"></i>全員已確認、無待處理疑慮，可匯出 PDF</span>'
+                        : `<span class="text-amber-600 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${[gate.issueCount > 0 ? `${gate.issueCount} 筆疑慮待處理` : '', gate.pending.length > 0 ? `${gate.pending.length} 人未確認` : ''].filter(Boolean).join('，')}</span>`;
+                    html += `
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <span class="text-sm font-bold text-gray-700"><i class="fa-solid fa-clipboard-check text-indigo-500 mr-1"></i>線上確認（核對無誤後請按確認）</span>
+                                <button onclick="app.toggleReportConfirm()" class="no-print text-xs px-3 py-1.5 rounded-lg font-bold transition ${myConfirmed ? 'bg-gray-200 text-gray-600 hover:bg-gray-300' : 'bg-green-600 text-white hover:bg-green-700'}">${myConfirmed ? '取消我的確認' : '✅ 我已確認'}</button>
+                            </div>
+                            <div class="flex flex-wrap gap-1.5 mb-2">${chips}</div>
+                            <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <span>${statusLine}</span>
+                                <button onclick="app.printReport()" ${gate.ok ? '' : 'disabled'} class="no-print px-4 py-2 rounded-lg font-bold shadow flex items-center gap-1.5 ${gate.ok ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}"><i class="fa-solid fa-file-pdf"></i> 匯出 PDF</button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Section 1：完整消費清單
+                html += `
+                    <div>
+                        <h4 class="font-bold text-gray-700 mb-2 border-l-4 border-indigo-500 pl-2 flex items-center gap-2"><i class="fa-solid fa-receipt text-indigo-400"></i> 完整消費清單</h4>
+                        <div class="overflow-x-auto border border-gray-100 rounded-xl">
+                            <table class="w-full text-xs text-left border-collapse whitespace-nowrap">
+                                <thead><tr class="bg-gray-100 text-gray-600 border-b">
+                                    <th class="p-2">日期</th><th class="p-2">項目</th><th class="p-2">付款人</th>
+                                    <th class="p-2 text-right">支付金額</th><th class="p-2 text-center">分攤人數</th>
+                                    <th class="p-2 text-right">一人分攤</th><th class="p-2">分攤成員</th>${noteHead}
+                                </tr></thead>
+                                <tbody>
+                                    ${rows.map(r => `
+                                        <tr class="border-b border-gray-50 hover:bg-gray-50">
+                                            <td class="p-2 font-mono text-gray-500">${fmtDate(r.date)}</td>
+                                            <td class="p-2 text-gray-700 whitespace-normal">${r.name}${r.category ? `<span class="ml-1 text-[10px] text-gray-400 bg-gray-100 px-1 rounded">${r.category}</span>` : ''}</td>
+                                            <td class="p-2 text-gray-600"><i class="fa-solid fa-wallet text-yellow-500 mr-0.5"></i>${r.payer}</td>
+                                            <td class="p-2 text-right font-mono font-bold text-rose-600">${money(r.amount)}</td>
+                                            <td class="p-2 text-center text-gray-500">÷${r.count}</td>
+                                            <td class="p-2 text-right font-mono text-indigo-600 font-bold">${money(r.perPerson)}</td>
+                                            <td class="p-2 text-gray-500 whitespace-normal">${r.beneficiaries.length === members.length ? '全員' : r.beneficiaries.join('、')}</td>${noteCell(r)}
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                                <tfoot><tr class="bg-gray-50 font-bold border-t-2 border-gray-200">
+                                    <td class="p-2" colspan="3">合計</td>
+                                    <td class="p-2 text-right font-mono text-rose-600">${money(totalExpense)}</td>
+                                    <td colspan="${isSettled ? 3 : 4}"></td>
+                                </tr></tfoot>
+                            </table>
+                        </div>
+                    </div>
+                `;
+
+                // Section 2：各夥伴獨立清單
+                html += `<div><h4 class="font-bold text-gray-700 mb-2 border-l-4 border-emerald-500 pl-2 flex items-center gap-2"><i class="fa-solid fa-users text-emerald-400"></i> 各夥伴分攤明細</h4><div class="space-y-4">`;
+                members.forEach(m => {
+                    const md = memberData[m];
+                    const isMe = m === state.userName;
+                    const balColor = md.balance >= 0 ? 'text-green-600' : 'text-red-600';
+                    const balLabel = md.balance >= 0 ? '應收' : '應付';
+                    html += `
+                        <div class="border ${isMe ? 'border-indigo-200 bg-indigo-50/30' : 'border-gray-100'} rounded-xl overflow-hidden">
+                            <div class="px-3 py-2 bg-gray-50 flex flex-wrap items-center justify-between gap-2 border-b border-gray-100">
+                                <span class="font-bold text-gray-800">${m}${isMe ? '<span class="text-[10px] text-indigo-500 ml-1">(我)</span>' : ''}</span>
+                                <div class="flex items-center gap-3 text-[11px]">
+                                    <span class="text-gray-500">先墊 <b class="text-gray-700 font-mono">${money(md.paidTotal)}</b></span>
+                                    <span class="text-gray-500">應分攤 <b class="text-rose-600 font-mono">${money(md.shareTotal)}</b></span>
+                                    <span class="${balColor} font-bold">${balLabel} ${money(Math.abs(md.balance))}</span>
+                                </div>
+                            </div>
+                            ${md.items.length === 0 ? '<p class="text-xs text-gray-400 text-center py-3">此成員沒有參與任何分攤</p>' : `
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-xs text-left border-collapse whitespace-nowrap">
+                                    <thead><tr class="bg-white text-gray-500 border-b">
+                                        <th class="p-2">日期</th><th class="p-2">項目</th>
+                                        <th class="p-2 text-right">此項支付金額</th><th class="p-2 text-center">分攤人數</th>
+                                        <th class="p-2 text-right">我這項分攤</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        ${md.items.map(it => `
+                                            <tr class="border-b border-gray-50">
+                                                <td class="p-2 font-mono text-gray-400">${fmtDate(it.date)}</td>
+                                                <td class="p-2 text-gray-700 whitespace-normal">${it.name}</td>
+                                                <td class="p-2 text-right font-mono text-gray-500">${money(it.amount)}</td>
+                                                <td class="p-2 text-center text-gray-500">÷${it.count}</td>
+                                                <td class="p-2 text-right font-mono font-bold text-indigo-600">${money(it.myShare)}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                    <tfoot><tr class="bg-gray-50 font-bold border-t-2 border-gray-200">
+                                        <td class="p-2" colspan="4">應分攤合計</td>
+                                        <td class="p-2 text-right font-mono text-indigo-600">${money(md.shareTotal)}</td>
+                                    </tr></tfoot>
+                                </table>
+                            </div>`}
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+
+                // Section 3：誰給誰多少元
+                const transferTitle = isSettled ? '結算結果（依分攤試算）' : '誰要給誰多少元';
+                html += `<div><h4 class="font-bold text-gray-700 mb-2 border-l-4 border-amber-500 pl-2 flex items-center gap-2"><i class="fa-solid fa-money-bill-transfer text-amber-400"></i> ${transferTitle}</h4>`;
+                if (transfers.length === 0) {
+                    html += `<p class="text-center text-green-600 font-bold bg-green-50 p-3 rounded-xl">${isSettled ? '此區帳目分攤後互相平衡' : '目前帳目皆已平衡，無需轉帳 🎉'}</p>`;
+                } else {
+                    html += '<ul class="space-y-2">' + transfers.map(tr => {
+                        const involveMe = tr.from === state.userName || tr.to === state.userName;
+                        return `<li class="flex justify-between items-center p-3 rounded-xl ${involveMe ? 'bg-indigo-50 border border-indigo-200' : 'bg-white border border-gray-100'}">
+                            <div class="flex items-center gap-2 text-sm">
+                                <span class="font-bold text-red-600">${tr.from}</span>
+                                <i class="fa-solid fa-arrow-right text-gray-400 text-xs"></i>
+                                <span class="font-bold text-green-600">${tr.to}</span>
+                            </div>
+                            <span class="font-mono font-bold text-indigo-600 text-base">${money(tr.amount)}</span>
+                        </li>`;
+                    }).join('') + '</ul>';
+                }
+                html += `</div>`;
+
+                return html;
             },
 
             renderSettlementReceipts: () => {
