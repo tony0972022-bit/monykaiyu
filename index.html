@@ -332,6 +332,12 @@
                           <button id="bulkDeleteBtn" onclick="app.deleteSelected()" class="hidden text-xs bg-red-100 hover:bg-red-200 text-red-600 px-2 py-1 rounded font-bold transition flex items-center gap-1">
                              <i class="fa-solid fa-trash-can"></i> <span class="hidden md:inline">刪除</span>(<span id="selectedCount">0</span>)
                           </button>
+                          <button id="bulkMoveBtn" onclick="ui.openMoveTxModal()" class="hidden text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded font-bold transition flex items-center gap-1" title="把勾選的交易搬到其他帳本">
+                             <i class="fa-solid fa-arrow-right-from-bracket"></i> <span class="hidden md:inline">轉帳本</span>(<span id="bulkMoveCount">0</span>)
+                          </button>
+                          <button id="bulkSplitBtn" onclick="ui.openBulkSplitModal()" class="hidden text-xs bg-violet-100 hover:bg-violet-200 text-violet-700 px-2 py-1 rounded font-bold transition flex items-center gap-1" title="一次設定勾選的付款人/分攤者">
+                             <i class="fa-solid fa-users-gear"></i> <span class="hidden md:inline">設定分攤</span>(<span id="bulkSplitCount">0</span>)
+                          </button>
                           
                           <!-- Duplicate Check Button -->
                           <button onclick="app.checkDuplicates()" class="text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 px-2 py-1 rounded font-bold transition flex items-center gap-1" title="掃描重複帳單">
@@ -355,7 +361,7 @@
                         <thead class="sticky top-0 bg-gray-50 z-10 shadow-sm">
                             <tr class="text-gray-500 text-xs md:text-sm border-b border-gray-100">
                                 <!-- Hide Checkbox on Mobile -->
-                                <th class="hidden md:table-cell p-2 md:p-4 w-10 text-center"><input type="checkbox" id="selectAllTx" onchange="ui.toggleSelectAll(this)" class="w-4 h-4 cursor-pointer"></th>
+                                <th class="p-1 md:p-4 w-8 md:w-10 text-center"><input type="checkbox" id="selectAllTx" onchange="ui.toggleSelectAll(this)" class="w-4 h-4 cursor-pointer"></th>
                                 <th class="p-2 md:p-4 font-medium w-24 md:w-32">日期</th>
                                 <th class="p-2 md:p-4 font-medium">項目</th>
                                 <th class="p-2 md:p-4 font-medium text-right w-24 md:w-32">金額</th>
@@ -771,6 +777,55 @@
                     <button onclick="ui.closeModal('noteEditorModal')" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-50">取消</button>
                     <button onclick="app.saveReportNote()" class="px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow">儲存</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: 批次搬移交易到其他帳本 -->
+    <div id="moveTxModal" class="fixed inset-0 bg-black/50 z-[85] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl m-4 animate-fade-in flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-gray-100 flex items-center justify-between shrink-0">
+                <h3 class="font-bold text-gray-800 flex items-center gap-2"><i class="fa-solid fa-arrow-right-from-bracket text-blue-500"></i> 轉到其他帳本</h3>
+                <button onclick="ui.closeModal('moveTxModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <p class="text-xs text-gray-500 px-5 pt-3"><i class="fa-solid fa-circle-info mr-1"></i>選一個目標帳本，將勾選的 <b id="moveTxCount" class="text-blue-600">0</b> 筆交易搬過去。付款人/分攤者會「智慧映射」（目標有就保留，沒有就清掉），<b>不可復原</b>。</p>
+            <div class="flex-1 overflow-y-auto p-3">
+                <ul id="moveTargetList" class="space-y-1.5"></ul>
+            </div>
+            <div class="p-4 border-t border-gray-100 flex gap-3 justify-end shrink-0">
+                <button onclick="ui.closeModal('moveTxModal')" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-50">取消</button>
+                <button id="moveTxConfirmBtn" onclick="app.moveSelectedTransactions()" disabled class="px-5 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 shadow disabled:bg-gray-300 disabled:cursor-not-allowed"><i class="fa-solid fa-check mr-1"></i>確認搬移</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: 批次設定分攤 -->
+    <div id="bulkSplitModal" class="fixed inset-0 bg-black/50 z-[85] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl m-4 animate-fade-in flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-gray-100 flex items-center justify-between shrink-0">
+                <h3 class="font-bold text-gray-800 flex items-center gap-2"><i class="fa-solid fa-users-gear text-violet-500"></i> 一次設定分攤</h3>
+                <button onclick="ui.closeModal('bulkSplitModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="p-5 space-y-4 overflow-y-auto flex-1">
+                <p class="text-xs text-gray-500"><i class="fa-solid fa-circle-info mr-1"></i>將套用到勾選的 <b id="bulkSplitCountTxt" class="text-violet-600">0</b> 筆交易。</p>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">付款人</label>
+                    <select id="bulkSplitPaidBy" class="w-full p-2 border border-gray-300 rounded-lg bg-white text-sm"></select>
+                </div>
+                <div>
+                    <label class="flex justify-between items-center text-xs font-bold text-gray-500 uppercase mb-1">
+                        <span>分攤對象</span>
+                        <span class="flex gap-2 normal-case">
+                            <button type="button" onclick="ui.toggleAllBulkSplit(true)" class="text-blue-500 hover:underline">全選</button>
+                            <button type="button" onclick="ui.toggleAllBulkSplit(false)" class="text-gray-400 hover:underline">清空</button>
+                        </span>
+                    </label>
+                    <div id="bulkSplitMembers" class="flex flex-wrap gap-2 p-2 border border-gray-200 rounded-lg bg-gray-50"></div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-100 flex gap-3 justify-end shrink-0">
+                <button onclick="ui.closeModal('bulkSplitModal')" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-50">取消</button>
+                <button onclick="app.applyBulkSplit()" class="px-5 py-2 rounded-lg bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 shadow"><i class="fa-solid fa-check mr-1"></i>套用</button>
             </div>
         </div>
     </div>
@@ -1752,9 +1807,135 @@
                 const checked = document.querySelectorAll('.tx-checkbox:checked'); if(checked.length === 0) return;
                 ui.showConfirm('刪除選取項目', `確定要刪除選取的 ${checked.length} 筆/組交易紀錄嗎？`, async () => {
                     const btn = document.getElementById('bulkDeleteBtn'); btn.disabled = true;
-                    try { const batch = writeBatch(state.db); checked.forEach(cb => { cb.getAttribute('data-ids').split(',').forEach(id => batch.delete(doc(state.db, "transactions", id))); }); await batch.commit(); document.getElementById('selectAllTx').checked = false; ui.updateBulkActionState(); } 
+                    try { const batch = writeBatch(state.db); checked.forEach(cb => { cb.getAttribute('data-ids').split(',').forEach(id => batch.delete(doc(state.db, "transactions", id))); }); await batch.commit(); document.getElementById('selectAllTx').checked = false; ui.updateBulkActionState(); }
                     catch (e) { alert("刪除失敗"); } finally { btn.disabled = false; }
                 });
+            },
+
+            // ===== 批次：搬移交易到其他帳本 =====
+            // 收集目前勾選的全部 tx id（每個 checkbox 的 data-ids 可能含多筆 groupId 同組的 id）
+            _collectSelectedTxIds: () => {
+                const ids = [];
+                document.querySelectorAll('.tx-checkbox:checked').forEach(cb => {
+                    (cb.getAttribute('data-ids') || '').split(',').forEach(id => { if (id) ids.push(id); });
+                });
+                return ids;
+            },
+
+            moveSelectedTransactions: async () => {
+                const sourceLedger = state.currentLedger;
+                const targetId = state.bulkMoveTargetId;
+                const ids = state.bulkMovePendingIds || [];
+                if (!sourceLedger || !targetId || ids.length === 0) return;
+                const target = state.ledgers.find(l => l.id === targetId);
+                if (!target) return alert('找不到目標帳本');
+
+                const targetMembers = (target.type === 'group' && Array.isArray(target.members)) ? target.members : [];
+                const isTargetGroup = target.type === 'group';
+                const myName = state.userName;
+
+                // 智慧映射：原 paidBy 在目標也存在就保留；不存在就用本人(若在目標)或目標第一位成員
+                const mapPaidBy = (orig) => {
+                    if (!isTargetGroup) return myName; // 個人帳本：付款人=本人
+                    if (orig && targetMembers.includes(orig)) return orig;
+                    if (targetMembers.includes(myName)) return myName;
+                    return targetMembers[0] || myName;
+                };
+                // 智慧映射：原 splitAmong 只保留也在目標的成員；若為空則回退為「全員」
+                const mapSplit = (origArr) => {
+                    if (!isTargetGroup) return []; // 個人帳本：分攤清空
+                    const arr = Array.isArray(origArr) ? origArr.filter(m => targetMembers.includes(m)) : [];
+                    return arr.length > 0 ? arr : targetMembers.slice();
+                };
+
+                const btn = document.getElementById('moveTxConfirmBtn');
+                btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>搬移中...';
+                try {
+                    // 取得對應 tx 物件（為了讀 paidBy/splitAmong）
+                    const txMap = {}; state.transactions.forEach(t => { txMap[t.id] = t; });
+                    const commits = [];
+                    let batch = writeBatch(state.db);
+                    let n = 0;
+                    for (const id of ids) {
+                        const t = txMap[id];
+                        if (!t) continue;
+                        const update = {
+                            ledgerId: targetId,
+                            paidBy: mapPaidBy(t.paidBy),
+                            splitAmong: mapSplit(t.splitAmong),
+                            isSettled: false,
+                            lastEditedBy: myName,
+                            lastEditedAt: new Date().toISOString()
+                        };
+                        batch.update(doc(state.db, 'transactions', id), update);
+                        n++;
+                        if (n >= 400) { commits.push(batch.commit()); batch = writeBatch(state.db); n = 0; }
+                    }
+                    if (n > 0) commits.push(batch.commit());
+                    await Promise.all(commits);
+
+                    // 清掉原帳本審核備註裡對應的 txId（避免殘留）
+                    try {
+                        const reviewRef = doc(state.db, 'report_reviews', sourceLedger.id);
+                        const cleared = {};
+                        ids.forEach(id => { cleared[id] = { text: '', hasIssue: false, by: myName, at: new Date().toISOString() }; });
+                        await setDoc(reviewRef, { notes: cleared }, { merge: true });
+                    } catch (_) { /* 無原始 review doc 也沒關係 */ }
+
+                    // 重置批次狀態與 UI
+                    state.bulkMovePendingIds = []; state.bulkMoveTargetId = null;
+                    document.getElementById('selectAllTx').checked = false;
+                    ui.closeModal('moveTxModal');
+
+                    const moved = ids.length;
+                    const toast = document.createElement('div');
+                    toast.className = 'fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-3 rounded-xl shadow-xl z-[200] text-sm font-bold flex items-center gap-2';
+                    toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> 已搬移 ${moved} 筆到「${target.name}」`;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 4000);
+
+                    // 自動切到目標帳本
+                    ui.switchLedger(targetId);
+                } catch (e) {
+                    alert('搬移失敗：' + e.message);
+                    btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i>確認搬移';
+                }
+            },
+
+            // ===== 批次：一次設定付款人/分攤者（僅群組帳本）=====
+            applyBulkSplit: async () => {
+                if (!state.currentLedger || state.currentLedger.type !== 'group') return;
+                const ids = state.bulkSplitPendingIds || [];
+                if (ids.length === 0) return;
+                const paidBy = document.getElementById('bulkSplitPaidBy').value;
+                const splitAmong = Array.from(document.querySelectorAll('.bulk-split-check:checked')).map(cb => cb.value);
+                if (!paidBy) return alert('請選付款人');
+                if (splitAmong.length === 0) return alert('請至少勾選一位分攤者');
+                try {
+                    const commits = [];
+                    let batch = writeBatch(state.db);
+                    let n = 0;
+                    for (const id of ids) {
+                        batch.update(doc(state.db, 'transactions', id), {
+                            paidBy,
+                            splitAmong,
+                            lastEditedBy: state.userName,
+                            lastEditedAt: new Date().toISOString()
+                        });
+                        n++;
+                        if (n >= 400) { commits.push(batch.commit()); batch = writeBatch(state.db); n = 0; }
+                    }
+                    if (n > 0) commits.push(batch.commit());
+                    await Promise.all(commits);
+                    state.bulkSplitPendingIds = [];
+                    document.getElementById('selectAllTx').checked = false;
+                    ui.closeModal('bulkSplitModal');
+                    const toast = document.createElement('div');
+                    toast.className = 'fixed bottom-4 right-4 bg-violet-600 text-white px-4 py-3 rounded-xl shadow-xl z-[200] text-sm font-bold flex items-center gap-2';
+                    toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> 已套用到 ${ids.length} 筆`;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 4000);
+                } catch (e) { alert('套用失敗：' + e.message); }
             },
 
             archiveLedger: async () => { if(!state.currentLedger) return; const p=document.getElementById('targetPersonalLedger').value; const a=parseInt(document.getElementById('settleShareAmount').innerText.replace(/,/g,''))||0; const b=writeBatch(state.db); b.update(doc(state.db,"ledgers",state.currentLedger.id),{status:'archived'}); if(a>0 && p) b.set(doc(collection(state.db,"transactions")),{ledgerId:p,type:'expense',date:new Date().toISOString().split('T')[0],amount:a,originalAmount:a,currency:'TWD',exchangeRate:1,name:`${state.currentLedger.name}(分帳)`,category:'娛樂',createdAt:new Date().toISOString(),lastEditedBy:state.userName}); await b.commit(); alert("歸檔成功"); ui.closeModal('settleModal'); },
@@ -3829,8 +4010,73 @@
                 app.listenRecurringRules(); 
             },
             toggleSelectAll: (source) => { document.querySelectorAll('.tx-checkbox').forEach(cb => cb.checked = source.checked); ui.updateBulkActionState(); },
-            updateBulkActionState: () => { const count = document.querySelectorAll('.tx-checkbox:checked').length; document.getElementById('bulkDeleteBtn').classList.toggle('hidden', count===0); document.getElementById('selectedCount').innerText = count; },
-            renderTransactionListHTML: (list) => { 
+            updateBulkActionState: () => {
+                const count = document.querySelectorAll('.tx-checkbox:checked').length;
+                document.getElementById('bulkDeleteBtn').classList.toggle('hidden', count === 0);
+                document.getElementById('selectedCount').innerText = count;
+                const moveBtn = document.getElementById('bulkMoveBtn');
+                const splitBtn = document.getElementById('bulkSplitBtn');
+                if (moveBtn) { moveBtn.classList.toggle('hidden', count === 0); document.getElementById('bulkMoveCount').innerText = count; }
+                if (splitBtn) {
+                    const isGroup = state.currentLedger && state.currentLedger.type === 'group';
+                    splitBtn.classList.toggle('hidden', count === 0 || !isGroup);
+                    document.getElementById('bulkSplitCount').innerText = count;
+                }
+            },
+
+            // ===== 批次：搬移到其他帳本（modal）=====
+            openMoveTxModal: () => {
+                const ids = app._collectSelectedTxIds();
+                if (ids.length === 0) return alert('請先勾選要搬移的交易');
+                if (!state.currentLedger) return;
+                state.bulkMovePendingIds = ids;
+                state.bulkMoveTargetId = null;
+                document.getElementById('moveTxCount').innerText = ids.length;
+                const list = document.getElementById('moveTargetList');
+                const candidates = state.ledgers.filter(l => l.id !== state.currentLedger.id && l.status !== 'archived');
+                if (candidates.length === 0) {
+                    list.innerHTML = '<li class="text-center text-gray-400 text-sm py-6">沒有可搬移的目標帳本（請先建立一個未歸檔的帳本）</li>';
+                } else {
+                    list.innerHTML = candidates.map(l => {
+                        const typeLabel = l.type === 'group' ? `多人 · ${(l.members||[]).join('、')}` : '個人';
+                        return `<li><label class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition">
+                            <input type="radio" name="moveTarget" value="${l.id}" onchange="ui.onMoveTargetPick(this.value)" class="w-4 h-4 text-blue-600">
+                            <span class="text-lg">${l.icon || '📒'}</span>
+                            <span class="flex-1 min-w-0"><span class="font-bold text-gray-800 block truncate">${l.name}</span><span class="text-[11px] text-gray-500 block truncate">${typeLabel}</span></span>
+                        </label></li>`;
+                    }).join('');
+                }
+                document.getElementById('moveTxConfirmBtn').disabled = true;
+                ui.openModal('moveTxModal');
+            },
+            onMoveTargetPick: (id) => {
+                state.bulkMoveTargetId = id;
+                document.getElementById('moveTxConfirmBtn').disabled = !id;
+            },
+
+            // ===== 批次：一次設定分攤（modal，僅群組帳本）=====
+            openBulkSplitModal: () => {
+                if (!state.currentLedger || state.currentLedger.type !== 'group') return alert('此功能僅適用於多人帳本');
+                const ids = app._collectSelectedTxIds();
+                if (ids.length === 0) return alert('請先勾選要設定的交易');
+                state.bulkSplitPendingIds = ids;
+                document.getElementById('bulkSplitCountTxt').innerText = ids.length;
+                const members = state.currentLedger.members || [];
+                const me = state.userName;
+                const paidBySel = document.getElementById('bulkSplitPaidBy');
+                paidBySel.innerHTML = members.map(m => `<option value="${m}" ${m === me ? 'selected' : ''}>${m}</option>`).join('');
+                document.getElementById('bulkSplitMembers').innerHTML = members.map(m => `
+                    <label class="flex items-center gap-1.5 px-2 py-1 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-violet-400">
+                        <input type="checkbox" class="bulk-split-check w-4 h-4 text-violet-600" value="${m}" checked>
+                        <span class="text-sm">${m}</span>
+                    </label>`).join('');
+                ui.openModal('bulkSplitModal');
+            },
+            toggleAllBulkSplit: (checked) => {
+                document.querySelectorAll('.bulk-split-check').forEach(cb => cb.checked = checked);
+            },
+
+            renderTransactionListHTML: (list) => {
                 const tb=document.getElementById('transactionTableBody'); if(!list.length) { tb.innerHTML='<tr><td colspan="5" class="p-8 text-center text-gray-400">無資料</td></tr>'; return; }
                 const groups = {}; list.forEach(t => { const gid = t.groupId || t.id; if(!groups[gid]) groups[gid] = { ...t, items: [], totalAmount: 0, totalOriginalAmount: 0 }; groups[gid].items.push(t); groups[gid].totalAmount += t.amount; groups[gid].totalOriginalAmount += (t.originalAmount || 0); });
                 
@@ -3913,7 +4159,7 @@
                     }
 
                     return `<tr class="border-b hover:bg-gray-50 tx-group-header ${isSettled ? 'opacity-50 bg-gray-100 grayscale-[50%]' : ''}" onclick="ui.toggleDetail('${detailId}')">
-                        <td class="hidden md:table-cell p-2 text-center" onclick="event.stopPropagation()">
+                        <td class="p-1 md:p-2 text-center" onclick="event.stopPropagation()">
                             <input type="checkbox" class="tx-checkbox" data-ids="${g.items.map(i=>i.id).join(',')}" onchange="ui.updateBulkActionState()">
                         </td>
                         <td class="p-2 text-xs w-16 md:w-24 align-top pt-3 text-gray-500 font-mono">${g.date.slice(5)}</td>
