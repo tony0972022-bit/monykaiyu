@@ -1271,7 +1271,7 @@
                     <div class="p-2 bg-gray-50 border-t border-gray-200"><button type="button" id="btnAddItem" onclick="ui.addItemRow()" class="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-emerald-400 hover:text-emerald-500 transition text-sm font-bold"><i class="fa-solid fa-plus"></i> 新增品項</button></div>
                 </div>
                 <div class="flex justify-between items-center px-2"><div class="text-sm text-gray-500">共 <span id="itemCount">1</span> 筆項目</div><div class="text-right"><p class="text-xs text-gray-400 mb-1" id="totalLabel">總金額 (TWD)</p><p class="text-3xl font-bold text-emerald-600" id="displayTotal">$0</p><p id="twdPreview" class="text-xs text-gray-400 font-bold hidden">= NT$ <span>0</span></p></div></div>
-                <input type="hidden" id="hiddenImageUrl"><input type="hidden" id="editingTxId">
+                <input type="hidden" id="hiddenImageUrl"><input type="hidden" id="editingTxId"><input type="hidden" id="hiddenOrderSummary">
                 <div class="pt-2"><button type="submit" id="submitBtn" class="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold shadow-md hover:shadow-lg transition">確認儲存</button></div>
             </form>
         </div>
@@ -2115,6 +2115,7 @@
 
                 let u=document.getElementById('hiddenImageUrl').value;
                 const merch=document.getElementById('tMerchant').value.trim();
+                const orderSummary=(document.getElementById('hiddenOrderSummary')?.value||'').trim();
                 const groupId=Date.now().toString();
                 try{
                     if(state.currentImage&&state.scriptUrl){
@@ -2140,7 +2141,7 @@
                             const n=r.querySelector('.item-name').value,c=r.querySelector('.item-cat').value,nt=r.querySelector('.item-note').value;
                             let a=parseFloat(r.querySelector('.item-amount').value)||0,oa=a; 
                             if(cur!=='TWD') a=Math.round(oa*rate); 
-                            bat.update(doc(state.db,"transactions",eid),{ ledgerId:state.currentLedger.id, type:typ, date:dat, amount:a, originalAmount:oa, currency:cur, exchangeRate:rate, paidBy:pb, splitAmong, name:n, category:c, imageUrl:u, merchant:merch, lastEditedBy:state.userName, lastEditedAt:new Date().toISOString(), note: nt });
+                            bat.update(doc(state.db,"transactions",eid),{ ledgerId:state.currentLedger.id, type:typ, date:dat, amount:a, originalAmount:oa, currency:cur, exchangeRate:rate, paidBy:pb, splitAmong, name:n, category:c, imageUrl:u, merchant:merch, orderSummary, lastEditedBy:state.userName, lastEditedAt:new Date().toISOString(), note: nt });
                         }
                     } else {
                         // 收集新增項目（先不 commit，用於重複檢查）
@@ -2173,7 +2174,7 @@
                         }
                         // 建立 batch
                         newItems.forEach(({n,c,nt,a,oa,nOrig,itemSplit})=>{
-                            bat.set(doc(collection(state.db,"transactions")),{ ledgerId:state.currentLedger.id, type:typ, date:dat, amount:a, originalAmount:oa, currency:cur, exchangeRate:rate, paidBy:pb, splitAmong:itemSplit, name:n, nameOriginal:nOrig, category:c, imageUrl:u, merchant:merch, groupId, createdAt:new Date().toISOString(), lastEditedBy:state.userName, lastEditedAt:new Date().toISOString(), note: nt });
+                            bat.set(doc(collection(state.db,"transactions")),{ ledgerId:state.currentLedger.id, type:typ, date:dat, amount:a, originalAmount:oa, currency:cur, exchangeRate:rate, paidBy:pb, splitAmong:itemSplit, name:n, nameOriginal:nOrig, category:c, imageUrl:u, merchant:merch, orderSummary, groupId, createdAt:new Date().toISOString(), lastEditedBy:state.userName, lastEditedAt:new Date().toISOString(), note: nt });
                         });
                         // 重複檢查
                         const dupes = app.findDupesForItems(dat, typ, newItems);
@@ -2202,7 +2203,7 @@
             editTransaction: (id)=>{
                 const t=state.transactions.find(x=>x.id===id); if(!t)return;
                 ui.openTransactionModal('編輯'); document.getElementById('editingTxId').value=t.id; document.getElementById('tType').value=t.type; document.getElementById('tDate').value=t.date;
-                document.getElementById('hiddenImageUrl').value=t.imageUrl||''; document.getElementById('tMerchant').value=t.merchant||'';
+                document.getElementById('hiddenImageUrl').value=t.imageUrl||''; document.getElementById('tMerchant').value=t.merchant||''; document.getElementById('hiddenOrderSummary').value=t.orderSummary||'';
                 document.getElementById('btnAddItem').classList.add('hidden'); document.getElementById('uploadContainer').classList.add('hidden');
                 
                 document.getElementById('tCurrency').value=t.currency||'TWD'; document.getElementById('tRate').value = t.exchangeRate ? parseFloat(t.exchangeRate).toFixed(4) : 1;
@@ -2458,7 +2459,31 @@
 3. 不可為了讓總額對齊就把優惠合併進其他品項或省略；也不可把折扣金額轉成正數。
 4. 加總所有 items 的 amount 應該等於收據實付金額；若不等請優先信任收據上的小計/折扣明細，不要竄改正項金額。
 5. 若有「服務費」「稅金」是加項，依原規則按比例分攤到品項；只有「折扣/優惠」要保留為負值獨立項。
-回傳格式：{"type":"receipt","currency":"JPY","date":"YYYY-MM-DD or null","merchant":"中文商店名","merchantOriginal":"原文（非中文時填）","items":[{"nameOriginal":"原文品項名（非中文時填）","name":"繁體中文名稱","amount":金額數字（折抵為負）,"category":"類別","note":""},...]}`;
+6. items[].name：保留收據上的原始品項寫法（繁體中文，若原本是日/英/韓等語言請翻譯為繁體中文）。不要簡化、不要加底線格式。
+【整單訂單總結 summary・極重要】請在最外層加入一個欄位 "summary"，作為**整筆訂單的精煉說明**（用來顯示在交易紀錄列的上層，取代原本顯示商家名稱的位置）。格式：「商品簡述_商家簡述」。
+- 商品簡述（2~10 字）：歸納整張收據主要買了什麼。多品項時取主要的 1~2 類連寫（用「+」或頓號）。例：兩杯咖啡＋蛋糕→「拿鐵+蛋糕」；多件衣服→「衣物」或「童裝3件」；一支耳機→「無線耳機」。
+- 商家簡述（2~6 字）：**優先使用台灣口語化常見簡稱**，例：
+  · 7-ELEVEN → 小七
+  · 全家便利商店 → 全家
+  · 萊爾富 → 萊爾富
+  · OK超商 → OK
+  · 小北百貨 → 小北
+  · 全聯福利中心 → 全聯
+  · 家樂福 → 家樂福
+  · 好市多 / Costco → 好市多
+  · 寶雅 → 寶雅
+  · 屈臣氏 → 屈臣氏
+  · 鼎泰豐 → 鼎泰豐
+  · 星巴克 → 星巴克
+  · 麥當勞 → 麥當勞
+  · 唐吉訶德 / ドン・キホーテ → 唐吉訶德
+  · UNIQLO → UNIQLO
+  · ニトリ / NITORI → NITORI
+  · 沒名單上的就自行縮成 2~6 字精煉名（去掉分店/區域/法人後綴）
+- 用底線「_」連接：例「拿鐵+蛋糕_星巴克」、「童裝3件_UNIQLO」、「無線耳機_唐吉訶德」、「衛生紙_小北」、「飯糰+茶_小七」。
+- 若辨識不到商家，summary 僅輸出商品簡述、不加底線。
+- 折扣/優惠類獨立 item 不影響 summary（summary 描述整單主要消費）。
+回傳格式：{"type":"receipt","currency":"JPY","date":"YYYY-MM-DD or null","merchant":"中文商店全名","merchantOriginal":"原文（非中文時填）","summary":"商品簡述_商家簡述","items":[{"nameOriginal":"完整原文品項名（非中文時填）","name":"收據上的繁體中文品項名","amount":金額數字（折抵為負）,"category":"類別","note":""},...]}`;
                 }
 
                 const resp = await app._fetchWithTimeoutRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
@@ -2480,6 +2505,7 @@
                         date: parsed.date || null, // 保留 null 讓 UI 警示 AI 未辨識日期
                         merchant: parsed.merchant || '',
                         merchantOriginal: parsed.merchantOriginal || '',
+                        summary: parsed.summary || '',
                         amount: (parsed.items || []).reduce((s, i) => s + (i.amount || 0), 0),
                         category: (parsed.items && parsed.items[0]) ? parsed.items[0].category : '其他',
                         items: parsed.items || []
@@ -2809,10 +2835,12 @@
                         const origItems = origTx.items || [];
                         const checkedItemEls = Array.from(document.querySelectorAll(`.batch-item-check-${idx}:checked`));
 
+                        // 整單訂單總結（AI 產生，顯示在交易列上層取代商家名）
+                        const orderSummary = (resultData?.summary || origTx.summary || '').trim();
                         const baseDoc = {
                             ledgerId: state.currentLedger.id, type: 'expense',
                             date, currency: resCurrency,
-                            exchangeRate: resRate, paidBy, splitAmong, merchant, groupId, imageUrl,
+                            exchangeRate: resRate, paidBy, splitAmong, merchant, orderSummary, groupId, imageUrl,
                             createdAt: new Date().toISOString(),
                             lastEditedBy: state.userName, lastEditedAt: new Date().toISOString()
                         };
@@ -3645,7 +3673,7 @@
 
         const ai = {
             handleImageUpload: (inp) => { const f=inp.files[0]; if(!f)return; const r=new FileReader(); r.onload=async()=>{ try { const compressed=await app._compressImage(r.result,f.type); state.currentImage=compressed; document.getElementById('imagePreview').src='data:image/jpeg;base64,'+compressed.base64; } catch(e) { state.currentImage={base64:r.result.split(',')[1],mimeType:f.type}; document.getElementById('imagePreview').src=r.result; } document.getElementById('imagePreviewContainer').classList.remove('hidden'); document.getElementById('uploadZone').classList.add('hidden'); ai.runAiAnalysis(); }; r.readAsDataURL(f); },
-            clearImage: () => { state.currentImage=null; document.getElementById('receiptUpload').value=''; document.getElementById('imagePreviewContainer').classList.add('hidden'); document.getElementById('uploadZone').classList.remove('hidden'); document.getElementById('aiLoading').classList.add('hidden'); },
+            clearImage: () => { state.currentImage=null; document.getElementById('receiptUpload').value=''; document.getElementById('imagePreviewContainer').classList.add('hidden'); document.getElementById('uploadZone').classList.remove('hidden'); document.getElementById('aiLoading').classList.add('hidden'); const _os=document.getElementById('hiddenOrderSummary'); if(_os) _os.value=''; },
             runAiAnalysis: async () => {
                 if(!state.geminiKey) return alert("請先設定 API Key");
                 const l=document.getElementById('aiLoading');
@@ -3657,7 +3685,7 @@
                 try{
                     const existingCats = state.categories.expense.join(', ');
                     const todayStr = new Date().toISOString().split('T')[0];
-                    let p = `Analyze this receipt image. Today's date is ${todayStr}. 1. Identify the transaction date if visible (format YYYY-MM-DD), merchant name, items & prices. CRITICAL — Date Rules: (a) NEVER output a future date (later than ${todayStr}). (b) If the date on the receipt is unclear, partially visible, or you are NOT 100% sure of year/month/day, set "date":null — do NOT guess. (c) Watch out for OCR confusables (0/O, 6/8, year last 2 digits). (d) If only "MM/DD" is shown without year, choose the closest valid past year (e.g. today is ${todayStr} and receipt shows 12/05 → 2025-12-05, NOT a future-year). 2. Distribute service charges/taxes proportionally to items (positive). 3. If item names are non-Chinese (Japanese, English, Korean, etc.), put the original text in nameOriginal and provide a Traditional Chinese translation in name; if already Chinese, nameOriginal can be omitted. 4. Detect the currency used on this receipt (e.g. JPY, USD, EUR, TWD) and include "currency":"XXX" in the root JSON. Report the original currency amounts as-is — do NOT convert to TWD. 5. CRITICAL — Discount/Coupon Handling: Any line that represents a 優惠/折扣/折抵/滿減/會員價/折讓/Coupon/Discount/點數折抵/使用券抵 MUST be kept as a separate item with a NEGATIVE amount (e.g. -30). Use the original wording on the receipt as the name (e.g. "滿千折百", "會員優惠", "折扣"). Do NOT merge discounts into other items, do NOT drop them, and do NOT flip the sign to positive. The sum of all items.amount should equal the actual paid amount on the receipt; if it does not match, trust the receipt subtotal/discount lines rather than altering the positive item prices. Category for discount lines: "優惠折抵" or "其他". 6. Return ONLY valid JSON (no markdown): {"currency":"XXX","date":"YYYY-MM-DD or null","merchant":"Traditional Chinese name","merchantOriginal":"original if non-Chinese","items":[{"nameOriginal":"original if non-Chinese","name":"Traditional Chinese name","amount":number (negative for discounts),"category":"...","note":""}]}. Category must be one of: [${existingCats}].`;
+                    let p = `Analyze this receipt image. Today's date is ${todayStr}. 1. Identify the transaction date if visible (format YYYY-MM-DD), merchant name, items & prices. CRITICAL — Date Rules: (a) NEVER output a future date (later than ${todayStr}). (b) If the date on the receipt is unclear, partially visible, or you are NOT 100% sure of year/month/day, set "date":null — do NOT guess. (c) Watch out for OCR confusables (0/O, 6/8, year last 2 digits). (d) If only "MM/DD" is shown without year, choose the closest valid past year (e.g. today is ${todayStr} and receipt shows 12/05 → 2025-12-05, NOT a future-year). 2. Distribute service charges/taxes proportionally to items (positive). 3. If item names are non-Chinese (Japanese, English, Korean, etc.), put the original text in nameOriginal and provide a Traditional Chinese translation in name; if already Chinese, nameOriginal can be omitted. 4. Detect the currency used on this receipt (e.g. JPY, USD, EUR, TWD) and include "currency":"XXX" in the root JSON. Report the original currency amounts as-is — do NOT convert to TWD. 5. CRITICAL — Discount/Coupon Handling: Any line that represents a 優惠/折扣/折抵/滿減/會員價/折讓/Coupon/Discount/點數折抵/使用券抵 MUST be kept as a separate item with a NEGATIVE amount (e.g. -30). Use the original wording on the receipt as the name (e.g. "滿千折百", "會員優惠", "折扣"). Do NOT merge discounts into other items, do NOT drop them, and do NOT flip the sign to positive. The sum of all items.amount should equal the actual paid amount on the receipt; if it does not match, trust the receipt subtotal/discount lines rather than altering the positive item prices. Category for discount lines: "優惠折抵" or "其他". 7. ITEM NAMING — items[].name 保留收據上的原始品項寫法（繁體中文，外文請翻譯為繁體中文），不要簡化、不要加底線格式。nameOriginal 保留完整原文（含品牌/規格）。 8. ORDER SUMMARY (CRITICAL) — 在最外層加一個 "summary" 欄位，用來在交易列上層取代原本商家名稱顯示，格式「商品簡述_商家簡述」（繁體中文）。商品簡述(2~10字)歸納整張收據主要消費（例：兩杯咖啡+蛋糕→「拿鐵+蛋糕」、多件衣物→「童裝3件」、單品→「無線耳機」）。商家簡述(2~6字)優先用台灣口語簡稱：7-ELEVEN→小七、全家便利商店→全家、小北百貨→小北、全聯福利中心→全聯、好市多/Costco→好市多、寶雅→寶雅、屈臣氏→屈臣氏、鼎泰豐→鼎泰豐、星巴克→星巴克、麥當勞→麥當勞、唐吉訶德/ドン・キホーテ→唐吉訶德、UNIQLO→UNIQLO、ニトリ/NITORI→NITORI；不在名單上就自行縮成 2~6 字精煉名（去分店/區域/法人後綴）。用底線「_」連接，例：「拿鐵+蛋糕_星巴克」「衛生紙_小北」「飯糰+茶_小七」「無線耳機_唐吉訶德」。若辨識不到商家，summary 僅輸出商品簡述、不加底線。折扣/優惠 item 不影響 summary。 9. Return ONLY valid JSON (no markdown): {"currency":"XXX","date":"YYYY-MM-DD or null","merchant":"中文商店全名","merchantOriginal":"original if non-Chinese","summary":"商品簡述_商家簡述","items":[{"nameOriginal":"完整原文品項名","name":"收據上的繁體中文品項名","amount":number (negative for discounts),"category":"...","note":""}]}. Category must be one of: [${existingCats}].`;
                     if (state.customAiPrompt) { p += ` User Instruction: ${state.customAiPrompt}`; }
 
                     const r = await app._fetchWithTimeoutRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiKey}`, {
@@ -3701,6 +3729,8 @@
                     // 商店名稱：優先顯示中文名，原文存備用
                     if(j.merchant) document.getElementById('tMerchant').value = j.merchant;
                     if(j.merchantOriginal && j.merchantOriginal !== j.merchant) { /* 可在商店欄下方顯示原文 */ }
+                    // 整單訂單總結（顯示在交易列上層，取代商家名）
+                    document.getElementById('hiddenOrderSummary').value = j.summary || '';
                     ui.updateTotal();
                     document.getElementById('aiStatusText').innerText = "辨識完成！";
                     if(overlayTxt) overlayTxt.textContent='辨識完成！';
@@ -3994,7 +4024,11 @@
                 document.getElementById('addTxBtn').classList.toggle('hidden', l.status==='archived'); 
                 
                 // 套用帳本預設顯示月份
-                const defMonth = l.defaultMonth || 'current';
+                // 共用(群組)帳本：未指定 defaultMonth 時預設「全年」（旅程通常跨月）；個人帳本維持原本「當月」
+                let defMonth = l.defaultMonth || 'current';
+                if (l.type === 'group' && (!l.defaultMonth || l.defaultMonth === 'current')) {
+                    defMonth = 'all';
+                }
                 document.getElementById('ledgerMonth').value = defMonth === 'current' ? (new Date().getMonth() + 1).toString().padStart(2, '0') : defMonth;
                 document.getElementById('ledgerYear').value = new Date().getFullYear().toString();
                 
@@ -4165,7 +4199,7 @@
                         <td class="p-2 text-xs w-16 md:w-24 align-top pt-3 text-gray-500 font-mono">${g.date.slice(5)}</td>
                         <td class="p-2">
                             <div class="flex flex-col">
-                                <span class="font-bold text-gray-800 text-sm leading-tight mb-1">${g.merchant || g.items[0].name}${paperclipHtml}</span>
+                                <span class="font-bold text-gray-800 text-sm leading-tight mb-1">${g.orderSummary || g.merchant || g.items[0].name}${paperclipHtml}</span>
                                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                                     <span class="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">${g.items.map(i=>i.category).join(', ')}</span>
                                     ${isSettled ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-300 text-gray-600 border border-gray-400"><i class="fa-solid fa-check-double mr-1"></i>已結清</span>' : ''}
@@ -4417,7 +4451,16 @@
                 } else { document.getElementById('displayTotal').innerText = `$${s.toLocaleString()}`; document.getElementById('twdPreview').classList.add('hidden'); }
                 document.getElementById('itemCount').innerText = document.querySelectorAll('.item-row').length;
             },
-            toggleMemberInput: () => { const isG = document.getElementById('newLedgerType').value === 'group'; document.getElementById('memberInputDiv').classList.toggle('hidden', !isG); if(isG) ui.renderMemberCheckboxes(); },
+            toggleMemberInput: () => {
+                const isG = document.getElementById('newLedgerType').value === 'group';
+                document.getElementById('memberInputDiv').classList.toggle('hidden', !isG);
+                if (isG) ui.renderMemberCheckboxes();
+                // 新增帳本時：共用帳本預設「全年」、個人預設「當月」
+                const editingId = document.getElementById('editingLedgerId').value;
+                if (!editingId) {
+                    document.getElementById('newLedgerDefaultMonth').value = isG ? 'all' : 'current';
+                }
+            },
             renderMemberCheckboxes: () => { document.getElementById('memberSelectionList').innerHTML = state.usersList.filter(u=>u!==state.userName).map(u=>`<div class="flex items-center gap-2"><input type="checkbox" id="member-${u}" value="${u}" class="member-checkbox"><label for="member-${u}" class="truncate">${u}</label></div>`).join('') || '<div class="col-span-2 text-center text-gray-400">無其他使用者</div>'; },
             openModal: (id) => {
                 if (id === 'importModal') { ui.openImportModal(); return; }
