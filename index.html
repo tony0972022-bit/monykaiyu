@@ -3333,7 +3333,7 @@
                     const perPerson = (t.amount || 0) / count;
                     return {
                         id: t.id, date: t.date || '', name: t.name || '(無名稱)', category: t.category || '',
-                        payer: t.paidBy || '?', amount: t.amount || 0,
+                        payer: t.paidBy || '?', amount: t.amount || 0, imageUrl: t.imageUrl || '',
                         beneficiaries: beneficiaries.slice(), count, perPerson
                     };
                 });
@@ -3344,7 +3344,7 @@
                 rows.forEach(r => {
                     r.beneficiaries.forEach(b => {
                         if (!memberData[b]) return;
-                        memberData[b].items.push({ date: r.date, name: r.name, amount: r.amount, count: r.count, myShare: r.perPerson });
+                        memberData[b].items.push({ id: r.id, imageUrl: r.imageUrl, date: r.date, name: r.name, amount: r.amount, count: r.count, myShare: r.perPerson });
                         memberData[b].shareTotal += r.perPerson;
                     });
                     if (memberData[r.payer]) memberData[r.payer].paidTotal += r.amount;
@@ -4830,7 +4830,7 @@
                                     ${rows.map(r => `
                                         <tr class="border-b border-gray-50 hover:bg-gray-50">
                                             <td class="p-2 font-mono text-gray-500">${fmtDate(r.date)}</td>
-                                            <td class="p-2 text-gray-700 whitespace-normal">${r.name}${r.category ? `<span class="ml-1 text-[10px] text-gray-400 bg-gray-100 px-1 rounded">${r.category}</span>` : ''}</td>
+                                            <td class="p-2 text-gray-700 whitespace-normal">${r.name}${r.imageUrl ? `<button onclick="ui.viewImageById('${r.id}')" class="no-print ml-1 text-indigo-500 hover:text-indigo-700 transition" title="查看收據"><i class="fa-solid fa-paperclip text-[10px]"></i></button>` : ''}${r.category ? `<span class="ml-1 text-[10px] text-gray-400 bg-gray-100 px-1 rounded">${r.category}</span>` : ''}</td>
                                             <td class="p-2 text-gray-600"><i class="fa-solid fa-wallet text-yellow-500 mr-0.5"></i>${r.payer}</td>
                                             <td class="p-2 text-right font-mono font-bold text-rose-600">${money(r.amount)}</td>
                                             <td class="p-2 text-center text-gray-500">÷${r.count}</td>
@@ -4878,7 +4878,7 @@
                                         ${md.items.map(it => `
                                             <tr class="border-b border-gray-50">
                                                 <td class="p-2 font-mono text-gray-400">${fmtDate(it.date)}</td>
-                                                <td class="p-2 text-gray-700 whitespace-normal">${it.name}</td>
+                                                <td class="p-2 text-gray-700 whitespace-normal">${it.name}${it.imageUrl ? `<button onclick="ui.viewImageById('${it.id}')" class="no-print ml-1 text-indigo-500 hover:text-indigo-700 transition" title="查看收據"><i class="fa-solid fa-paperclip text-[10px]"></i></button>` : ''}</td>
                                                 <td class="p-2 text-right font-mono text-gray-500">${money(it.amount)}</td>
                                                 <td class="p-2 text-center text-gray-500">÷${it.count}</td>
                                                 <td class="p-2 text-right font-mono font-bold text-indigo-600">${money(it.myShare)}</td>
